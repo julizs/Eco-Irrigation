@@ -21,15 +21,17 @@ ESP8266WiFiMulti wifiMulti;
 #define INFLUXDB_BUCKET "messdaten"
 #define TZ_INFO "CET-1CEST,M3.5.0,M10.5.0/3"
 
-// InfluxDB client instance with preconfigured InfluxCloud certificate
+// InfluxDB client instance
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
 
-// Data point
+// Einen Data Point (= Zeile) in einem Measurement (= Tabelle) erzeugen
 Point sensor("wifi_status");
 
 
 void setup() {
-  Serial.begin(115200);
+
+  delay(200);
+  Serial.begin(9600);
 
   // Setup wifi
   WiFi.mode(WIFI_STA);
@@ -42,14 +44,21 @@ void setup() {
   }
   Serial.println();
 
-  // Add tags
+  // Add tags to Data Point
   sensor.addTag("device", DEVICE);
   sensor.addTag("SSID", WiFi.SSID());
 
-  // Accurate time is necessary for certificate validation and writing in batches
-  // For the fastest time sync find NTP servers in your area: https://www.pool.ntp.org/zone/
-  // Syncing progress and the time will be printed to Serial.
+  // timestamp (set from client) necessary to write data in batches
+  // https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino
+  // async func. timeSync waits till time is synchronized
   timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
+  // configure writePrecision, now client is setting timestamps instead of server
+  client.setWriteOptions(WriteOptions().writePrecision(WritePrecision::MS));
+
+  // batch = set of data points, sent at once (more efficient)
+  // https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#batch-size
+  // batchsize dependant on number of data points per measurement and dashboard update rate
+  client.setWriteOptions(WriteOptions().batchSize(5));
 
   // Check server connection
   if (client.validateConnection()) {
@@ -63,32 +72,71 @@ void setup() {
 
 
 void loop() {
-  // Clear fields for reusing the point. Tags will remain untouched
+
+  delay(1000);
+
+  // Clear fields for reusing the data point. Tags will remain
   sensor.clearFields();
 
-  // Store measured value into point
-  // Report RSSI of currently connected network
+  // Store measured field key and field value into data point 
+  // (e.g. rssi of current connected network)
   sensor.addField("rssi", WiFi.RSSI());
 
   // Print what are we exactly writing
-  Serial.print("Writing: ");
-  Serial.println(sensor.toLineProtocol());
+  // Serial.print("Writing (into measurement/table): ");
+  // Serial.println(sensor.toLineProtocol());
 
   // If no Wifi signal, try to reconnect it
   if ((WiFi.RSSI() == 0) && (wifiMulti.run() != WL_CONNECTED)) {
     Serial.println("Wifi connection lost");
   }
 
-  // Write point
+  // write data point into measurement/table or into buffer
   if (!client.writePoint(sensor)) {
     Serial.print("InfluxDB write failed: ");
     Serial.println(client.getLastErrorMessage());
   }
 
-  //Wait 3s
-  Serial.println("Wait 10s");
-  delay(3000);
+   
+   if(!client.isBufferEmpty())
+   {
+     Serial.println("Wrote data point into buffer.");
+   }
+   else 
+   {
+     Serial.println("Flushed Buffer, sent all points to server.");
+   };
 
+  /*
+  // Query
+  // Bei Bucketname Anfürungszeichen nötig (sonst als Identifier interpr.), 
+  // escapen des Anführungszeichen nötig sonst String Ende
+  String query = "from (bucket: \"messdaten\")";
+  query += "|> range(start: -1h)";
+  query += "|> filter(fn: (r) => r._measurement == \"wifi_status\" and r._field == \"rssi\"";
+  query += " and r.device == \"ESP8266\")";
+  query += "|> min()";
+
+  String query2 = "SELECT * FROM \"messdaten\"";
+  FluxQueryResult result = client.query(query);
+
+  // Auf Cursor iterieren
+  while (result.next()) {
+    // Get converted value for flux result column 'SSID'
+    String ssid = result.getValueByName("SSID").getString();
+    Serial.println();
+    Serial.print("SSID: ");
+    Serial.print(ssid);
+  }
+
+  if(result.getError() != "") {
+    Serial.print("Query result error: ");
+    Serial.println(result.getError());
+  }
+
+  result.close();
+  */
+}
 
 
   /*
@@ -144,6 +192,6 @@ void loop() {
   // Close the result
   result.close();
   */
-}
+
 
 
