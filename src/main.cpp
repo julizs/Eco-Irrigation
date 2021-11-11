@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <DHTesp.h>
 
 #if defined(ESP32)
 #include <WiFiMulti.h>
@@ -21,12 +22,28 @@ ESP8266WiFiMulti wifiMulti;
 #define INFLUXDB_BUCKET "messdaten"
 #define TZ_INFO "CET-1CEST,M3.5.0,M10.5.0/3"
 
-// InfluxDB client instance
+#define VIN 3.3 // V power voltage, 3.3v in case of NodeMCU
+#define R 10000 // light Resistor
+#define DHTpin 0
+#define analogPin A0
+
+/* secure connection
+InfluxDB client instance
+use full param constructor to set the certificate or fingerprint to trust a server
+https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#secure-connection
+*/
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
 
-// Einen Data Point (= Zeile) in einem Measurement (= Tabelle) erzeugen
-Point sensor("wifi_status");
+// create data point (= row) in a measurement (= table)
+Point sensor("DHT_11");
 
+DHTesp dht;
+
+
+void setupSensors()
+{
+  dht.setup(DHTpin, DHTesp::DHT11); // DHT11
+}
 
 void setup() {
 
@@ -44,21 +61,27 @@ void setup() {
   }
   Serial.println();
 
-  // Add tags to Data Point
+  setupSensors();
+
+  // Add tags to data point
   sensor.addTag("device", DEVICE);
   sensor.addTag("SSID", WiFi.SSID());
 
-  // timestamp (set from client) necessary to write data in batches
-  // https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino
-  // async func. timeSync waits till time is synchronized
+  /* timestamp
+  timestamp (set from client) necessary to write data in batches
+  https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino
+  async func. timeSync waits till time is synchronized
+  configure writePrecision, now client is setting timestamps instead of server
+  */
   timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
-  // configure writePrecision, now client is setting timestamps instead of server
   client.setWriteOptions(WriteOptions().writePrecision(WritePrecision::MS));
 
-  // batch = set of data points, sent at once (more efficient)
-  // https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#batch-size
-  // batchsize dependant on number of data points per measurement and dashboard update rate
-  client.setWriteOptions(WriteOptions().batchSize(5));
+  /* batch
+  batch = set of data points, sent at once (more efficient)
+  https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#batch-size
+  batchsize dependant on number of data points per measurement and dashboard update rate
+  */
+  client.setWriteOptions(WriteOptions().batchSize(2));
 
   // Check server connection
   if (client.validateConnection()) {
@@ -70,19 +93,43 @@ void setup() {
   }
 }
 
+void getAmbientClimate()
+{
+  // DHT11
+  float humidity = dht.getHumidity();
+  float temperature = dht.getTemperature();
+  
+  sensor.addField("common_humidity", humidity);
+  sensor.addField("common_temperature", temperature);
+}
+
+void getAmbientLight()
+{
+  // https://www.geekering.com/categories/embedded-sytems/esp8266/ricardocarreira/esp8266-nodemcu-simple-ldr-luximeter/
+
+  int rawVal = analogRead(analogPin);
+  float Vout = float(rawVal) * (VIN / float(1023));// Conversion analog to voltage
+  float RLDR = (R * (VIN - Vout))/Vout; // Conversion voltage to resistance
+  int lux = 500/(RLDR/1000); // Conversion resitance to lumen
+
+  sensor.addField("common_light", rawVal);
+}
+
 
 void loop() {
 
   delay(1000);
-
-  // Clear fields for reusing the data point. Tags will remain
+  
+  //Clear fields for reusing the data point. Tags will remain untouched 
   sensor.clearFields();
 
-  // Store measured field key and field value into data point 
-  // (e.g. rssi of current connected network)
-  sensor.addField("rssi", WiFi.RSSI());
+  //Store measured field keys and field values into data point 
+  getAmbientClimate();
+  getAmbientLight();
 
-  // Print what are we exactly writing
+  // sensor.addField("rssi", WiFi.RSSI());
+
+  // Print what we are writing into point
   // Serial.print("Writing (into measurement/table): ");
   // Serial.println(sensor.toLineProtocol());
 
@@ -97,7 +144,7 @@ void loop() {
     Serial.println(client.getLastErrorMessage());
   }
 
-   
+   /*
    if(!client.isBufferEmpty())
    {
      Serial.println("Wrote data point into buffer.");
@@ -106,18 +153,21 @@ void loop() {
    {
      Serial.println("Flushed Buffer, sent all points to server.");
    };
+   */
 
-  /*
-  // Query
-  // Bei Bucketname Anfürungszeichen nötig (sonst als Identifier interpr.), 
-  // escapen des Anführungszeichen nötig sonst String Ende
+  /* Query
+  https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#querying
+  Bei Bucketname Anfürungszeichen nötig (sonst als Identifier interpr.), 
+  escapen des Anführungszeichen nötig sonst String Ende
+  r.measurement ist value in measurement spalte, also data point name (z.B. wifi_status)
+  https://docs.influxdata.com/influxdb/v1.8/concepts/key_concepts/
+  */
   String query = "from (bucket: \"messdaten\")";
   query += "|> range(start: -1h)";
   query += "|> filter(fn: (r) => r._measurement == \"wifi_status\" and r._field == \"rssi\"";
   query += " and r.device == \"ESP8266\")";
   query += "|> min()";
 
-  String query2 = "SELECT * FROM \"messdaten\"";
   FluxQueryResult result = client.query(query);
 
   // Auf Cursor iterieren
@@ -135,7 +185,7 @@ void loop() {
   }
 
   result.close();
-  */
+  
 }
 
 
