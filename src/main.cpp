@@ -40,17 +40,13 @@ Point sensor("DHT_11");
 DHTesp dht;
 
 
-void setupSensors()
+void SetupSensors()
 {
   dht.setup(DHTpin, DHTesp::DHT11); // DHT11
 }
 
-void setup() {
-
-  delay(200);
-  Serial.begin(9600);
-
-  // Setup wifi
+void SetupWifi()
+{
   WiFi.mode(WIFI_STA);
   wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
 
@@ -60,9 +56,22 @@ void setup() {
     delay(100);
   }
   Serial.println();
+}
 
-  setupSensors();
+void CheckConnection()
+{
+  // Check server connection
+  if (client.validateConnection()) {
+    Serial.print("Connected to InfluxDB: ");
+    Serial.println(client.getServerUrl());
+  } else {
+    Serial.print("InfluxDB connection failed: ");
+    Serial.println(client.getLastErrorMessage());
+  }
+}
 
+void SetupInflux()
+{
   // Add tags to data point
   sensor.addTag("device", DEVICE);
   sensor.addTag("SSID", WiFi.SSID());
@@ -76,21 +85,27 @@ void setup() {
   timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
   client.setWriteOptions(WriteOptions().writePrecision(WritePrecision::MS));
 
-  /* batch
+  /* Write Data as Batch
   batch = set of data points, sent at once (more efficient)
   https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#batch-size
   batchsize dependant on number of data points per measurement and dashboard update rate
   */
   client.setWriteOptions(WriteOptions().batchSize(2));
+}
 
-  // Check server connection
-  if (client.validateConnection()) {
-    Serial.print("Connected to InfluxDB: ");
-    Serial.println(client.getServerUrl());
-  } else {
-    Serial.print("InfluxDB connection failed: ");
-    Serial.println(client.getLastErrorMessage());
-  }
+void setup() {
+
+  delay(200);
+
+  Serial.begin(9600);
+
+  SetupWifi();
+
+  SetupSensors();
+
+  SetupInflux();
+
+  CheckConnection();
 }
 
 void getAmbientClimate()
@@ -105,8 +120,9 @@ void getAmbientClimate()
 
 void getAmbientLight()
 {
-  // https://www.geekering.com/categories/embedded-sytems/esp8266/ricardocarreira/esp8266-nodemcu-simple-ldr-luximeter/
-
+  /* Analoger Fotoresistor
+  https://www.geekering.com/categories/embedded-sytems/esp8266/ricardocarreira/esp8266-nodemcu-simple-ldr-luximeter/
+  */
   int rawVal = analogRead(analogPin);
   float Vout = float(rawVal) * (VIN / float(1023));// Conversion analog to voltage
   float RLDR = (R * (VIN - Vout))/Vout; // Conversion voltage to resistance
@@ -115,36 +131,33 @@ void getAmbientLight()
   sensor.addField("common_light", rawVal);
 }
 
-
-void loop() {
-
-  delay(1000);
-  
+void WriteDataPoint()
+{
   //Clear fields for reusing the data point. Tags will remain untouched 
   sensor.clearFields();
 
   //Store measured field keys and field values into data point 
   getAmbientClimate();
   getAmbientLight();
-
   // sensor.addField("rssi", WiFi.RSSI());
 
-  // Print what we are writing into point
+  /* Print into Console what we are writing into point
   // Serial.print("Writing (into measurement/table): ");
   // Serial.println(sensor.toLineProtocol());
+  */
 
-  // If no Wifi signal, try to reconnect it
+  // If no Wifi signal, try to reconnect
   if ((WiFi.RSSI() == 0) && (wifiMulti.run() != WL_CONNECTED)) {
     Serial.println("Wifi connection lost");
   }
 
-  // write data point into measurement/table or into buffer
+  // Write data point into measurement/table or into buffer
   if (!client.writePoint(sensor)) {
     Serial.print("InfluxDB write failed: ");
     Serial.println(client.getLastErrorMessage());
   }
 
-   /*
+   /* Check Buffer
    if(!client.isBufferEmpty())
    {
      Serial.println("Wrote data point into buffer.");
@@ -154,8 +167,11 @@ void loop() {
      Serial.println("Flushed Buffer, sent all points to server.");
    };
    */
+}
 
-  /* Query
+void DoQuery()
+{
+  /* Construct Query
   https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#querying
   Bei Bucketname Anfürungszeichen nötig (sonst als Identifier interpr.), 
   escapen des Anführungszeichen nötig sonst String Ende
@@ -170,7 +186,7 @@ void loop() {
 
   FluxQueryResult result = client.query(query);
 
-  // Auf Cursor iterieren
+  // Iterate Result Cursor
   while (result.next()) {
     // Get converted value for flux result column 'SSID'
     String ssid = result.getValueByName("SSID").getString();
@@ -185,63 +201,14 @@ void loop() {
   }
 
   result.close();
-  
 }
 
 
-  /*
-  // Construct a Flux query
-  // Query will find the worst RSSI for last hour for each connected WiFi network with this device
-  String query = "from(bucket: \\"" INFLUXDB_BUCKET "\\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \\"wifi_status\\" and r._field == \\"rssi\\"";
-  query += " and r.device == \\""  DEVICE  "\\")";
-  query += "|> min()";
+void loop() {
 
-  // Print ouput header
-  Serial.print("==== ");
-  Serial.print(selectorFunction);
-  Serial.println(" ====");
-
-  // Print composed query
-  Serial.print("Querying with: ");
-  Serial.println(query);
-
-  // Send query to the server and get result
-  FluxQueryResult result = client.query(query);
-
-  // Iterate over rows. Even there is just one row, next() must be called at least once.
-  while (result.next()) {
-    // Get converted value for flux result column 'SSID'
-    String ssid = result.getValueByName("SSID").getString();
-    Serial.print("SSID '");
-    Serial.print(ssid);
-
-    Serial.print("' with RSSI ");
-    // Get converted value for flux result column '_value' where there is RSSI value
-    long value = result.getValueByName("_value").getLong();
-    Serial.print(value);
-
-    // Get converted value for the _time column
-    FluxDateTime time = result.getValueByName("_time").getDateTime();
-
-    // Format date-time for printing
-    // Format string according to http://www.cplusplus.com/reference/ctime/strftime/
-    String timeStr = time.format("%F %T");
-
-    Serial.print(" at ");
-    Serial.print(timeStr);
-
-    Serial.println();
-  }
-
-  // Check if there was an error
-  if(result.getError() != "") {
-    Serial.print("Query result error: ");
-    Serial.println(result.getError());
-  }
-
-  // Close the result
-  result.close();
-  */
+  delay(1000);
+  WriteDataPoint();
+}
 
 
 
