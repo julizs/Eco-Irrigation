@@ -1,5 +1,7 @@
 #include <Arduino.h>
-#include <DHTesp.h>
+#include <Wire.h>
+#include <climate.h>
+#include <soilmoisture.h>
 
 #if defined(ESP32)
 #include <WiFiMulti.h>
@@ -24,8 +26,12 @@ ESP8266WiFiMulti wifiMulti;
 
 #define VIN 3.3 // V power voltage, 3.3v in case of NodeMCU
 #define R 10000 // light Resistor
-#define DHTpin 0
+
 #define analogPin A0
+
+
+Climate climate1(4);
+SoilMoisture soilMoisture1(550);
 
 /* secure connection
 InfluxDB client instance
@@ -37,16 +43,9 @@ InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKE
 // create data point (= row) in a measurement (= table)
 Point sensor("DHT_11");
 
-DHTesp dht;
-
-
-void SetupSensors()
-{
-  dht.setup(DHTpin, DHTesp::DHT11); // DHT11
-}
-
 void SetupWifi()
 {
+  {
   WiFi.mode(WIFI_STA);
   wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
 
@@ -56,6 +55,7 @@ void SetupWifi()
     delay(100);
   }
   Serial.println();
+}
 }
 
 void CheckConnection()
@@ -101,21 +101,12 @@ void setup() {
 
   SetupWifi();
 
-  SetupSensors();
+  // SetupSensors();
+  climate1.InitialiseDHT();
 
   SetupInflux();
 
   CheckConnection();
-}
-
-void getAmbientClimate()
-{
-  // DHT11
-  float humidity = dht.getHumidity();
-  float temperature = dht.getTemperature();
-  
-  sensor.addField("common_humidity", humidity);
-  sensor.addField("common_temperature", temperature);
 }
 
 void getAmbientLight()
@@ -136,8 +127,12 @@ void WriteDataPoint()
   //Clear fields for reusing the data point. Tags will remain untouched 
   sensor.clearFields();
 
-  //Store measured field keys and field values into data point 
-  getAmbientClimate();
+  //Store measured field keys and field values into data point
+  //sensor.addField("common_humidity", climate1.MeasureHumidityDHT());
+  //sensor.addField("common_temperature", climate1.MeasureTemperatureDHT());
+  DHTdata m = climate1.MeasureDHT();
+  sensor.addField("common_humidity", m.humidity);
+  sensor.addField("common_temperature", m.temperature);
   getAmbientLight();
   // sensor.addField("rssi", WiFi.RSSI());
 
@@ -206,7 +201,7 @@ void DoQuery()
 
 void loop() {
 
-  delay(1000);
+  delay(2000);
   WriteDataPoint();
 }
 

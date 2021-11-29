@@ -1,0 +1,35 @@
+#ifndef climate_h
+#define climate_h
+#include <DHTesp.h>
+
+#define DHTpin 0
+//#define AHTpin 0
+
+struct DHTdata
+{
+    float temperature;
+    float humidity;
+};
+
+struct AHT10data
+{
+
+};
+
+class Climate
+{
+    public:
+    DHTesp dht;
+    int testNumber;
+ 
+    Climate(int number); // Konstr 
+    void InitialiseDHT();
+    DHTdata MeasureDHT();
+    float MeasureHumidityDHT();
+    float MeasureTemperatureDHT();
+};
+
+// Globale Variablen
+extern Climate climate1;
+
+#endif // climate_h
