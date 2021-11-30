@@ -1,0 +1,24 @@
+#ifndef services_h
+#define services_h
+
+#if defined(ESP32)
+#include <WiFiMulti.h>
+extern WiFiMulti wifiMulti;
+#define DEVICE "ESP32"
+#elif defined(ESP8266)
+#include <ESP8266WiFiMulti.h>
+extern ESP8266WiFiMulti wifiMulti;
+#define DEVICE "ESP8266"
+#endif
+
+#define WIFI_SSID "FRITZ!Box 7430 ED"
+#define WIFI_PASSWORD "49391909776212256241"
+
+class Services
+{
+    public:
+    Services();
+    void SetupWifi();
+};
+
+#endif //services_h

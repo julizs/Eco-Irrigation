@@ -4,22 +4,11 @@
 #include <soilmoisture.h>
 #include <fotoresistor.h>
 #include <pins.h>
-
-#if defined(ESP32)
-#include <WiFiMulti.h>
-WiFiMulti wifiMulti;
-#define DEVICE "ESP32"
-#elif defined(ESP8266)
-#include <ESP8266WiFiMulti.h>
-ESP8266WiFiMulti wifiMulti;
-#define DEVICE "ESP8266"
-#endif
+#include <services.h>
 
 #include <InfluxDbClient.h>
 #include <InfluxDbCloud.h>
 
-#define WIFI_SSID "FRITZ!Box 7430 ED"
-#define WIFI_PASSWORD "49391909776212256241"
 #define INFLUXDB_URL "https://juli.uber.space"
 #define INFLUXDB_TOKEN "njMUu2TT8HUi7rmhWj_tq75nCkIIhKuODAlRoR4w7GNoLVHGiFvL26VAZ-fQ4w2sQennJPCH9FsVbch3_r6zaA=="
 #define INFLUXDB_ORG "private"
@@ -30,6 +19,7 @@ ESP8266WiFiMulti wifiMulti;
 Climate climate1(4);
 SoilMoisture soilMoisture1(550);
 Fotoresistor fotoresistor1(10000, 3.3, analogPin);
+Services services;
 
 /* secure connection
 InfluxDB client instance
@@ -41,18 +31,6 @@ InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKE
 // create data point (= row) in a measurement (= table)
 Point sensor("DHT_11");
 
-void SetupWifi()
-{
-  WiFi.mode(WIFI_STA);
-  wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
-
-  Serial.print("Connecting to wifi");
-  while (wifiMulti.run() != WL_CONNECTED) {
-    Serial.print(".");
-    delay(100);
-  }
-  Serial.println();
-}
 
 void CheckInfluxConnection()
 {
@@ -95,7 +73,7 @@ void setup() {
 
   Serial.begin(9600);
 
-  SetupWifi();
+  services.SetupWifi();
 
   // SetupSensors();
   climate1.InitialiseDHT();

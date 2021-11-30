@@ -20,7 +20,4 @@ private:
     int GetSoilMoisture();
 };
 
-// Globale Variablen
-extern SoilMoisture soilMoisture;
-
 #endif //soilmoisture_h

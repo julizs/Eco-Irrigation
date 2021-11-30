@@ -29,7 +29,4 @@ class Climate
     float MeasureTemperatureDHT();
 };
 
-// Globale Variablen
-extern Climate climate1;
-
 #endif // climate_h
