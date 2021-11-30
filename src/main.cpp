@@ -2,6 +2,8 @@
 #include <Wire.h>
 #include <climate.h>
 #include <soilmoisture.h>
+#include <fotoresistor.h>
+#include <pins.h>
 
 #if defined(ESP32)
 #include <WiFiMulti.h>
@@ -24,14 +26,10 @@ ESP8266WiFiMulti wifiMulti;
 #define INFLUXDB_BUCKET "messdaten"
 #define TZ_INFO "CET-1CEST,M3.5.0,M10.5.0/3"
 
-#define VIN 3.3 // V power voltage, 3.3v in case of NodeMCU
-#define R 10000 // light Resistor
-
-#define analogPin A0
-
 
 Climate climate1(4);
 SoilMoisture soilMoisture1(550);
+Fotoresistor fotoresistor1(10000, 3.3, analogPin);
 
 /* secure connection
 InfluxDB client instance
@@ -45,7 +43,6 @@ Point sensor("DHT_11");
 
 void SetupWifi()
 {
-  {
   WiFi.mode(WIFI_STA);
   wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
 
@@ -56,9 +53,8 @@ void SetupWifi()
   }
   Serial.println();
 }
-}
 
-void CheckConnection()
+void CheckInfluxConnection()
 {
   // Check server connection
   if (client.validateConnection()) {
@@ -106,20 +102,7 @@ void setup() {
 
   SetupInflux();
 
-  CheckConnection();
-}
-
-void getAmbientLight()
-{
-  /* Analoger Fotoresistor
-  https://www.geekering.com/categories/embedded-sytems/esp8266/ricardocarreira/esp8266-nodemcu-simple-ldr-luximeter/
-  */
-  int rawVal = analogRead(analogPin);
-  float Vout = float(rawVal) * (VIN / float(1023));// Conversion analog to voltage
-  float RLDR = (R * (VIN - Vout))/Vout; // Conversion voltage to resistance
-  int lux = 500/(RLDR/1000); // Conversion resitance to lumen
-
-  sensor.addField("common_light", rawVal);
+  CheckInfluxConnection();
 }
 
 void WriteDataPoint()
@@ -133,8 +116,8 @@ void WriteDataPoint()
   DHTdata m = climate1.MeasureDHT();
   sensor.addField("common_humidity", m.humidity);
   sensor.addField("common_temperature", m.temperature);
-  getAmbientLight();
-  // sensor.addField("rssi", WiFi.RSSI());
+  sensor.addField("common_light", fotoresistor1.measureLight());
+  sensor.addField("rssi", WiFi.RSSI());
 
   /* Print into Console what we are writing into point
   // Serial.print("Writing (into measurement/table): ");
