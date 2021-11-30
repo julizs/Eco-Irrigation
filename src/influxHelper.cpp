@@ -54,7 +54,7 @@ void InfluxHelper::CheckInfluxConnection()
   }
 }
 
-void InfluxHelper::WriteDataPoint()
+void InfluxHelper::WriteDataPoint(int value)
 {
   //Clear fields for reusing the data point. Tags will remain untouched 
   sensor.clearFields();
@@ -65,6 +65,7 @@ void InfluxHelper::WriteDataPoint()
   //sensor.addField("common_humidity", m.humidity);
   //sensor.addField("common_temperature", m.temperature);
   //sensor.addField("common_light", lightVal);
+  sensor.addField("common_light", value);
   sensor.addField("rssi", WiFi.RSSI());
 
   /* Print into Console what we are writing into point

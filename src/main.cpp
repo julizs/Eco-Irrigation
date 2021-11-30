@@ -35,13 +35,15 @@ void DoMeasure()
 {
   DHTdata m = climate1.MeasureDHT();
   float lightVal = fotoresistor1.measureLight();
+  influxHelper.WriteDataPoint(lightVal);
 }
 
 
 void loop() {
 
   delay(2000);
-  influxHelper.WriteDataPoint();
+  DoMeasure();
+  //influxHelper.WriteDataPoint();
 }
 
 
