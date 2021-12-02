@@ -12,8 +12,6 @@ void Climate::InitialiseDHT()
 
 DHTdata Climate::MeasureDHT()
 {
-  // DHT11/22 max. pollingRate ist 2 Sek.
-  // also kein Smoothing
   DHTdata data;
 
   float humidity = dht.getHumidity();

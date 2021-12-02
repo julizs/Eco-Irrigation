@@ -17,24 +17,40 @@ Services services;
 InfluxHelper influxHelper;
 StateMachine fsm = StateMachine();
 
-unsigned long startMillis = 0;
-const int INTERVAL = 1000;
+unsigned long previousMillis = 0;
+const int SLEEP_INTERVAL = 5000;
 const int STATE_DELAY = 1000;
 
 void on_initState(){
   if(fsm.executeOnce){
     Serial.println("init State once");
-    //digitalWrite(LED,!digitalRead(LED));
+    if(!services.GetWifiStatus())
+    {
+      services.SetupWifi();
+    }
+    if(!influxHelper.CheckInfluxConnection())
+    {
+        influxHelper.SetupInflux();
+    }
   }
-  Serial.println("init State");
+  //Serial.println("init State");
 }
 
 void on_sleepState(){
   if(fsm.executeOnce){
     Serial.println("sleep State once");
-    //digitalWrite(LED,!digitalRead(LED));
+    previousMillis = millis();
   }
-  Serial.println("sleep State");
+  //Serial.println("sleep State");
+}
+
+void on_measureState(){
+  if(fsm.executeOnce){
+    Serial.println("measure State once");
+    delay(2000);
+    //WiFi.disconnect();
+  }
+  //Serial.println("measure State");
 }
 
 bool transitionS0S0(){
@@ -45,34 +61,57 @@ bool transitionS0S0(){
 }
 
 bool transitionS0S1(){
-  Serial.println("Trans S0S1 auswerten");
-  if(influxHelper.CheckInfluxConnection() == 1){
+  if(influxHelper.CheckInfluxConnection()){
     return true;
   }
   return false;
 }
+
+bool transitionS1S2(){
+  Serial.println(millis());
+  if(millis() - previousMillis >= SLEEP_INTERVAL)
+  {
+    return true;
+  }
+  return false;
+}
+
+// Regularly check in measureState if any Connection
+// is lost, if true go back to initState
+bool transitionS2S0(){
+  if(!influxHelper.CheckInfluxConnection() || !services.GetWifiStatus()){
+    return true;
+  }
+  return false;
+}
+
+/*
+bool transitionS2S2(){
+  // Falls Länge der Map/Liste vollständig prüfe alle Einträge,
+  // falls einer nan durchlaufe S2 erneut
+}
+*/
 
 
 void setup() {
 
   Serial.begin(9600);
 
-  // SetupSensors();
   climate1.InitialiseDHT();
 
-  services.SetupWifi();
-  influxHelper.SetupInflux();
-  //influxHelper.CheckInfluxConnection();
 
   State* initState = fsm.addState(&on_initState);
   State* sleepState = fsm.addState(&on_sleepState);
+  State* measureState = fsm.addState(&on_measureState);
   //initState->addTransition(&transitionS0S0,initState);
   initState->addTransition(&transitionS0S1,sleepState);
+  sleepState->addTransition(&transitionS1S2, measureState);
+  measureState->addTransition(&transitionS2S0,initState);
 }
 
 void doMeasurements()
 {
-  DHTdata m = climate1.MeasureDHT();
+  //DHTdata m = climate1.MeasureDHT();
   float lightVal = fotoresistor1.measureLight();
 
 

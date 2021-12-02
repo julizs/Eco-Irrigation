@@ -19,6 +19,9 @@ class Services
     public:
     Services();
     void SetupWifi();
+    void SetupWifiMulti();
+    bool GetWifiStatus();
+    bool GetWifiMultiStatus();
 };
 
 #endif //services_h
