@@ -1,8 +1,9 @@
 #include "climate.h"
 
-Climate::Climate(int number)
+Climate::Climate(int maxPollingRate, int measureAttempts)
 {
-  testNumber = number;
+  this->maxPollingRate = maxPollingRate;
+  this->measureAttemps = measureAttemps;
 }
 
 void Climate::InitialiseDHT()
@@ -13,13 +14,20 @@ void Climate::InitialiseDHT()
 DHTdata Climate::MeasureDHT()
 {
   DHTdata data;
+  int attempts = 0;
 
   float humidity = dht.getHumidity();
   float temperature = dht.getTemperature();
 
-  if (isnan(temperature) || isnan(humidity))
+  // Measure once per 120 sec, correct Value crucial
+  while (attempts <= 2 &&(isnan(temperature) || isnan(humidity) || humidity >= dht.getUpperBoundHumidity()|| humidity <= dht.getLowerBoundHumidity()
+  || temperature >= dht.getUpperBoundTemperature() || temperature <= dht.getLowerBoundTemperature())) 
   {
     Serial.println("DHT Measurement failed.");
+    delay(maxPollingRate); // Blockierend
+    humidity = dht.getHumidity();
+    temperature = dht.getTemperature();
+    attempts++;
   }
 
   data.humidity = humidity;

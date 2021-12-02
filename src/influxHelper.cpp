@@ -62,8 +62,6 @@ void InfluxHelper::WriteDataPoint(int value)
   sensor.clearFields();
 
   //Store measured field keys and field values into data point
-  
-  // TODO EingabeParam. ist Liste an KeyValue Paaren
   //sensor.addField("common_humidity", m.humidity);
   //sensor.addField("common_temperature", m.temperature);
   //sensor.addField("common_light", lightVal);

@@ -11,18 +11,14 @@ struct DHTdata
     float humidity;
 };
 
-struct AHT10data
-{
-
-};
-
 class Climate
 {
     public:
     DHTesp dht;
-    int testNumber;
+    int maxPollingRate;
+    int measureAttemps;
  
-    Climate(int number); // Konstr 
+    Climate(int maxPollingRate, int measureAttempts); // Konstr 
     void InitialiseDHT();
     DHTdata MeasureDHT();
     float MeasureHumidityDHT();

@@ -10,14 +10,14 @@
 #include <StateMachine.h>
 
 
-Climate climate1(4);
+Climate climate1(500,2);
 SoilMoisture soilMoisture1(550);
 Fotoresistor fotoresistor1(10000, 3.3, analogPin);
 Services services;
 InfluxHelper influxHelper;
 StateMachine fsm = StateMachine();
 
-unsigned long previousMillis = 0;
+unsigned long stateBeginMillis = 0;
 const int SLEEP_INTERVAL = 5000;
 const int STATE_DELAY = 1000;
 
@@ -39,7 +39,7 @@ void on_initState(){
 void on_sleepState(){
   if(fsm.executeOnce){
     Serial.println("sleep State once");
-    previousMillis = millis();
+    stateBeginMillis = millis();
   }
   //Serial.println("sleep State");
 }
@@ -69,7 +69,7 @@ bool transitionS0S1(){
 
 bool transitionS1S2(){
   Serial.println(millis());
-  if(millis() - previousMillis >= SLEEP_INTERVAL)
+  if(millis() - stateBeginMillis >= SLEEP_INTERVAL)
   {
     return true;
   }
@@ -124,3 +124,9 @@ void loop() {
   fsm.run();
   delay(STATE_DELAY);
 }
+
+
+/*
+TODO
+Pumpe darf nur ein PUMP_INVERVALL lang an sein, dann Wechsel in anderen State
+*/

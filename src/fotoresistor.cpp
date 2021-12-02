@@ -10,13 +10,32 @@ Fotoresistor::Fotoresistor(int resistance, float voltageIn, uint8_t pinNum)
 
 int Fotoresistor::measureLight()
 {
-  /* Analoger Fotoresistor
-  https://www.geekering.com/categories/embedded-sytems/esp8266/ricardocarreira/esp8266-nodemcu-simple-ldr-luximeter/
-  */
   int rawVal = analogRead(pin);
-  float Vout = float(rawVal) * (vin / float(1023));// Conversion analog to voltage
-  float RLDR = (res * (vin - Vout))/Vout; // Conversion voltage to resistance
-  int lux = 500/(RLDR/1000); // Conversion resitance to lumen
 
-  return rawVal;
+  return measureLux(rawVal);
+}
+
+float Fotoresistor::measureLightSmoothed()
+{
+  // Analog Input with low Polling Rate, very fast consecutive Measurements
+  // without delay possible
+  float sum = 0.0f;
+
+  for(int i = 0; i < measureAttempts; i++)
+  {
+    sum += analogRead(pin);
+  }
+
+  float rawVal = sum/measureAttempts;
+  
+  return measureLux(rawVal);
+}
+
+int Fotoresistor::measureLux(float rawVal)
+{
+   float Vout = float(rawVal) * (vin / float(1023));// Conversion analog to voltage
+   float RLDR = (res * (vin - Vout))/Vout; // Conversion voltage to resistance
+   int lux = 500/(RLDR/1000); // Conversion resitance to lumen
+
+   return lux;
 }
