@@ -26,7 +26,7 @@ void doMeasurements()
   DHTdata m = climate1.MeasureDHT();
   float lightVal = fotoresistor1.measureLight();
 
-  influxHelper.WriteDataPoint(lightVal);
+  // influxHelper.WriteDataPoint(lightVal); Darf hier nicht rein, eigenen State machen
 }
 
 void on_initState(){
@@ -56,9 +56,10 @@ void on_sleepState(){
 void on_measureState(){
   if(fsm.executeOnce){
     Serial.println("measure State once");
-    doMeasurements();
+    //doMeasurements();
     //WiFi.disconnect();
   }
+  doMeasurements(); // alle 500ms, bis StateZeit abläuft
   //Serial.println("measure State");
 }
 
