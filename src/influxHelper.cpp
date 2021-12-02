@@ -39,18 +39,20 @@ void InfluxHelper::SetupInflux()
   client.setWriteOptions(WriteOptions().batchSize(2));
 }
 
-void InfluxHelper::CheckInfluxConnection()
+bool InfluxHelper::CheckInfluxConnection()
 {
   // Check server connection
   if (client.validateConnection()) 
   {
     Serial.print("Connected to InfluxDB: ");
     Serial.println(client.getServerUrl());
+    return true;
   } 
   else 
   {
     Serial.print("InfluxDB connection failed: ");
     Serial.println(client.getLastErrorMessage());
+    return false;
   }
 }
 
