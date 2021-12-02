@@ -19,7 +19,15 @@ StateMachine fsm = StateMachine();
 
 unsigned long stateBeginMillis = 0;
 const int SLEEP_INTERVAL = 5000;
-const int STATE_DELAY = 1000;
+const int STATE_DELAY = 500;
+
+void doMeasurements()
+{
+  DHTdata m = climate1.MeasureDHT();
+  float lightVal = fotoresistor1.measureLight();
+
+  influxHelper.WriteDataPoint(lightVal);
+}
 
 void on_initState(){
   if(fsm.executeOnce){
@@ -40,6 +48,7 @@ void on_sleepState(){
   if(fsm.executeOnce){
     Serial.println("sleep State once");
     stateBeginMillis = millis();
+    //ESP.deepSleep(30e6);
   }
   //Serial.println("sleep State");
 }
@@ -47,7 +56,7 @@ void on_sleepState(){
 void on_measureState(){
   if(fsm.executeOnce){
     Serial.println("measure State once");
-    delay(2000);
+    doMeasurements();
     //WiFi.disconnect();
   }
   //Serial.println("measure State");
@@ -92,7 +101,6 @@ bool transitionS2S2(){
 }
 */
 
-
 void setup() {
 
   Serial.begin(9600);
@@ -108,16 +116,6 @@ void setup() {
   sleepState->addTransition(&transitionS1S2, measureState);
   measureState->addTransition(&transitionS2S0,initState);
 }
-
-void doMeasurements()
-{
-  //DHTdata m = climate1.MeasureDHT();
-  float lightVal = fotoresistor1.measureLight();
-
-
-  influxHelper.WriteDataPoint(lightVal);
-}
-
 
 void loop() {
 
