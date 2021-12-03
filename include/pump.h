@@ -17,7 +17,7 @@ public:
     {
         friend class Pump;
     public:
-        char *name;
+        char *name[50];
         byte minVoltage;
         byte maxVoltage;
         byte maxPumpingDuration;
@@ -26,13 +26,13 @@ public:
         byte getminVoltage();
     };
 
-    PumpModel& pumpModel;
+    PumpModel pumpModel; // PumpModel& pumpModel
     PumpState state;
     bool doPump;
     unsigned long stateBeginMillis;
 
     Pump(PumpModel& pumpModel); // Konstr.
-    //const PumpModel& Pump::GetPumpModel();
+    const PumpModel& GetPumpModel() const;
     void Update();
 
 private:

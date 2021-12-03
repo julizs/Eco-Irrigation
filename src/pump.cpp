@@ -39,10 +39,10 @@ void Pump::switchOff()
     digitalWrite(pumpPin, LOW);
 }
 
-/* Pump::PumpModel* Pump::GetPumpModel()
+const Pump::PumpModel& Pump::GetPumpModel() const
 {
     return pumpModel;
-} */
+}
 
 void Pump::calibrateFlowRate()
 {
@@ -50,7 +50,9 @@ void Pump::calibrateFlowRate()
 
 
 
+
 // Nested Class Definitions
+
 Pump::PumpModel::PumpModel(byte minVoltage, byte maxVoltage, byte maxPumpingDuration, int flowRate)
 {
     this->minVoltage = minVoltage;
@@ -66,8 +68,8 @@ byte Pump::PumpModel::getminVoltage()
 
 
 // Tankfüllstand
-// Pumpentest
-// Durchlauftest (läuft Pumpe mit vollem Durchlauf?)
-// Kalibrierung Durchlauf (Wieviel Wasser je Sekunde?)
+// Pumpen Funktionstest
+// Durchlauftest (läuft Pumpe mit initialier/voller FlowRate?)
+// Kalibrierung (Wieviel Wasser je Sekunde?)
 // Wassertausch, Pumpenreinigung nach 1 Monat
 // PWM / Voltage Einstellungen, autom. Prüfung je nach Modell
