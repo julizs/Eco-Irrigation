@@ -18,7 +18,7 @@ InfluxHelper influxHelper;
 StateMachine fsm = StateMachine();
 
 unsigned long stateBeginMillis = 0;
-const int SLEEP_INTERVAL = 5000;
+const int SLEEP_INTERVAL = 10000;
 const int STATE_DELAY = 500;
 
 void doMeasurements()
@@ -128,4 +128,5 @@ void loop() {
 /*
 TODO
 Pumpe darf nur ein PUMP_INVERVALL lang an sein, dann Wechsel in anderen State
+Schnelles Messen auf Befehl
 */
