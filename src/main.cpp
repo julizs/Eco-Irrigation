@@ -16,8 +16,9 @@ SoilMoisture soilMoisture1(550);
 Fotoresistor fotoresistor1(10000, 3.3, analogPin);
 Services services;
 InfluxHelper influxHelper;
-Pump::PumpModel QR50E(12, 12, 30, 240);
-Pump pump1(QR50E);
+Pump::PumpModel qr50e(12, 12, 30, 240);
+Pump::PumpModel palermo(6, 12, 30, 330);
+Pump pump1(qr50e);
 
 StateMachine fsm = StateMachine();
 
@@ -64,6 +65,7 @@ void on_sleepState(){
   if(fsm.executeOnce){
     Serial.println("sleep State once");
     stateBeginMillis = millis();
+    Serial.println(qr50e.getminVoltage());
     //ESP.deepSleep(30e6);
   }
   //Serial.println("sleep State");

@@ -1,9 +1,7 @@
 #include "pump.h"
 
-Pump::Pump(PumpModel pumpModel)
-{
-    this->pumpModel = pumpModel;
-}
+Pump::Pump(PumpModel &p): pumpModel(p){}
+
 
 void Pump::Update()
 {
@@ -20,11 +18,11 @@ void Pump::Update()
     case PumpState::ON:
         stateBeginMillis = millis();
         switchOn();
-        if(millis() - stateBeginMillis >= pumpModel.maxPumpingDuration * 1000UL)
+        if (millis() - stateBeginMillis >= pumpModel.maxPumpingDuration * 1000UL)
         {
             doPump = false;
         }
-        if(!doPump) // Time is up or Button Press
+        if (!doPump) // Time is up or Button Press
         {
             state = PumpState::IDLE;
         }
@@ -41,20 +39,18 @@ void Pump::switchOff()
     digitalWrite(pumpPin, LOW);
 }
 
+/* Pump::PumpModel* Pump::GetPumpModel()
+{
+    return pumpModel;
+} */
+
 void Pump::calibrateFlowRate()
 {
-
 }
 
 
 
-
-/*
-Pump::PumpModel::PumpModel()
-{
-
-}
-
+// Nested Class Definitions
 Pump::PumpModel::PumpModel(byte minVoltage, byte maxVoltage, byte maxPumpingDuration, int flowRate)
 {
     this->minVoltage = minVoltage;
@@ -67,7 +63,7 @@ byte Pump::PumpModel::getminVoltage()
 {
     return this->minVoltage;
 }
-*/
+
 
 // Tankfüllstand
 // Pumpentest
