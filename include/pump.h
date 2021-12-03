@@ -12,15 +12,28 @@ enum PumpState
 class Pump
 {
 public:
-    struct PumpModel
+    class PumpModel
     {
         friend class Pump;
+
+    public:
         char *name;
         byte minVoltage;
         byte maxVoltage;
         byte maxPumpingDuration;
-        int measuredFlowRate;
-        byte getminVoltage();
+        int flowRate;
+        PumpModel();
+        PumpModel(byte minVoltage, byte maxVoltage, byte maxPumpingDuration, int flowRate)
+        {
+            this->minVoltage = minVoltage;
+            this->maxVoltage = maxVoltage;
+            this->maxPumpingDuration = maxPumpingDuration;
+            this->flowRate = flowRate;
+        }
+        byte getminVoltage()
+        {
+            return this->minVoltage;
+        }
     };
 
     PumpModel pumpModel;

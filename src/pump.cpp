@@ -5,22 +5,13 @@ Pump::Pump(PumpModel pumpModel)
     this->pumpModel = pumpModel;
 }
 
-struct Pump::PumpModel
-{
-    char* name = "Palermo";
-    byte minVoltage = 6;
-    byte maxVoltage = 12;
-    byte maxPumpingDuration = 30;
-    int measuredFlowRate = 330;
-    byte getMinVoltage() {return minVoltage;}
-};
-
 void Pump::Update()
 {
     switch (state)
     {
     case PumpState::IDLE:
         stateBeginMillis = millis();
+        switchOff();
         if (doPump)
         {
             state = PumpState::ON;
@@ -28,7 +19,8 @@ void Pump::Update()
         break;
     case PumpState::ON:
         stateBeginMillis = millis();
-        if(millis() - stateBeginMillis >= pumpModel.maxPumpingDuration)
+        switchOn();
+        if(millis() - stateBeginMillis >= pumpModel.maxPumpingDuration * 1000UL)
         {
             doPump = false;
         }
@@ -41,18 +33,41 @@ void Pump::Update()
 
 void Pump::switchOn()
 {
-
+    digitalWrite(pumpPin, HIGH);
 }
 
 void Pump::switchOff()
 {
-
+    digitalWrite(pumpPin, LOW);
 }
 
 void Pump::calibrateFlowRate()
 {
 
 }
+
+
+
+
+/*
+Pump::PumpModel::PumpModel()
+{
+
+}
+
+Pump::PumpModel::PumpModel(byte minVoltage, byte maxVoltage, byte maxPumpingDuration, int flowRate)
+{
+    this->minVoltage = minVoltage;
+    this->maxVoltage = maxVoltage;
+    this->maxPumpingDuration = maxPumpingDuration;
+    this->flowRate = flowRate;
+}
+
+byte Pump::PumpModel::getminVoltage()
+{
+    return this->minVoltage;
+}
+*/
 
 // Tankfüllstand
 // Pumpentest

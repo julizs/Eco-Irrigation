@@ -8,6 +8,7 @@
 #include <influxHelper.h>
 #include <LinkedList.h>
 #include <StateMachine.h>
+#include <pump.h>
 
 
 Climate climate1(500,2);
@@ -15,11 +16,26 @@ SoilMoisture soilMoisture1(550);
 Fotoresistor fotoresistor1(10000, 3.3, analogPin);
 Services services;
 InfluxHelper influxHelper;
+Pump::PumpModel QR50E(12, 12, 30, 240);
+Pump pump1(QR50E);
+
 StateMachine fsm = StateMachine();
 
 unsigned long stateBeginMillis = 0;
 const int SLEEP_INTERVAL = 10000;
 const int STATE_DELAY = 500;
+
+/*
+struct PumpModel
+{
+    char* name = "Palermo";
+    byte minVoltage = 6;
+    byte maxVoltage = 12;
+    byte maxPumpingDuration = 30;
+    int measuredFlowRate = 330;
+    byte getMinVoltage() {return minVoltage;}
+};
+*/
 
 void doMeasurements()
 {
