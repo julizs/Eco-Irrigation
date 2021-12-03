@@ -32,7 +32,8 @@ public:
     unsigned long stateBeginMillis;
 
     Pump(PumpModel& pumpModel); // Konstr.
-    const PumpModel& GetPumpModel() const;
+    const PumpModel& getPumpModel() const;
+    void setPumpModel(const Pump::PumpModel& pM);
     void Update();
 
 private:

@@ -65,8 +65,11 @@ void on_sleepState(){
   if(fsm.executeOnce){
     Serial.println("sleep State once");
     stateBeginMillis = millis();
-    const Pump::PumpModel pumpModel = pump1.GetPumpModel();
+    const Pump::PumpModel pumpModel = pump1.getPumpModel();
     Serial.println(pumpModel.minVoltage);
+    pump1.setPumpModel(palermo);
+    const Pump::PumpModel pumpModelNew = pump1.getPumpModel();
+    Serial.println(pumpModelNew.minVoltage);
     //ESP.deepSleep(30e6);
   }
   //Serial.println("sleep State");

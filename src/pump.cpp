@@ -39,9 +39,14 @@ void Pump::switchOff()
     digitalWrite(pumpPin, LOW);
 }
 
-const Pump::PumpModel& Pump::GetPumpModel() const
+const Pump::PumpModel& Pump::getPumpModel() const
 {
     return pumpModel;
+}
+
+void Pump::setPumpModel(const Pump::PumpModel& pM)
+{
+    pumpModel = pM;
 }
 
 void Pump::calibrateFlowRate()
