@@ -6,7 +6,9 @@
 enum PumpState
 {
     IDLE,
-    ON
+    ON,
+    TURNING_ON,
+    TURNING_OFF
 };
 
 class Pump

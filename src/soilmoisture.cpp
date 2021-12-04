@@ -1,19 +1,20 @@
 #include "soilmoisture.h"
-#include "Arduino.h"
+#include "pins.h"
 
-SoilMoisture::SoilMoisture(int sensorErrorRate)
+SoilMoisture::SoilMoisture(int sensorFloor, byte sampleSize)
 {
-  sensorErrorRate = sensorErrorRate;
+  this->sensorFloor = sensorFloor;
+  this->sampleSize = sampleSize;
 }
 
-float SoilMoisture::SmoothedSoilMoisture()
+float SoilMoisture::measureSoilMoistureSmoothed()
 {
-  float smoothedMoisture = 0;
+  float sum = 0;
 
   // Analog Smoothing
-  for(int i = 0; i < sampleRate; i++)
+  for(int i = 0; i < sampleSize; i++)
   {
-    float soilMoisture = MeasureSoilMoisture();
+    float soilMoisture = measureSoilMoisture();
     Serial.println(soilMoisture);
 
     if(isnan(soilMoisture))
@@ -21,19 +22,21 @@ float SoilMoisture::SmoothedSoilMoisture()
 		 Serial.println("Soil Moisture Measurement failed.");
 	  }
 
-    smoothedMoisture += soilMoisture; 
+    sum += soilMoisture; 
   }
+
+  float smoothedMoisture = sum/sampleSize;
 
   return smoothedMoisture;
 }
 
-float SoilMoisture::MeasureSoilMoisture()
+float SoilMoisture::measureSoilMoisture()
 {
   // Range: 0-1023, 1023 ist max. Trockenheit
   
   float rawValue = analogRead(analogPin);
-  float constrainedValue = constrain(rawValue, sensorErrorRate, 1024); // da manchmal Ausreißer unterhalb "Floor" in Wasser, z.B. 350)
-  float mappedValue = map(constrainedValue,1024,sensorErrorRate,0,100);
+  float constrainedValue = constrain(rawValue, sensorFloor, 1024); // da manchmal Ausreißer unterhalb "Floor" in Wasser, z.B. 350)
+  float mappedValue = map(constrainedValue,1024,sensorFloor,0,100);
   //float percentageValue = ( 100.00 - ( (mappedValue/1023.00) * 100.00 ) );
 
   return rawValue;

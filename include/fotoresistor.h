@@ -5,9 +5,9 @@
 class Fotoresistor
 {
 public:
-    Fotoresistor(int resistance, float voltageIn, uint8_t pinNum);
-    uint8_t pin;
-    uint8_t measureAttempts;
+    Fotoresistor(int resistance, float voltageIn, byte sampleSize);
+    byte pin;
+    byte sampleSize;
     int res;
     float vin;
     int measureLux(float rawVal);

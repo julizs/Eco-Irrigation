@@ -12,8 +12,8 @@
 
 
 Climate climate1(500,2);
-SoilMoisture soilMoisture1(550);
-Fotoresistor fotoresistor1(10000, 3.3, analogPin);
+SoilMoisture soilMoisture1(550, 10);
+Fotoresistor fotoresistor1(10000, 3.3, 10);
 Services services;
 InfluxHelper influxHelper;
 Pump::PumpModel qr50e(12, 12, 15, 240);

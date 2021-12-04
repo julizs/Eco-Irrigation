@@ -1,16 +1,16 @@
 #include "fotoresistor.h"
 #include "pins.h"
 
-Fotoresistor::Fotoresistor(int resistance, float voltageIn, uint8_t pinNum)
+Fotoresistor::Fotoresistor(int resistance, float voltageIn, byte sampleSize)
 {
   res = resistance; 
   vin = voltageIn;
-  pin = pinNum;
+  this->sampleSize = sampleSize;
 }
 
 int Fotoresistor::measureLight()
 {
-  int rawVal = analogRead(pin);
+  int rawVal = analogRead(analogPin);
 
   return measureLux(rawVal);
 }
@@ -21,12 +21,12 @@ float Fotoresistor::measureLightSmoothed()
   // without delay possible
   float sum = 0.0f;
 
-  for(int i = 0; i < measureAttempts; i++)
+  for(int i = 0; i < sampleSize; i++)
   {
     sum += analogRead(pin);
   }
 
-  float rawVal = sum/measureAttempts;
+  float rawVal = sum/sampleSize;
   
   return measureLux(rawVal);
 }
