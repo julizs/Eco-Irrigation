@@ -23,11 +23,13 @@ void Services::SetupWifiMulti()
 void Services::SetupWifi()
 {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.println("Connecting to WiFi");
  
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.println("Connecting to WiFi..");
+    delay(100);
+    Serial.print(".");
   }
+  Serial.println();
   Serial.println("Connected to the WiFi network");
 }
 

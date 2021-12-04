@@ -27,14 +27,15 @@ public:
     };
 
     PumpModel pumpModel; // PumpModel& pumpModel
-    PumpState state;
+    PumpState currentState, lastState;
     bool doPump;
     unsigned long stateBeginMillis;
 
     Pump(PumpModel& pumpModel); // Konstr.
     const PumpModel& getPumpModel() const;
     void setPumpModel(const Pump::PumpModel& pM);
-    void Update();
+    void setup();
+    void loop();
 
 private:
     void switchOn();

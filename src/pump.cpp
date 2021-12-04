@@ -2,30 +2,55 @@
 
 Pump::Pump(PumpModel &p): pumpModel(p){}
 
-
-void Pump::Update()
+void Pump::setup()
 {
-    switch (state)
+    currentState = PumpState::IDLE;
+}
+
+void Pump::loop()
+{
+    switch (currentState)
     {
     case PumpState::IDLE:
-        stateBeginMillis = millis();
-        switchOff();
+  
+        if(lastState != currentState)
+        {
+            switchOff();
+            Serial.println("Pump is IDLE!");    
+        }
+        
         if (doPump)
         {
-            state = PumpState::ON;
+            currentState = PumpState::ON;
+            stateBeginMillis = millis(); // Must only be executed once, e.g. right before state transfer
         }
+
+        lastState = PumpState::IDLE;
         break;
     case PumpState::ON:
-        stateBeginMillis = millis();
-        switchOn();
+
+        // Execute only once
+        // Like this or add State turningOn
+        if(lastState != currentState)
+        {
+            switchOn();
+            Serial.println("Pump is ON!");
+        }
+        
+        // Execute each tick
+        Serial.print(".");
         if (millis() - stateBeginMillis >= pumpModel.maxPumpingDuration * 1000UL)
         {
             doPump = false;
         }
         if (!doPump) // Time is up or Button Press
         {
-            state = PumpState::IDLE;
+            currentState = PumpState::IDLE;
+            stateBeginMillis = millis();
         }
+
+        lastState = PumpState::ON;
+        break;
     }
 }
 

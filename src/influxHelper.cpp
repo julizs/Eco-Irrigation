@@ -41,7 +41,6 @@ void InfluxHelper::SetupInflux()
 
 bool InfluxHelper::CheckInfluxConnection()
 {
-  // Check server connection
   if (client.validateConnection()) 
   {
     Serial.print("Connected to InfluxDB: ");
@@ -64,9 +63,8 @@ void InfluxHelper::WriteDataPoint(int value)
   //Store measured field keys and field values into data point
   //sensor.addField("common_humidity", m.humidity);
   //sensor.addField("common_temperature", m.temperature);
-  //sensor.addField("common_light", lightVal);
   sensor.addField("common_light", value);
-  sensor.addField("rssi", WiFi.RSSI());
+  sensor.addField("rssi", value);
 
   /* Print into Console what we are writing into point
   // Serial.print("Writing (into measurement/table): ");
