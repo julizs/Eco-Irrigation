@@ -9,8 +9,9 @@ public:
     // (max. Feuchtigkeit = ca. 400-550 statt 0)
     int sensorFloor;
     byte sampleSize;
+    byte multiPin; // Never changes, only Association from Sensor to Plant Object
 
-    SoilMoisture(int sensorFloor, byte sampleSize);
+    SoilMoisture(int sensorFloor, byte sampleSize, byte multiPin);
 
     float measureSoilMoistureSmoothed();
     float measureSoilMoisture();

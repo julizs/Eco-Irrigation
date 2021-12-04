@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <plant.h>
 #include <climate.h>
 #include <soilmoisture.h>
 #include <fotoresistor.h>
@@ -10,16 +11,20 @@
 #include <StateMachine.h>
 #include <pump.h>
 
-
-Climate climate1(500,2);
-SoilMoisture soilMoisture1(550, 10);
-Fotoresistor fotoresistor1(10000, 3.3, 10);
 Services services;
 InfluxHelper influxHelper;
+StateMachine fsm = StateMachine();
+
+Climate climate1(500,2);
+SoilMoisture soilMoisture1(550, 10, C0);
+Fotoresistor fotoResistor1(10000, 3.3, 10, C1);
+//Plant plant1;
+Plant plant2(fotoResistor1, soilMoisture1);
+std::vector<Plant> plants {plant2};
 Pump::PumpModel qr50e(12, 12, 15, 240);
 Pump::PumpModel palermo(6, 12, 15, 330);
 Pump pump1(qr50e);
-StateMachine fsm = StateMachine();
+
 
 bool measurementsComplete, wateringNeeded;
 unsigned long stateBeginMillis = 0;
@@ -28,8 +33,11 @@ const int LOOP_DELAY = 500; // Maschine evaluates Logic in States only every 500
 
 void doMeasurements()
 {
+  for(const auto& plant: plants) {
+    Serial.println(plant.lightSensor.res);
+  }
   measurementsComplete = true;
-  // foreach plant in plants...
+  
   // multiple measure attempts only for some values (dht11), NOT for smoothed ones like lightVal
   
   /* DHTdata m = climate1.MeasureDHT();

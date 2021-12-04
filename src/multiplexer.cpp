@@ -7,14 +7,14 @@ Multiplexer::Multiplexer()
 
 void Multiplexer::setup()
 {
-  pinMode(A, OUTPUT);
-  pinMode(B, OUTPUT);
-  pinMode(C, OUTPUT);
+  pinMode(Aa, OUTPUT);
+  pinMode(Be, OUTPUT);
+  pinMode(Ce, OUTPUT);
   pinMode(analogPin, INPUT);
   
-  digitalWrite(A, LOW);
-  digitalWrite(B, LOW);
-  digitalWrite(C, LOW);
+  digitalWrite(Aa, LOW);
+  digitalWrite(Be, LOW);
+  digitalWrite(Ce, LOW);
 }
 
 int Multiplexer::measureAnalog(byte pin)

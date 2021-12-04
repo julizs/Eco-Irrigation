@@ -1,4 +1,13 @@
 #include "plant.h"
 
-// Eine Pflanze kann 2 Moisture Sensoren haben
-// Einer Pflanze kann ein anderer Moisture Sensor zugewiesen werden
+
+//Plant::Plant(Fotoresistor &f): lightSensor(f){}
+Plant::Plant(Fotoresistor &f, SoilMoisture &s): lightSensor(f), soilMoistureSensor(s){}
+
+/*
+Plant::Plant(Fotoresistor lightSensor, SoilMoisture soilMoistureSensor)
+{
+    this->lightSensor = lightSensor;
+    soilMoistureSensors.push_back(soilMoistureSensor);
+}
+*/

@@ -1,15 +1,17 @@
 #include "fotoresistor.h"
 #include "pins.h"
 
-Fotoresistor::Fotoresistor(int resistance, float voltageIn, byte sampleSize)
+Fotoresistor::Fotoresistor(int resistance, float voltageIn, byte sampleSize, byte multiPin)
 {
   res = resistance; 
   vin = voltageIn;
   this->sampleSize = sampleSize;
+  this->multiPin = multiPin;
 }
 
 int Fotoresistor::measureLight()
 {
+  // Ersetzen durch Multiplexer Aufruf
   int rawVal = analogRead(analogPin);
 
   return measureLux(rawVal);
@@ -23,7 +25,7 @@ float Fotoresistor::measureLightSmoothed()
 
   for(int i = 0; i < sampleSize; i++)
   {
-    sum += analogRead(pin);
+    sum += measureLight();
   }
 
   float rawVal = sum/sampleSize;

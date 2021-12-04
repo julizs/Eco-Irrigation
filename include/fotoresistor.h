@@ -5,11 +5,13 @@
 class Fotoresistor
 {
 public:
-    Fotoresistor(int resistance, float voltageIn, byte sampleSize);
-    byte pin;
+    Fotoresistor();
+    Fotoresistor(int resistance, float voltageIn, byte sampleSize, byte multiPin);
+    byte multiPin;
     byte sampleSize;
     int res;
     float vin;
+    
     int measureLux(float rawVal);
     int measureLight();
     float measureLightSmoothed();
