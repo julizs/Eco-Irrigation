@@ -24,7 +24,7 @@ StateMachine fsm = StateMachine();
 bool measurementsComplete, wateringNeeded;
 unsigned long stateBeginMillis = 0;
 const int SLEEP_INTERVAL = 10000;
-const int STATE_DELAY = 500;
+const int LOOP_DELAY = 500; // Maschine evaluates Logic in States only every 500ms
 
 void doMeasurements()
 {
@@ -175,7 +175,7 @@ void setup() {
 void loop() {
 
   fsm.run();
-  delay(STATE_DELAY);
+  //delay(LOOP_DELAY);
 }
 
 
