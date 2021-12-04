@@ -21,20 +21,20 @@ Fotoresistor fotoResistor1(10000, 3.3, 10, C1);
 //Plant plant1;
 Plant plant2(fotoResistor1, soilMoisture1);
 std::vector<Plant> plants {plant2};
-Pump::PumpModel qr50e(12, 12, 15, 240);
-Pump::PumpModel palermo(6, 12, 15, 330);
+Pump::PumpModel qr50e(12, 12, 5, 240);
+Pump::PumpModel palermo(6, 12, 5, 330);
 Pump pump1(qr50e);
 
 
 bool measurementsComplete, wateringNeeded;
 unsigned long stateBeginMillis = 0;
-const int SLEEP_INTERVAL = 10000;
+const int SLEEP_INTERVAL = 1000;
 const int LOOP_DELAY = 500; // Maschine evaluates Logic in States only every 500ms
 
 void doMeasurements()
 {
-  for(const auto& plant: plants) {
-    Serial.println(plant.lightSensor.res);
+  for(auto& plant: plants) { // const
+    Serial.println(plant.lightSensor.measureLight());
   }
   measurementsComplete = true;
   
