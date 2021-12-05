@@ -56,12 +56,12 @@ void Pump::loop()
 
 void Pump::switchOn()
 {
-    digitalWrite(pumpPin, HIGH);
+    //digitalWrite(pumpPin, HIGH);
 }
 
 void Pump::switchOff()
 {
-    digitalWrite(pumpPin, LOW);
+    //digitalWrite(pumpPin, LOW);
 }
 
 const Pump::PumpModel& Pump::getPumpModel() const

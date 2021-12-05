@@ -25,6 +25,12 @@ Pump::PumpModel qr50e(12, 12, 5, 240);
 Pump::PumpModel palermo(6, 12, 5, 330);
 Pump pump1(qr50e);
 
+// Debouncing
+unsigned long lastDebounceTime = 0;  // Last time Output Pin was toggled
+unsigned long debounceDelay = 50;    // Increase if Output flickers
+int buttonState;
+int lastButtonState = HIGH; // Initial State is Off
+//
 
 bool measurementsComplete, wateringNeeded;
 unsigned long stateBeginMillis = 0;
@@ -65,6 +71,40 @@ void on_initState(){
     }
   }
   //Serial.println("init State");
+  
+}
+
+void checkButtons()
+{
+  // Debouncing
+  int reading = digitalRead(pumpButtonPin);
+
+  /*
+  if(reading == LOW)
+  {
+    Serial.println("Pump Button pressed!");
+  }
+  */
+  
+  // If Switch changed, due to Noise or Pressing:
+  if (reading != lastButtonState) {
+    
+    // Reset Debouncing Timer
+    lastDebounceTime = millis();
+  }
+
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+    
+    if (reading != buttonState) {
+      buttonState = reading;
+
+      if (buttonState == LOW) {
+        Serial.println("Pump Button pressed!");
+      }
+    }
+  }
+  
+  lastButtonState = reading;
 }
 
 void on_sleepState(){
@@ -166,6 +206,8 @@ void setup() {
 
   climate1.InitialiseDHT();
 
+  pinMode(pumpButtonPin, INPUT);
+
 
   State* initState = fsm.addState(&on_initState);
   State* sleepState = fsm.addState(&on_sleepState);
@@ -184,6 +226,7 @@ void loop() {
 
   fsm.run();
   //delay(LOOP_DELAY);
+  checkButtons();
 }
 
 

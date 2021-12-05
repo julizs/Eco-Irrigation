@@ -7,7 +7,11 @@ WiFiMulti wifiMulti;
 #define DEVICE "ESP32"
 #elif defined(ESP8266)
 #define DEVICE "ESP8266"
-#define pumpPin 5
+#define wakeUpPin 16 //D0
+#define pumpButtonPin 5 //D1
+#define relaisPin 4 //D2 
+#define laserDistPin 0 //D3 
+#define DHTpin 2 //D4 
 // Multiplexer
 #define Aa 14
 #define Be 12
@@ -16,7 +20,7 @@ WiFiMulti wifiMulti;
 #endif
 
 // Egal ob Esp32 oder Esp8266
-#define C0 (byte)0
-#define C1 (byte)1
+#define C0 (byte)998
+#define C1 (byte)999
 
 #endif //pins_h
