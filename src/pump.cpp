@@ -60,13 +60,14 @@ void Pump::switchOn()
     // Rotation Direction (da H-Bridge)
     digitalWrite(in1, LOW);
     digitalWrite(in2, HIGH);
+
     analogWrite(enA,255);
-    //digitalWrite(pumpPin, HIGH);
+    //digitalWrite(pumpPin, HIGH); // Relais
 }
 
 void Pump::switchOff()
 {
-    //digitalWrite(pumpPin, LOW);
+    //digitalWrite(pumpPin, LOW); // Relais
 }
 
 const Pump::PumpModel& Pump::getPumpModel() const

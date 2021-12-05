@@ -65,11 +65,11 @@ void on_initState(){
     Serial.println("init State once");
     if(!services.GetWifiStatus())
     {
-      //services.SetupWifi();
+      services.SetupWifi();
     }
     if(!influxHelper.CheckInfluxConnection())
     {
-      //influxHelper.SetupInflux();
+      influxHelper.SetupInflux();
     }
   }
   //Serial.println("init State");
