@@ -33,11 +33,12 @@ void Pump::loop()
         // Like this or add State turningOn
         if(lastState != currentState)
         {
-            switchOn();
             Serial.println("Pump is ON!");
         }
         
         // Execute each tick
+        switchOn();
+
         Serial.print(".");
         if (millis() - stateBeginMillis >= pumpModel.maxPumpingDuration * 1000UL)
         {
@@ -57,6 +58,7 @@ void Pump::loop()
 void Pump::switchOn()
 {
     //digitalWrite(pumpPin, HIGH);
+    analogWrite(enA,255);
 }
 
 void Pump::switchOff()

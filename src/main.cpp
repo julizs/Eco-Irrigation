@@ -25,6 +25,8 @@ Pump::PumpModel qr50e(12, 12, 5, 240);
 Pump::PumpModel palermo(6, 12, 5, 330);
 Pump pump1(qr50e);
 
+State* wateringState;
+
 // Debouncing
 unsigned long lastDebounceTime = 0;  // Last time Output Pin was toggled
 unsigned long debounceDelay = 50;    // Increase if Output flickers
@@ -63,11 +65,11 @@ void on_initState(){
     Serial.println("init State once");
     if(!services.GetWifiStatus())
     {
-      services.SetupWifi();
+      //services.SetupWifi();
     }
     if(!influxHelper.CheckInfluxConnection())
     {
-        influxHelper.SetupInflux();
+      //influxHelper.SetupInflux();
     }
   }
   //Serial.println("init State");
@@ -100,6 +102,7 @@ void checkButtons()
 
       if (buttonState == LOW) {
         Serial.println("Pump Button pressed!");
+        fsm.transitionTo(wateringState);
       }
     }
   }
@@ -207,13 +210,19 @@ void setup() {
   climate1.InitialiseDHT();
 
   pinMode(pumpButtonPin, INPUT);
+  pinMode(enA,OUTPUT);
+  pinMode(in1,OUTPUT);
+  pinMode(in2,OUTPUT);
+  // Initial Rotation Direction (da H-Bridge)
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, HIGH);
 
 
   State* initState = fsm.addState(&on_initState);
   State* sleepState = fsm.addState(&on_sleepState);
   State* measureState = fsm.addState(&on_measureState);
   State* evaluateState = fsm.addState(&on_evaluateState);
-  State* wateringState = fsm.addState(&on_wateringState);
+  wateringState = fsm.addState(&on_wateringState);
   //initState->addTransition(&transitionS0S0,initState);
   initState->addTransition(&transitionS0S1,sleepState);
   sleepState->addTransition(&transitionS1S2, measureState);

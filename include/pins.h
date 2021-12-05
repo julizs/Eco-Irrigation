@@ -17,6 +17,11 @@ WiFiMulti wifiMulti;
 #define Be 12
 #define Ce 13
 #define analogPin A0
+
+// L298N
+#define enA 14
+#define in1 12
+#define in2 13
 #endif
 
 // Egal ob Esp32 oder Esp8266
