@@ -213,10 +213,6 @@ void setup() {
   pinMode(enA,OUTPUT);
   pinMode(in1,OUTPUT);
   pinMode(in2,OUTPUT);
-  // Initial Rotation Direction (da H-Bridge)
-  digitalWrite(in1, LOW);
-  digitalWrite(in2, HIGH);
-
 
   State* initState = fsm.addState(&on_initState);
   State* sleepState = fsm.addState(&on_sleepState);

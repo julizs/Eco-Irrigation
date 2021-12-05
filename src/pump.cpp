@@ -57,8 +57,11 @@ void Pump::loop()
 
 void Pump::switchOn()
 {
-    //digitalWrite(pumpPin, HIGH);
+    // Rotation Direction (da H-Bridge)
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, HIGH);
     analogWrite(enA,255);
+    //digitalWrite(pumpPin, HIGH);
 }
 
 void Pump::switchOff()
