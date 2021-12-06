@@ -13,10 +13,10 @@ Point sensor("DHT_11");
 
 InfluxHelper::InfluxHelper()
 {
-
+  
 }
 
-void InfluxHelper::SetupInflux()
+void InfluxHelper::setupInflux()
 {
   // Add tags to data point
   sensor.addTag("device", DEVICE);
@@ -39,7 +39,7 @@ void InfluxHelper::SetupInflux()
   client.setWriteOptions(WriteOptions().batchSize(2));
 }
 
-bool InfluxHelper::CheckInfluxConnection()
+bool InfluxHelper::checkInfluxConnection()
 {
   if (client.validateConnection()) 
   {
@@ -55,7 +55,7 @@ bool InfluxHelper::CheckInfluxConnection()
   }
 }
 
-void InfluxHelper::WriteDataPoint(int value)
+void InfluxHelper::writeDataPoint(int value)
 {
   //Clear fields for reusing the data point. Tags will remain untouched 
   sensor.clearFields();
@@ -94,7 +94,7 @@ void InfluxHelper::WriteDataPoint(int value)
    */
 }
 
-void InfluxHelper::DoQuery()
+void InfluxHelper::doQuery()
 {
   /* Construct Query
   https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#querying

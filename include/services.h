@@ -18,10 +18,10 @@ class Services
 {
     public:
     Services();
-    void SetupWifi();
-    void SetupWifiMulti();
-    bool GetWifiStatus();
-    bool GetWifiMultiStatus();
+    void setupWifi();
+    void setupWifiMulti();
+    bool getWifiStatus();
+    bool getWifiMultiStatus();
 };
 
 #endif //services_h

@@ -14,10 +14,10 @@ class InfluxHelper
 {
     public:
     InfluxHelper();
-    void SetupInflux();
-    bool CheckInfluxConnection();
-    void WriteDataPoint(int value);
-    void DoQuery();
+    void setupInflux();
+    bool checkInfluxConnection();
+    void writeDataPoint(int value);
+    void doQuery();
 };
 
 extern InfluxDBClient client;

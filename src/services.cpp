@@ -7,7 +7,7 @@ Services::Services()
 
 }
 
-void Services::SetupWifiMulti()
+void Services::setupWifiMulti()
 {
   WiFi.mode(WIFI_STA);
   wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
@@ -20,7 +20,7 @@ void Services::SetupWifiMulti()
   Serial.println();
 }
 
-void Services::SetupWifi()
+void Services::setupWifi()
 {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.println("Connecting to WiFi");
@@ -33,12 +33,12 @@ void Services::SetupWifi()
   Serial.println("Connected to the WiFi network");
 }
 
-bool Services::GetWifiMultiStatus()
+bool Services::getWifiMultiStatus()
 {
   return wifiMulti.run() == WL_CONNECTED;
 }
 
-bool Services::GetWifiStatus()
+bool Services::getWifiStatus()
 {
   return WiFi.status() == WL_CONNECTED;
 }
