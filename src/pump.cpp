@@ -10,6 +10,7 @@ void Pump::setup()
     pinMode(enA,OUTPUT);
     pinMode(in1,OUTPUT);
     pinMode(in2,OUTPUT);
+    currentState = PumpState::IDLE;
 }
 
 void Pump::loop()
@@ -37,7 +38,6 @@ void Pump::loop()
     case PumpState::ON:
 
         // Execute only once
-        // Like this or add State turningOn
         if(lastState != currentState)
         {
             Serial.println("Pump is ON!");

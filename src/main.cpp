@@ -38,8 +38,8 @@ int lastButtonState = HIGH; // Initial State is Off
 
 bool wateringNeeded, didSleep, didMeasure, didCycle;
 unsigned long stateBeginMillis = 0;
-const int SLEEP_INTERVAL = 10000;
-const int MEASURE_INTERVAL = 2000;
+const int SLEEP_INTERVAL = 5;
+const int MEASURE_INTERVAL = 2;
 const int LOOP_DELAY = 500; // Maschine evaluates Logic in States only every 500ms
 
 void doMeasurements()
@@ -109,6 +109,7 @@ void checkButtons()
       if (buttonState == LOW)
       {
         Serial.println("Pump Button pressed!");
+        wateringNeeded = true;
         fsm.transitionTo(actionState);
       }
     }
@@ -131,6 +132,7 @@ void on_initState()
   if (fsm.executeOnce)
   {
     Serial.println("init State once");
+    stateBeginMillis = millis();
 
     if (!services.getWifiStatus())
     {
@@ -149,10 +151,18 @@ void on_sleepState()
   {
     didSleep = false;
     Serial.println("sleepState once");
+    stateBeginMillis = millis();
     ESP.deepSleep(30e6); // Connect Sleep Cable AFTER Uploading Code
     checkConnections();
     didSleep = true;
   }
+  /*
+  Serial.print(".");
+  if(millis() - stateBeginMillis >= SLEEP_INTERVAL * 1000UL)
+  {
+    didSleep = true;
+  }
+  */
 }
 
 void on_measureState()
@@ -172,6 +182,7 @@ void on_evaluateState()
   if (fsm.executeOnce)
   {
     Serial.println("evaluateState once");
+    stateBeginMillis = millis();
     checkConnections();
     doEvaluate();
   }
@@ -183,12 +194,13 @@ void on_actionState()
   if (fsm.executeOnce)
   {
     Serial.println("watering State once");
+    stateBeginMillis = millis();
+    pump1.doPump = true;
   }
-  // run StateMachine of class Pump in loop
+  // run sub-StateMachines in loop
   if(wateringNeeded)
   {
-    pump1.doPump = true;
-    pump1.loop(); 
+    pump1.loop();
   }
   //if(coolingNeeded) {...}
 }
@@ -197,7 +209,7 @@ void on_actionState()
 // Funcs are evaluated constantly in current State
 bool transitionS0S1()
 {
-  if (didMeasure)
+  if (didCycle)
   {
     return true;
   }
@@ -206,7 +218,7 @@ bool transitionS0S1()
 
 bool transitionS0S2()
 {
-  if (!didMeasure)
+  if (!didCycle)
   {
     return true;
   }
@@ -249,13 +261,20 @@ bool transitionS3S4()
   return false;
 }
 
+bool transitionS4S1()
+{
+  if(!pump1.doPump)
+  {
+    return true;
+  }
+  return false;
+}
+
 void setup()
 {
 
   // Wait for serial to init
-  while (!Serial)
-  {
-  }
+  while (!Serial){}
   Serial.begin(9600);
 
   climate1.setup();
@@ -273,9 +292,11 @@ void setup()
   actionState = fsm.addState(&on_actionState);
 
   initState->addTransition(&transitionS0S1, sleepState);
+  initState->addTransition(&transitionS0S2, measureState);
   sleepState->addTransition(&transitionS1S2, measureState);
   measureState->addTransition(&transitionS2S3, evaluateState);
   evaluateState->addTransition(&transitionS3S4, actionState);
+  actionState->addTransition(&transitionS4S1, sleepState);
 }
 
 void loop()
