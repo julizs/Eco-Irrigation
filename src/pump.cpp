@@ -1,10 +1,16 @@
 #include "pump.h"
 
-Pump::Pump(PumpModel &p): pumpModel(p){}
+Pump::Pump(PumpModel &p): pumpModel(p)
+{
+    setup();
+}
 
 void Pump::setup()
 {
-    currentState = PumpState::IDLE;
+    pinMode(enA,OUTPUT);
+    pinMode(in1,OUTPUT);
+    pinMode(in2,OUTPUT);
+    currentState = PumpState::IDLE; 
 }
 
 void Pump::loop()

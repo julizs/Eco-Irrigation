@@ -13,19 +13,19 @@
 
 Services services;
 InfluxHelper influxHelper;
-StateMachine fsm = StateMachine();
 
 Climate climate1(500,2);
 SoilMoisture soilMoisture1(550, 10, C0);
 Fotoresistor fotoResistor1(10000, 3.3, 10, C1);
-//Plant plant1;
-Plant plant2(fotoResistor1, soilMoisture1);
-std::vector<Plant> plants {plant2};
 Pump::PumpModel qr50e(12, 12, 5, 240);
 Pump::PumpModel palermo(6, 12, 5, 330);
 Pump pump1(qr50e);
 
-State* wateringState;
+Plant plant2(fotoResistor1, soilMoisture1);
+std::vector<Plant> plants {plant2};
+
+StateMachine fsm = StateMachine();
+State *initState, *sleepState, *measureState, *evaluateState, *wateringState;
 
 // Debouncing
 unsigned long lastDebounceTime = 0;  // Last time Output Pin was toggled
@@ -39,11 +39,17 @@ unsigned long stateBeginMillis = 0;
 const int SLEEP_INTERVAL = 1000;
 const int LOOP_DELAY = 500; // Maschine evaluates Logic in States only every 500ms
 
+
+
+
 void doMeasurements()
 {
+  // Global Measurements
   byte rssi = WiFi.RSSI();
-
-  for(auto& plant: plants) { // const
+  DHTdata data = climate1.loop();
+  
+  // Plant-specific Measurements
+  for(auto& plant: plants) {
     plant.measureSensors();
     //Serial.println(plant.lightSensor.measureLight());
   }
@@ -54,22 +60,6 @@ void doEvaluate()
 {
   wateringNeeded = true;
   // influxHelper.WriteDataPoint(lightVal);
-}
-
-void on_initState(){
-  if(fsm.executeOnce){
-    Serial.println("init State once");
-    if(!services.GetWifiStatus())
-    {
-      services.SetupWifi();
-    }
-    if(!influxHelper.CheckInfluxConnection())
-    {
-      influxHelper.SetupInflux();
-    }
-  }
-  //Serial.println("init State");
-  
 }
 
 void checkButtons()
@@ -104,6 +94,25 @@ void checkButtons()
   }
   
   lastButtonState = reading;
+}
+
+
+
+// STATE LOGIC
+void on_initState(){
+  if(fsm.executeOnce){
+    Serial.println("init State once");
+    if(!services.GetWifiStatus())
+    {
+      services.SetupWifi();
+    }
+    if(!influxHelper.CheckInfluxConnection())
+    {
+      influxHelper.SetupInflux();
+    }
+  }
+  //Serial.println("init State");
+  
 }
 
 void on_sleepState(){
@@ -142,10 +151,14 @@ void on_wateringState(){
     pump1.setup();
     pump1.doPump = true;
   }
-  pump1.loop(); // run/delegate to StateMachine of class Pump
+  pump1.loop(); // run StateMachine of class Pump
 }
 
-// Transition Funcs get evaluated constantly (or each STATE_DELAY tick)
+
+
+
+// TRANSITION LOGIC 
+// Funcs get evaluated constantly in current State
 bool transitionS0S0(){
   if(digitalRead(5) == HIGH){
     return true;
@@ -169,8 +182,7 @@ bool transitionS1S2(){
   return false;
 }
 
-// Regularly check in measureState if any Connection
-// is lost, if true go back to initState
+// Any Connection lost? -> go back to initState
 bool transitionS2S0(){
   if(!influxHelper.CheckInfluxConnection() || !services.GetWifiStatus()){
     return true;
@@ -192,30 +204,20 @@ bool transitionS3S4(){
   return false;
 }
 
-/*
-bool transitionS2S2(){
-  // Falls Länge der Map/Liste vollständig prüfe alle Einträge,
-  // falls einer nan durchlaufe S2 erneut
-}
-*/
-
 void setup() {
 
   Serial.begin(9600);
 
-  climate1.InitialiseDHT();
+  climate1.setup();
 
   pinMode(pumpButtonPin, INPUT);
-  pinMode(enA,OUTPUT);
-  pinMode(in1,OUTPUT);
-  pinMode(in2,OUTPUT);
 
-  State* initState = fsm.addState(&on_initState);
-  State* sleepState = fsm.addState(&on_sleepState);
-  State* measureState = fsm.addState(&on_measureState);
-  State* evaluateState = fsm.addState(&on_evaluateState);
+  initState = fsm.addState(&on_initState);
+  sleepState = fsm.addState(&on_sleepState);
+  measureState = fsm.addState(&on_measureState);
+  evaluateState = fsm.addState(&on_evaluateState);
   wateringState = fsm.addState(&on_wateringState);
-  //initState->addTransition(&transitionS0S0,initState);
+
   initState->addTransition(&transitionS0S1,sleepState);
   sleepState->addTransition(&transitionS1S2, measureState);
   measureState->addTransition(&transitionS2S0,initState);
@@ -229,10 +231,3 @@ void loop() {
   //delay(LOOP_DELAY);
   checkButtons();
 }
-
-
-/*
-TODO
-Pumpe darf nur ein PUMP_INVERVALL lang an sein, dann Wechsel in anderen State
-Schnelles Messen auf Befehl
-*/

@@ -1,9 +1,15 @@
 #ifndef climate_h
 #define climate_h
 #include <DHTesp.h>
+#include <pins.h>
 
-#define DHTpin 0
-//#define AHTpin 0
+// scoped enumeration for same stateNames
+enum class MeasureState
+{
+    INIT,
+    IDLE,
+    MEASURING
+};
 
 struct DHTdata
 {
@@ -17,12 +23,17 @@ class Climate
     DHTesp dht;
     int maxPollingRate;
     int measureAttemps;
+    float temperature;
+    float humidity;
+    MeasureState currentState, lastState;
+    unsigned long stateBeginMillis;
  
     Climate(int maxPollingRate, int measureAttempts); // Konstr 
-    void InitialiseDHT();
-    DHTdata MeasureDHT();
-    float MeasureHumidityDHT();
-    float MeasureTemperatureDHT();
+    void setup();
+    DHTdata loop();
+    DHTdata measureClimateDHT();
+    float measureHumidityDHT();
+    float measureTemperatureDHT();
 };
 
 #endif // climate_h

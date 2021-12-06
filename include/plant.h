@@ -8,9 +8,8 @@
 class Plant
 {
 public:
-    char* name[50];
+    char* name[50]; // Tag für InfluxDB
     Fotoresistor lightSensor;
-    //SoilMoisture soilMoistureSensor;
     std::vector <SoilMoisture> soilMoistureSensors;
 
     //Plant();

@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <pins.h>
 
-enum PumpState
+enum class PumpState
 {
     IDLE,
     ON,
@@ -30,8 +30,8 @@ public:
 
     PumpModel pumpModel; // PumpModel& pumpModel
     PumpState currentState, lastState;
-    bool doPump;
     unsigned long stateBeginMillis;
+    bool doPump;
 
     Pump(PumpModel& pumpModel); // Konstr.
     const PumpModel& getPumpModel() const;

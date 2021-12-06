@@ -11,7 +11,9 @@ WiFiMulti wifiMulti;
 #define pumpButtonPin 5 //D1
 #define relaisPin 4 //D2 
 #define laserDistPin 0 //D3 
-#define DHTpin 2 //D4 
+#define DHTpin 2 //D4
+//#define AHTpin 0
+
 // Multiplexer
 #define Aa 14
 #define Be 12

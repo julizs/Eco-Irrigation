@@ -12,7 +12,7 @@ bool Plant::measureSensors()
 {
     bool measurementsSuccessful;
 
-    // Get lightValue from plantGroup!
+    // TODO get lightValue from plantGroup
     float lightValue = lightSensor.measureLightSmoothed();
 
     // Plant has 0-3 sMS
