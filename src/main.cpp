@@ -81,7 +81,6 @@ void doEvaluate()
 
 void checkButtons()
 {
-  // Debouncing
   int reading = digitalRead(pumpButtonPin);
 
   /*
@@ -94,14 +93,13 @@ void checkButtons()
   // If Switch changed, due to Noise or Pressing:
   if (reading != lastButtonState)
   {
-
     // Reset Debouncing Timer
     lastDebounceTime = millis();
   }
 
+  // Debouncing
   if ((millis() - lastDebounceTime) > debounceDelay)
   {
-
     if (reading != buttonState)
     {
       buttonState = reading;
@@ -114,7 +112,6 @@ void checkButtons()
       }
     }
   }
-
   lastButtonState = reading;
 }
 
@@ -236,7 +233,8 @@ bool transitionS1S2()
 
 bool transitionS2S3()
 {
-  if (didMeasure)
+  //*
+  if (didMeasure || millis() - stateBeginMillis >= MEASURE_INTERVAL * 1000UL) // dht11.didMeasure && aht10.didMeasure && ... || millis() - ... (max. Messzeit)
   {
     return true;
   }
@@ -263,7 +261,7 @@ bool transitionS3S4()
 
 bool transitionS4S1()
 {
-  if(!pump1.doPump)
+  if(!pump1.doPump) // pump1.pumpDone && fan1.fanDone && ... || millis() - ... (max. Einschaltzeit)
   {
     return true;
   }
@@ -309,11 +307,12 @@ void loop()
   checkButtons();
 }
 
-/* const Pump::PumpModel pumpModel = pump1.getPumpModel();
-    Serial.println(pumpModel.minVoltage);
-    pump1.setPumpModel(palermo);
-    const Pump::PumpModel pumpModelNew = pump1.getPumpModel();
-    Serial.println(pumpModelNew.minVoltage); 
+/* 
+  const Pump::PumpModel pumpModel = pump1.getPumpModel();
+  Serial.println(pumpModel.minVoltage);
+  pump1.setPumpModel(palermo);
+  const Pump::PumpModel pumpModelNew = pump1.getPumpModel();
+  Serial.println(pumpModelNew.minVoltage); 
 */
 
 /*
@@ -322,3 +321,14 @@ void loop()
   Put in any TransitionLogic Func:
   if(millis() - stateBeginMillis >= SLEEP_INTERVAL)
 */
+
+/*
+  //*
+  Vorteile: 
+  Alle bool Flags sind je in Klasse, verstopfen main.cpp nicht
+  maxPollTime und maxPumpTime je einzeln in Klassen festlegbar/prüfbar
+  statt einzelne festes Zeitlimit für alle
+  Nachteile:
+  Prüfung aller bools in jedem cycle, extrem oft, besser wenn Prüfung
+  aller bools nur je, wenn eine der Funktionen zurückkehrt / Event
+  */
