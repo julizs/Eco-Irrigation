@@ -11,14 +11,15 @@ void Climate::setup()
   dht.setup(DHTpin, DHTesp::DHT11);
 }
 
-DHTdata Climate::loop()
+void Climate::loop()
 {
   switch (currentState)
   {
   case MeasureState::MEASURE:
     if (lastState != currentState) // Do once
     {
-      Serial.println("DHT11 Measure.");
+      measurementsComplete = false;
+      Serial.println("DHT11 measure.");
       data.humidity = dht.getHumidity();
       data.temperature = dht.getTemperature();
       currentState = MeasureState::IDLE;
@@ -43,12 +44,16 @@ DHTdata Climate::loop()
         stateBeginMillis = millis();
       }
     }
-    return data; // Return valid values immediately
+
+    measurementsComplete = true;
+    //return data; // Return valid values immediately
+
     break;
 
   case MeasureState::REMEASURE:
     if (lastState != currentState) // Do once
     {
+      Serial.println("DHT11 remeasure.");
       // Only remeasure non-valid value
       if (!validHumidity())
       {
@@ -67,8 +72,6 @@ DHTdata Climate::loop()
     }
     break;
   }
-
-  return data;
 }
 
 bool Climate::validHumidity()

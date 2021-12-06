@@ -37,6 +37,7 @@ int lastButtonState = HIGH; // Initial State is Off
 bool measurementsComplete, wateringNeeded;
 unsigned long stateBeginMillis = 0;
 const int SLEEP_INTERVAL = 1000;
+const int MEASURE_INTERVAL = 2000;
 const int LOOP_DELAY = 500; // Maschine evaluates Logic in States only every 500ms
 
 
@@ -44,16 +45,30 @@ const int LOOP_DELAY = 500; // Maschine evaluates Logic in States only every 500
 
 void doMeasurements()
 {
-  // Global Measurements
+  // Measurements per EcoBox
   byte rssi = WiFi.RSSI();
-  DHTdata data = climate1.loop();
+  climate1.loop();
+  //DHTdata data = climate1.loop();
   
   // Plant-specific Measurements
   for(auto& plant: plants) {
     plant.measureSensors();
     //Serial.println(plant.lightSensor.measureLight());
   }
-  measurementsComplete = true;
+  
+  // Unessesary wait...
+  // Better: One bool, all Funcs should set it true when ready, 
+  // and Classes/Plants submit data directly to InfluxDb
+  if(millis() - stateBeginMillis >= MEASURE_INTERVAL)
+  {
+    // Goto next State
+    measurementsComplete = true;
+  } 
+
+  /* if(climate1.measurementsComplete && )
+  {
+    measurementsComplete = true;
+  } */
 }
 
 void doEvaluate()
@@ -117,7 +132,7 @@ void on_initState(){
 
 void on_sleepState(){
   if(fsm.executeOnce){
-    Serial.println("Sleeping");
+    Serial.println("sleepState once");
     stateBeginMillis = millis();
     /* const Pump::PumpModel pumpModel = pump1.getPumpModel();
     Serial.println(pumpModel.minVoltage);
@@ -131,8 +146,8 @@ void on_sleepState(){
 
 void on_measureState(){
   if(fsm.executeOnce){
-    Serial.println();
-    Serial.println("measure State once");
+    Serial.println("measureState once");
+    stateBeginMillis = millis();
     //WiFi.disconnect();
     doMeasurements();
   }
@@ -140,7 +155,7 @@ void on_measureState(){
 
 void on_evaluateState(){
   if(fsm.executeOnce){
-    Serial.println("evaluate State once");
+    Serial.println("evaluateState once");
     doEvaluate(); // Execute Once
   }
 }

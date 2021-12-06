@@ -32,7 +32,7 @@ class Climate
  
     Climate(int maxPollingRate, int measureAttempts); // Konstr 
     void setup();
-    DHTdata loop();
+    void loop();
     DHTdata measureClimateDHT();
     float measureHumidityDHT();
     float measureTemperatureDHT();
