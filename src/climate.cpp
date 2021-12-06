@@ -13,65 +13,81 @@ void Climate::setup()
 
 DHTdata Climate::loop()
 {
-  DHTdata data;
-  int attempts = 0;
-
   switch (currentState)
   {
+  case MeasureState::MEASURE:
+    if (lastState != currentState) // Do once
+    {
+      Serial.println("DHT11 Measure.");
+      data.humidity = dht.getHumidity();
+      data.temperature = dht.getTemperature();
+      currentState = MeasureState::IDLE;
+      stateBeginMillis = millis();
+    }
+    break;
+
   case MeasureState::IDLE:
 
-    if (lastState != currentState) // Do once
+    if (lastState != currentState)
     {
       Serial.println("DHT11 idle.");
     }
 
-    // Remeasure after maxPollingTime only missing value, non-blocking (no delay)
-    if (millis() - maxPollingRate > stateBeginMillis)
+    if (!validHumidity() || !validTemperature())
     {
-      if (isnan(humidity) || humidity >= dht.getUpperBoundHumidity() || humidity <= dht.getLowerBoundHumidity() || 
-      isnan(temperature) || temperature >= dht.getUpperBoundTemperature() || temperature <= dht.getLowerBoundTemperature())
+      // Remeasure after maxPollingRate Interval if a value is not valid
+      if (millis() - stateBeginMillis > maxPollingRate)
       {
-        stateBeginMillis = millis(); // Must only be executed once, e.g. right before state transfer
-        currentState = MeasureState::MEASURING;
+        currentState = MeasureState::REMEASURE;
+        lastState = MeasureState::IDLE;
+        stateBeginMillis = millis();
       }
     }
-    lastState = MeasureState::IDLE;
+    return data; // Return valid values immediately
     break;
 
-  case MeasureState::MEASURING:
+  case MeasureState::REMEASURE:
     if (lastState != currentState) // Do once
     {
-      data.humidity = dht.getHumidity();
-      data.temperature = dht.getTemperature();
-      stateBeginMillis = millis();
+      // Only remeasure non-valid value
+      if (!validHumidity())
+      {
+        data.humidity = dht.getHumidity();
+      }
+
+      if (!validTemperature())
+      {
+        data.temperature = dht.getTemperature();
+      }
+
       currentState = MeasureState::IDLE;
-      lastState = MeasureState::MEASURING;
+      lastState = MeasureState::REMEASURE;
+      measureAttemps++;
+      stateBeginMillis = millis();
     }
     break;
   }
-
-  /*
-  // Do multiple Measurements since its only every 5 Minutes
-  // "inofficial" pollingRate of DHT = 500ms
-  // while Loops and delays are blocking Thread
-  while (attempts <= 2 &&(isnan(temperature) || isnan(humidity) || humidity >= dht.getUpperBoundHumidity()|| humidity <= dht.getLowerBoundHumidity()
-  || temperature >= dht.getUpperBoundTemperature() || temperature <= dht.getLowerBoundTemperature()))
-  {
-    Serial.println("DHT Measurement failed.");
-    delay(maxPollingRate);
-    humidity = dht.getHumidity();
-    temperature = dht.getTemperature();
-    attempts++;
-  }
-  */
 
   return data;
 }
 
-/* DHTdata Climate::measureClimateDHT()
+bool Climate::validHumidity()
 {
+  if (isnan(humidity) || humidity >= dht.getUpperBoundHumidity() || humidity <= dht.getLowerBoundHumidity())
+  {
+    return false;
+  }
+  return true;
+}
 
-} */
+bool Climate::validTemperature()
+{
+  if (isnan(temperature) || temperature >= dht.getUpperBoundTemperature() || temperature <= dht.getLowerBoundTemperature())
+  {
+    return false;
+  }
+  return true;
+}
 
 float Climate::measureHumidityDHT()
 {

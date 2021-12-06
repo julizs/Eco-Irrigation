@@ -6,9 +6,9 @@
 // scoped enumeration for same stateNames
 enum class MeasureState
 {
-    INIT,
+    MEASURE,
     IDLE,
-    MEASURING
+    REMEASURE
 };
 
 struct DHTdata
@@ -21,10 +21,12 @@ class Climate
 {
     public:
     DHTesp dht;
+    DHTdata data;
     int maxPollingRate;
     int measureAttemps;
     float temperature;
     float humidity;
+    bool measurementsComplete;
     MeasureState currentState, lastState;
     unsigned long stateBeginMillis;
  
@@ -34,6 +36,8 @@ class Climate
     DHTdata measureClimateDHT();
     float measureHumidityDHT();
     float measureTemperatureDHT();
+    bool validHumidity();
+    bool validTemperature();
 };
 
 #endif // climate_h
