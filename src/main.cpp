@@ -41,17 +41,13 @@ const int LOOP_DELAY = 500; // Maschine evaluates Logic in States only every 500
 
 void doMeasurements()
 {
+  byte rssi = WiFi.RSSI();
+
   for(auto& plant: plants) { // const
-    Serial.println(plant.lightSensor.measureLight());
+    plant.measureSensors();
+    //Serial.println(plant.lightSensor.measureLight());
   }
   measurementsComplete = true;
-  
-  // multiple measure attempts only for some values (dht11), NOT for smoothed ones like lightVal
-  
-  /* DHTdata m = climate1.MeasureDHT();
-  float lightVal = fotoresistor1.measureLight();
-  float soilMoisture = soilMoisture1.SmoothedSoilMoisture();
-  byte rssi = WiFi.RSSI(); */
 }
 
 void doEvaluate()

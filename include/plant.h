@@ -8,8 +8,9 @@
 class Plant
 {
 public:
+    char* name[50];
     Fotoresistor lightSensor;
-    SoilMoisture soilMoistureSensor;
+    //SoilMoisture soilMoistureSensor;
     std::vector <SoilMoisture> soilMoistureSensors;
 
     //Plant();
@@ -19,6 +20,8 @@ public:
     bool removeLightSensor(Fotoresistor lightSensor);
     bool addSoilMoistureSensor(SoilMoisture soilMoistureSensor);
     bool removeSoilMoistureSensor(SoilMoisture soilMoistureSensor);
+    bool measureSensors();
+    bool writeToInflux();
 };
 
 #endif //plant.h
