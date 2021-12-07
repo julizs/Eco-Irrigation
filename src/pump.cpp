@@ -69,6 +69,7 @@ void Pump::loop()
             // Waterlevel was higher before
             distanceDelta = waterDistance - toF.readRangeSingleMillimeters();
             lastPumped = distanceDeltaToMilliliters(distanceDelta);
+            if(bestPumped < lastPumped) {bestPumped = lastPumped;}
             totalPumped += lastPumped;
         }
 
@@ -85,6 +86,26 @@ bool Pump::checkMinWaterDistance()
 float Pump::distanceDeltaToMilliliters(unsigned short distanceDelta)
 {
     return distanceDelta * mmToMlFactor;
+}
+
+bool Pump::checkPumpPerformance(unsigned short lastPumped)
+{
+    // Correct: bestPumped struct per Model and PWM value (e.g. Palermo, 100ml, 125)
+    if(bestPumped - lastPumped > 50) // 50 Milliliter Threashold
+    {
+        Serial.println("Pump Performance deteriorated, need to clean Pump Filter or Exchange Water.");
+        return true;
+    }
+    return false;
+}
+
+float Pump::getWaterLevel()
+{
+    if(checkMinWaterDistance())
+    {
+        Serial.println("Water Level not sufficient. Please refill Tank.");
+    }
+    return (distanceDeltaToMilliliters(toF.readRangeSingleMillimeters()));
 }
 
 void Pump::switchOn()

@@ -39,19 +39,21 @@ public:
     unsigned short waterDistance; // measured WaterLevel
     unsigned short distanceDelta;
     float mmToMlFactor; // depends on WaterTank
-    float totalPumped, lastPumped;
+    float totalPumped, lastPumped, bestPumped;
 
     Pump(PumpModel& pumpModel); // Konstr.
     const PumpModel& getPumpModel() const;
     void setPumpModel(const Pump::PumpModel& pM);
     void setup();
     void loop();
+    float getWaterLevel();
 
 private:
     void switchOn();
     void switchOff();
     void setupToFSensor();
     bool checkMinWaterDistance();
+    bool checkPumpPerformance(unsigned short);
     float distanceDeltaToMilliliters(unsigned short);
 };
 
