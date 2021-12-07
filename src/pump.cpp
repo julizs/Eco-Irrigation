@@ -11,6 +11,7 @@ void Pump::setup()
     pinMode(in1, OUTPUT);
     pinMode(in2, OUTPUT);
     setupToFSensor();
+    minStateDuration = 1;
     maxWaterDistance = 20000;
     currentState = PumpState::IDLE;
 }
@@ -34,12 +35,13 @@ void Pump::loop()
         if (lastState != currentState)
         {
             stateBeginMillis = millis();
-            switchOff();
             Serial.println(stateNames[(byte)currentState]);
             waterDistance = toF.readRangeSingleMillimeters();
+            switchOff();
+            cycleDone = true; // IDLE -> 1s -> ON -> IDLE
         }
 
-        if (pumpSignal)
+        if (millis() - stateBeginMillis >= minStateDuration * 1000UL && pumpSignal)
         {
             currentState = PumpState::ON;
             //pumpSignal = false;
@@ -53,6 +55,7 @@ void Pump::loop()
         // Execute once
         if (lastState != currentState)
         {
+            cycleDone = false;
             pumpSignal = false;
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
@@ -62,8 +65,9 @@ void Pump::loop()
         switchOn();
         Serial.print(".");
 
-        if ((millis() - stateBeginMillis >= pumpModel.maxPumpingDuration * 1000UL) 
-        || pumpSignal == true) // Time is up or Button pressed again (stop now!)
+        if (millis() - stateBeginMillis >= minStateDuration * 1000UL &&
+        ((millis() - stateBeginMillis >= pumpModel.maxPumpingDuration * 1000UL)
+        || pumpSignal == true)) // minStateTime is up AND (Time is up OR Button pressed again (Stop now!))
         {
             currentState = PumpState::IDLE;
             pumpSignal = false;
