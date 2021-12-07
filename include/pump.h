@@ -1,14 +1,14 @@
 #ifndef pump_h
 #define pump_h
 #include <Arduino.h>
+#include <Wire.h>
 #include <pins.h>
+#include <VL53L0X.h>
 
 enum class PumpState
 {
     IDLE,
-    ON,
-    TURNING_ON,
-    TURNING_OFF
+    ON
 };
 
 class Pump
@@ -34,6 +34,13 @@ public:
     unsigned long stateBeginMillis;
     bool pumpSignal;
 
+    VL53L0X toF; // see Library Doc
+    unsigned short maxWaterDistance; // min allowed WaterLevel
+    unsigned short waterDistance; // measured WaterLevel
+    unsigned short distanceDelta;
+    float mmToMlFactor; // depends on WaterTank
+    float totalPumped, lastPumped;
+
     Pump(PumpModel& pumpModel); // Konstr.
     const PumpModel& getPumpModel() const;
     void setPumpModel(const Pump::PumpModel& pM);
@@ -43,7 +50,9 @@ public:
 private:
     void switchOn();
     void switchOff();
-    void calibrateFlowRate();
+    void setupToFSensor();
+    bool checkMinWaterDistance();
+    float distanceDeltaToMilliliters(unsigned short);
 };
 
 #endif // pump_h

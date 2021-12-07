@@ -269,6 +269,7 @@ void setup()
   // Wait for serial to init
   while (!Serial){}
   Serial.begin(9600);
+  Wire.begin(); // for VL53L0X
 
   climate1.setup();
 

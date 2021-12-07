@@ -1,16 +1,27 @@
 #include "pump.h"
 
-Pump::Pump(PumpModel &p): pumpModel(p)
+Pump::Pump(PumpModel &p) : pumpModel(p)
 {
     setup();
 }
 
 void Pump::setup()
 {
-    pinMode(enA,OUTPUT);
-    pinMode(in1,OUTPUT);
-    pinMode(in2,OUTPUT);
+    pinMode(enA, OUTPUT);
+    pinMode(in1, OUTPUT);
+    pinMode(in2, OUTPUT);
+    setupToFSensor();
+    maxWaterDistance = 20000;
     currentState = PumpState::IDLE;
+}
+
+void Pump::setupToFSensor()
+{
+  toF.setTimeout(500);
+  if (!toF.init())
+  {
+    Serial.println("Failed to detect and init ToF sensor!");
+  }
 }
 
 void Pump::loop()
@@ -19,18 +30,19 @@ void Pump::loop()
     {
 
     case PumpState::IDLE:
-  
-        if(lastState != currentState)
+
+        if (lastState != currentState)
         {
+            stateBeginMillis = millis();
             switchOff();
             Serial.println(stateNames[(byte)currentState]);
+            waterDistance = toF.readRangeSingleMillimeters();
         }
-        
+
         if (pumpSignal)
         {
             currentState = PumpState::ON;
             pumpSignal = false;
-            stateBeginMillis = millis();
         }
 
         lastState = PumpState::IDLE;
@@ -39,26 +51,40 @@ void Pump::loop()
     case PumpState::ON:
 
         // Execute once
-        if(lastState != currentState)
+        if (lastState != currentState)
         {
+            stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
         }
-        
+
         // Execute each tick
         switchOn();
         Serial.print(".");
 
-        if ((millis() - stateBeginMillis >= pumpModel.maxPumpingDuration * 1000UL)
+        if ((millis() - stateBeginMillis >= pumpModel.maxPumpingDuration * 1000UL) 
         || pumpSignal == true) // Time is up or Button pressed again (stop now!)
         {
             currentState = PumpState::IDLE;
             pumpSignal = false;
-            stateBeginMillis = millis();
+            // Waterlevel was higher before
+            distanceDelta = waterDistance - toF.readRangeSingleMillimeters();
+            lastPumped = distanceDeltaToMilliliters(distanceDelta);
+            totalPumped += lastPumped;
         }
 
         lastState = PumpState::ON;
         break;
     }
+}
+
+bool Pump::checkMinWaterDistance()
+{
+    return toF.readRangeSingleMillimeters() > maxWaterDistance;
+}
+
+float Pump::distanceDeltaToMilliliters(unsigned short distanceDelta)
+{
+    return distanceDelta * mmToMlFactor;
 }
 
 void Pump::switchOn()
@@ -67,7 +93,7 @@ void Pump::switchOn()
     digitalWrite(in1, LOW);
     digitalWrite(in2, HIGH);
 
-    analogWrite(enA,125); // PWM, 0-255
+    analogWrite(enA, 125); // PWM, 0-255
     //digitalWrite(pumpPin, HIGH); // Relais
 }
 
@@ -76,19 +102,14 @@ void Pump::switchOff()
     //digitalWrite(pumpPin, LOW); // Relais
 }
 
-const Pump::PumpModel& Pump::getPumpModel() const
+const Pump::PumpModel &Pump::getPumpModel() const
 {
     return pumpModel;
 }
 
-void Pump::setPumpModel(const Pump::PumpModel& pM)
+void Pump::setPumpModel(const Pump::PumpModel &pM)
 {
     pumpModel = pM;
-}
-
-void Pump::calibrateFlowRate()
-{
-    //
 }
 
 
@@ -108,7 +129,6 @@ byte Pump::PumpModel::getminVoltage()
 {
     return this->minVoltage;
 }
-
 
 // Tankfüllstand
 // Pumpen Funktionstest
