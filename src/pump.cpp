@@ -23,13 +23,14 @@ void Pump::loop()
         if(lastState != currentState)
         {
             switchOff();
-            Serial.println("Pump is IDLE!"); 
+            Serial.println(stateNames[(byte)currentState]);
         }
         
-        if (doPump)
+        if (pumpSignal)
         {
             currentState = PumpState::ON;
-            stateBeginMillis = millis(); // Must only be executed once, e.g. right before state transfer
+            pumpSignal = false;
+            stateBeginMillis = millis();
         }
 
         lastState = PumpState::IDLE;
@@ -37,23 +38,21 @@ void Pump::loop()
 
     case PumpState::ON:
 
-        // Execute only once
+        // Execute once
         if(lastState != currentState)
         {
-            Serial.println("Pump is ON!");
+            Serial.println(stateNames[(byte)currentState]);
         }
         
         // Execute each tick
         switchOn();
-
         Serial.print(".");
-        if (millis() - stateBeginMillis >= pumpModel.maxPumpingDuration * 1000UL)
-        {
-            doPump = false;
-        }
-        if (!doPump) // Time is up or Button Press
+
+        if ((millis() - stateBeginMillis >= pumpModel.maxPumpingDuration * 1000UL)
+        || pumpSignal == true) // Time is up or Button pressed again (stop now!)
         {
             currentState = PumpState::IDLE;
+            pumpSignal = false;
             stateBeginMillis = millis();
         }
 
@@ -64,11 +63,11 @@ void Pump::loop()
 
 void Pump::switchOn()
 {
-    // Rotation Direction (da H-Bridge)
+    // Rotation Direction (if H-Bridge)
     digitalWrite(in1, LOW);
     digitalWrite(in2, HIGH);
 
-    analogWrite(enA,255);
+    analogWrite(enA,125); // PWM, 0-255
     //digitalWrite(pumpPin, HIGH); // Relais
 }
 
@@ -89,6 +88,7 @@ void Pump::setPumpModel(const Pump::PumpModel& pM)
 
 void Pump::calibrateFlowRate()
 {
+    //
 }
 
 

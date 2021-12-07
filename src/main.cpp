@@ -19,15 +19,20 @@ Multiplexer multi1;
 Climate climate1(500, 2);
 SoilMoisture soilMoisture1(550, 10, C0);
 Fotoresistor fotoResistor1(10000, 3.3, 10, C1);
-Pump::PumpModel qr50e(12, 12, 5, 240);
-Pump::PumpModel palermo(6, 12, 5, 330);
+Pump::PumpModel qr50e(12, 12, 2, 240);
+Pump::PumpModel palermo(6, 12, 2, 330);
 Pump pump1(qr50e);
-
 Plant plant2(fotoResistor1, soilMoisture1);
 std::vector<Plant> plants{plant2};
 
 StateMachine fsm = StateMachine();
 State *initState, *sleepState, *measureState, *evaluateState, *actionState;
+const char *stateNames[] = {"INIT", "SLEEP", "MEASURE", "EVALUATE", "ACTION"};
+bool wateringNeeded, didSleep, didCycle;
+unsigned long stateBeginMillis = 0;
+const int SLEEP_INTERVAL = 4;
+const int MEASURE_INTERVAL = 2;
+const int MIN_STATE_DURATION = 2;
 
 // Debouncing
 unsigned long lastDebounceTime = 0; // Last time Output Pin was toggled
@@ -36,15 +41,9 @@ int buttonState;
 int lastButtonState = HIGH; // Initial State is Off
 //
 
-bool wateringNeeded, didSleep, didMeasure, didCycle;
-unsigned long stateBeginMillis = 0;
-const int SLEEP_INTERVAL = 5;
-const int MEASURE_INTERVAL = 2;
-const int LOOP_DELAY = 500; // Maschine evaluates Logic in States only every 500ms
 
 void doMeasurements()
 {
-  didMeasure = false;
   // Measurements per EcoBox
   byte rssi = WiFi.RSSI();
   climate1.loop();
@@ -56,20 +55,6 @@ void doMeasurements()
     plant.measureSensors();
     //Serial.println(plant.lightSensor.measureLight());
   }
-
-  // Unessesary wait...
-  // Better: One bool, all Funcs should set it true when ready,
-  // and Classes/Plants submit data directly to InfluxDb
-  if (millis() - stateBeginMillis >= MEASURE_INTERVAL)
-  {
-    // Goto next State
-    didMeasure = true;
-  }
-
-  /* if(climate1.measurementsComplete && )
-  {
-    measurementsComplete = true;
-  } */
 }
 
 void doEvaluate()
@@ -107,7 +92,10 @@ void checkButtons()
       if (buttonState == LOW)
       {
         Serial.println("Pump Button pressed!");
-        wateringNeeded = true;
+        // Go to actionState
+        wateringNeeded = true; 
+        // Turn Pump on/off cause of Button
+        pump1.pumpSignal = true;
         fsm.transitionTo(actionState);
       }
     }
@@ -123,13 +111,24 @@ void checkConnections()
   }
 }
 
+void baseStateLogic()
+{
+  Serial.println(stateNames[fsm.currentState]);
+  //checkConnections();
+  stateBeginMillis = millis();
+}
+
+bool countTime(int duration)
+{
+  return (millis() - stateBeginMillis >= duration * 1000UL);
+}
+
 // STATE LOGIC
 void on_initState()
 {
   if (fsm.executeOnce)
   {
-    Serial.println("init State once");
-    stateBeginMillis = millis();
+    baseStateLogic();
 
     if (!services.getWifiStatus())
     {
@@ -147,29 +146,25 @@ void on_sleepState()
   if (fsm.executeOnce)
   {
     didSleep = false;
-    Serial.println("sleepState once");
-    stateBeginMillis = millis();
-    ESP.deepSleep(30e6); // Connect Sleep Cable AFTER Uploading Code
-    checkConnections();
-    didSleep = true;
+    baseStateLogic();
+    //ESP.deepSleep(30e6); // Connect Sleep Cable AFTER Uploading Code
+    //checkConnections();
+    //didSleep = true;
   }
-  /*
-  Serial.print(".");
+  // Simulate Sleep
+  // Serial.print(".");
   if(millis() - stateBeginMillis >= SLEEP_INTERVAL * 1000UL)
   {
     didSleep = true;
   }
-  */
 }
 
 void on_measureState()
 {
   if (fsm.executeOnce)
   {
-    Serial.println("measureState once");
-    stateBeginMillis = millis();
+    baseStateLogic();
     //WiFi.disconnect();
-    checkConnections();
     doMeasurements();
   }
 }
@@ -178,9 +173,7 @@ void on_evaluateState()
 {
   if (fsm.executeOnce)
   {
-    Serial.println("evaluateState once");
-    stateBeginMillis = millis();
-    checkConnections();
+    baseStateLogic();
     doEvaluate();
   }
 }
@@ -190,9 +183,9 @@ void on_actionState()
 {
   if (fsm.executeOnce)
   {
-    Serial.println("watering State once");
-    stateBeginMillis = millis();
-    pump1.doPump = true;
+    baseStateLogic();
+    // Turn Pump on cause of Measurements
+    pump1.pumpSignal = true;
   }
   // run sub-StateMachines in loop
   if(wateringNeeded)
@@ -206,7 +199,7 @@ void on_actionState()
 // Funcs are evaluated constantly in current State
 bool transitionS0S1()
 {
-  if (didCycle)
+  if (countTime(MIN_STATE_DURATION) && didCycle) // Sleep if measured before
   {
     return true;
   }
@@ -215,7 +208,7 @@ bool transitionS0S1()
 
 bool transitionS0S2()
 {
-  if (!didCycle)
+  if (countTime(MIN_STATE_DURATION) && !didCycle) // Measure immediately if it didnt yet
   {
     return true;
   }
@@ -224,7 +217,7 @@ bool transitionS0S2()
 
 bool transitionS1S2()
 {
-  if (didSleep)
+  if (countTime(MIN_STATE_DURATION) && didSleep)
   {
     return true;
   }
@@ -234,7 +227,8 @@ bool transitionS1S2()
 bool transitionS2S3()
 {
   //*
-  if (didMeasure || millis() - stateBeginMillis >= MEASURE_INTERVAL * 1000UL) // dht11.didMeasure && aht10.didMeasure && ... || millis() - ... (max. Messzeit)
+  // Wait till max Measure time is up || dht11.didMeasure && aht10.didMeasure && ... (Sensors ready before)
+  if (countTime(MEASURE_INTERVAL) || climate1.measurementsComplete)
   {
     return true;
   }
@@ -243,7 +237,7 @@ bool transitionS2S3()
 
 bool transitionS3S1()
 {
-  if (!wateringNeeded)
+  if (countTime(MIN_STATE_DURATION && !wateringNeeded)) // && !coolingNeeded && ...
   {
     return true;
   }
@@ -252,7 +246,7 @@ bool transitionS3S1()
 
 bool transitionS3S4()
 {
-  if (wateringNeeded)
+  if (countTime(MIN_STATE_DURATION && wateringNeeded)) // || coolingNeeded || ...
   {
     return true;
   }
@@ -261,7 +255,8 @@ bool transitionS3S4()
 
 bool transitionS4S1()
 {
-  if(!pump1.doPump) // pump1.pumpDone && fan1.fanDone && ... || millis() - ... (max. Einschaltzeit)
+  // pump1.pumpDone && fan1.fanDone && ... || millis() - ... (max. Einschaltzeit)
+  if(countTime(MIN_STATE_DURATION && pump1.currentState == PumpState::IDLE && !pump1.pumpSignal)) 
   {
     return true;
   }
@@ -331,4 +326,5 @@ void loop()
   Nachteile:
   Prüfung aller bools in jedem cycle, extrem oft, besser wenn Prüfung
   aller bools nur je, wenn eine der Funktionen zurückkehrt / Event
+  Dazu müssen Funktionen von main.cpp von anderen Klassen aufrufbar sein
   */

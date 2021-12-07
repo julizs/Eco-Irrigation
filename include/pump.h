@@ -30,8 +30,9 @@ public:
 
     PumpModel pumpModel; // PumpModel& pumpModel
     PumpState currentState, lastState;
+    const char *stateNames[2] = {"PUMP_IDLE", "PUMP_ON"};
     unsigned long stateBeginMillis;
-    bool doPump;
+    bool pumpSignal;
 
     Pump(PumpModel& pumpModel); // Konstr.
     const PumpModel& getPumpModel() const;
