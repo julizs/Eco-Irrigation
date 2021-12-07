@@ -42,7 +42,7 @@ void Pump::loop()
         if (pumpSignal)
         {
             currentState = PumpState::ON;
-            pumpSignal = false;
+            //pumpSignal = false;
         }
 
         lastState = PumpState::IDLE;
@@ -53,6 +53,7 @@ void Pump::loop()
         // Execute once
         if (lastState != currentState)
         {
+            pumpSignal = false;
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
         }

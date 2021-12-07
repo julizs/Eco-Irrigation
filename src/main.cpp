@@ -68,13 +68,6 @@ void checkButtons()
 {
   int reading = digitalRead(pumpButtonPin);
 
-  /*
-  if(reading == LOW)
-  {
-    Serial.println("Pump Button pressed!");
-  }
-  */
-
   // If Switch changed, due to Noise or Pressing:
   if (reading != lastButtonState)
   {
@@ -92,10 +85,9 @@ void checkButtons()
       if (buttonState == LOW)
       {
         Serial.println("Pump Button pressed!");
-        // Go to actionState
-        wateringNeeded = true; 
-        // Turn Pump on/off cause of Button
-        pump1.pumpSignal = true;
+        
+        wateringNeeded = true; // Go to actionState
+        pump1.pumpSignal = true; // Turn Pump on/off cause of Button
         fsm.transitionTo(actionState);
       }
     }
@@ -256,7 +248,7 @@ bool transitionS3S4()
 bool transitionS4S1()
 {
   // pump1.pumpDone && fan1.fanDone && ... || millis() - ... (max. Einschaltzeit)
-  if(countTime(MIN_STATE_DURATION && pump1.currentState == PumpState::IDLE && !pump1.pumpSignal)) 
+  if(countTime(MIN_STATE_DURATION) && pump1.currentState == PumpState::IDLE && !pump1.pumpSignal)
   {
     return true;
   }
