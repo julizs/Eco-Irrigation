@@ -15,9 +15,10 @@ WiFiMulti wifiMulti;
 //#define AHTpin 0
 
 // Multiplexer
-#define Aa 14
-#define Be 12
-#define Ce 13
+#define S0 14
+#define S1 12
+#define S2 13
+#define S3 15
 #define analogPin A0
 
 // L298N

@@ -8,7 +8,7 @@ class Multiplexer
 public:
     Multiplexer();
     void setup();
-    int measureAnalog(byte pin);
+    int readChannel(byte channel);
 };
 
 #endif //multiplexer.h
