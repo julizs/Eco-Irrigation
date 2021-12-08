@@ -7,8 +7,8 @@ class Multiplexer
 {
 public:
     Multiplexer();
-    void setup();
-    int readChannel(byte channel);
+    static void setup();
+    static int readChannel(byte channel);
 };
 
 #endif //multiplexer.h

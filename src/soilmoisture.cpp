@@ -1,45 +1,49 @@
 #include "soilmoisture.h"
-#include "pins.h"
 
-SoilMoisture::SoilMoisture(int sensorFloor, byte sampleSize, byte multiPin)
+SoilMoisture::SoilMoisture(int sensorFloor, byte sampleSize, byte multiplexerPin)
 {
   this->sensorFloor = sensorFloor;
   this->sampleSize = sampleSize;
-  this->multiPin = multiPin;
+  this->multiplexerPin = multiplexerPin;
 }
 
-float SoilMoisture::measureSoilMoistureSmoothed()
+int SoilMoisture::measureSoilMoistureSmoothed()
 {
-  float sum = 0;
+  int sum = 0;
 
   // Analog Smoothing
   for(int i = 0; i < sampleSize; i++)
   {
-    float soilMoisture = measureSoilMoisture();
+    int soilMoisture = measureSoilMoisture();
 
     if(isnan(soilMoisture))
 	  {
 		 Serial.println("Soil Moisture Measurement failed.");
 	  }
 
-    sum += soilMoisture; 
+    sum += soilMoisture;
+    delay(1);
   }
 
-  float smoothedMoisture = sum/sampleSize;
+  int smoothedMoisture = sum/sampleSize;
 
   return smoothedMoisture;
 }
 
-float SoilMoisture::measureSoilMoisture()
+int SoilMoisture::measureSoilMoisture()
 {
-  // Range: 0-1023, 1023 ist max. Trockenheit
+  // Range: 0-1023, 1023 is maximum Dryness
   
-  // Ersetzen durch Multiplexer Aufruf
-  float rawValue = analogRead(analogPin);
-
-  float constrainedValue = constrain(rawValue, sensorFloor, 1024); // da manchmal Ausreißer unterhalb "Floor" in Wasser, z.B. 350)
-  float mappedValue = map(constrainedValue,1024,sensorFloor,0,100);
-  //float percentageValue = ( 100.00 - ( (mappedValue/1023.00) * 100.00 ) );
+  //int rawValue = analogRead(analogPin);
+  int rawValue = Multiplexer::readChannel(multiplexerPin);
+  // measured Value sometimes under Floor, constrain needed for calc of percentage
+  int constrainedValue = constrain(rawValue, sensorFloor, 1024);
 
   return rawValue;
+}
+
+float SoilMoisture::calcPercentage(int constrainedValue)
+{
+  int mappedValue = map(constrainedValue,1024,sensorFloor,0,100);
+  float percentageValue = ( 100.0f - ( (mappedValue/1023.0f) * 100.0f ) );
 }

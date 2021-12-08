@@ -15,10 +15,9 @@
 Services services;
 InfluxHelper influxHelper;
 
-Multiplexer multi1;
 Climate climate1(500, 2);
 SoilMoisture soilMoisture1(550, 10, C0);
-Fotoresistor fotoResistor1(10000, 3.3, 10, C1);
+Fotoresistor fotoResistor1(10000, 3.3, 10, C15);
 Pump::PumpModel qr50e(12, 12, 2, 240);
 Pump::PumpModel palermo(6, 12, 2, 330);
 Pump pump1(qr50e);
@@ -274,7 +273,7 @@ void setup()
   pinMode(relaisPin, OUTPUT);
   pinMode(laserDistPin, INPUT);
 
-  multi1.setup();
+  Multiplexer::setup();
 
   initState = fsm.addState(&on_initState);
   sleepState = fsm.addState(&on_sleepState);

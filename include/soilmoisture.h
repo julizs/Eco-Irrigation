@@ -1,6 +1,8 @@
 #ifndef soilmoisture_h
 #define soilmoisture_h
 #include <Arduino.h>
+#include <pins.h>
+#include <multiplexer.h>
 
 class SoilMoisture
 {
@@ -9,12 +11,13 @@ public:
     // (max. Feuchtigkeit = ca. 400-550 statt 0)
     int sensorFloor;
     byte sampleSize;
-    byte multiPin; // Never changes, only Association from Sensor to Plant Object
+    byte multiplexerPin; // Never changes, only Association from Sensor to Plant Object
 
-    SoilMoisture(int sensorFloor, byte sampleSize, byte multiPin);
+    SoilMoisture(int sensorFloor, byte sampleSize, byte multiplexerPin);
 
-    float measureSoilMoistureSmoothed();
-    float measureSoilMoisture();
+    int measureSoilMoistureSmoothed();
+    int measureSoilMoisture();
+    float calcPercentage(int constrainedValue);
 };
 
 #endif //soilmoisture_h

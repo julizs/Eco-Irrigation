@@ -13,6 +13,7 @@ void Multiplexer::setup()
   pinMode(S3, OUTPUT);
   pinMode(analogPin, INPUT);
   
+  // Like this or via Esp Port Manipulation
   digitalWrite(S0, LOW);
   digitalWrite(S1, LOW);
   digitalWrite(S2, LOW);

@@ -28,7 +28,7 @@ WiFiMulti wifiMulti;
 #endif
 
 // Egal ob Esp32 oder Esp8266
-#define C0 (byte)998
-#define C1 (byte)999
+#define C0 0
+#define C15 15
 
 #endif //pins_h
