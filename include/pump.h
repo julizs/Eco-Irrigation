@@ -3,7 +3,8 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <pins.h>
-#include <VL53L0X.h>
+//#include <VL53L0X.h>
+//#include "Adafruit_VL53L0X.h"
 
 enum class PumpState
 {
@@ -34,7 +35,8 @@ public:
     unsigned long stateBeginMillis, minStateDuration;
     bool pumpSignal, cycleDone;
 
-    VL53L0X toF; // see Library Doc
+    //VL53L0X toF; // Polulu
+    //Adafruit_VL53L0X toF_1 = Adafruit_VL53L0X(); // Adafruit
     unsigned short maxWaterDistance; // min allowed WaterLevel
     unsigned short waterDistance; // measured WaterLevel
     unsigned short distanceDelta;
@@ -51,7 +53,7 @@ public:
 private:
     void switchOn();
     void switchOff();
-    void setupToFSensor();
+    void setupToF();
     bool checkMinWaterDistance();
     bool checkPumpPerformance(unsigned short);
     float distanceDeltaToMilliliters(unsigned short);

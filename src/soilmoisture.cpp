@@ -46,4 +46,5 @@ float SoilMoisture::calcPercentage(int constrainedValue)
 {
   int mappedValue = map(constrainedValue,1024,sensorFloor,0,100);
   float percentageValue = ( 100.0f - ( (mappedValue/1023.0f) * 100.0f ) );
+  return percentageValue;
 }

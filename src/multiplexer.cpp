@@ -11,7 +11,7 @@ void Multiplexer::setup()
   pinMode(S1, OUTPUT);
   pinMode(S2, OUTPUT);
   pinMode(S3, OUTPUT);
-  pinMode(analogPin, INPUT);
+  //pinMode(analogPin, INPUT);
   
   // Like this or via Esp Port Manipulation
   digitalWrite(S0, LOW);
@@ -48,6 +48,6 @@ int Multiplexer::readChannel(byte channel)
        digitalWrite(controlPin[i], muxChannel[channel][i]); 
      }
 
-     int val = analogRead(analogPin);  
-     return val;
+     //int val = analogRead(analogPin);  
+     return 666;
 }

@@ -12,9 +12,10 @@ Fotoresistor::Fotoresistor(int resistance, float voltageIn, byte sampleSize, byt
 int Fotoresistor::measureLight()
 {
   // Ersetzen durch Multiplexer Aufruf
-  int rawVal = analogRead(analogPin);
+  // int rawVal = analogRead(analogPin);
 
-  return measureLux(rawVal);
+  //return measureLux(rawVal);
+  return 666;
 }
 
 float Fotoresistor::measureLightSmoothed()

@@ -1,6 +1,7 @@
 #include <services.h>
-
-ESP8266WiFiMulti wifiMulti;
+#include <WiFiMulti.h>
+WiFiMulti wifiMulti;
+//ESP8266WiFiMulti wifiMulti;
 
 Services::Services()
 {

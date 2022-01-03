@@ -65,7 +65,7 @@ void doEvaluate()
 
 void checkButtons()
 {
-  int reading = digitalRead(pumpButtonPin);
+  int reading = digitalRead(button1Pin);
 
   // If Switch changed, due to Noise or Pressing:
   if (reading != lastButtonState)
@@ -269,9 +269,9 @@ void setup()
 
   climate1.setup();
 
-  pinMode(pumpButtonPin, INPUT);
-  pinMode(relaisPin, OUTPUT);
-  pinMode(laserDistPin, INPUT);
+  pinMode(button1Pin, INPUT);
+  pinMode(button2Pin, INPUT);
+  pinMode(button3Pin, INPUT);
 
   Multiplexer::setup();
 
