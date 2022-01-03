@@ -21,19 +21,17 @@ void Pump::setup()
 void Pump::setupToF()
 {
   /*  
-  // Only if SHT_Pin connected
+  // Only if SHT_Pin connected to toF sensor
   pinMode(SHUT_TUF_1, OUTPUT);
   digitalWrite(SHUT_TUF_1, LOW);
   digitalWrite(SHUT_TUF_1, HIGH);
   */
-  
-  /*
+
   toF_1.begin(0x52, &I2Cone); // wie bei TSL2591 Standard Addr. 0x29, Änderung per Software nötig)
   toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY);
   Serial.println(toF_1.getMeasurementTimingBudgetMicroSeconds()); // 200k micro sec (0.2 sec) on High Accuracy profile
   toF_1. setMeasurementTimingBudgetMicroSeconds(300000); // increase to 300k
   Serial.println("did Setup VL530x");
-  */
 }
 
 void Pump::loop()
@@ -84,7 +82,7 @@ void Pump::loop()
             pumpSignal = false;
             // Waterlevel was higher before
             // distanceDelta = waterDistance - toF_1.readRangeSingleMillimeters();
-            lastPumped = distanceDeltaToMilliliters(distanceDelta);
+            // lastPumped = distanceDeltaToMilliliters(distanceDelta);
             if(bestPumped < lastPumped) {bestPumped = lastPumped;}
             totalPumped += lastPumped;
         }
@@ -94,14 +92,20 @@ void Pump::loop()
     }
 }
 
-bool Pump::checkMinWaterDistance()
+int Pump:: readToF()
 {
-    //return toF_1.readRangeSingleMillimeters() > maxWaterDistance;
-}
+  VL53L0X_RangingMeasurementData_t measure;
+    
+  Serial.print("Reading a measurement... ");
+  toF_1.rangingTest(&measure, false); // pass in 'true' to get debug data printout!
 
-float Pump::distanceDeltaToMilliliters(unsigned short distanceDelta)
-{
-    return distanceDelta * mmToMlFactor;
+  if (measure.RangeStatus != 4) {  // phase failures have incorrect data
+    Serial.print("Distance (mm): "); Serial.println(measure.RangeMilliMeter);
+  } else {
+    Serial.println(" out of range ");
+  }
+    
+  delay(1000);
 }
 
 bool Pump::checkPumpPerformance(unsigned short lastPumped)
@@ -115,7 +119,13 @@ bool Pump::checkPumpPerformance(unsigned short lastPumped)
     return false;
 }
 
-float Pump::getWaterLevel()
+/*
+bool Pump::sufficientWaterLevel()
+{
+    //return toF_1.readRangeSingleMillimeters() > maxWaterDistance;
+}
+
+float Pump::currentwaterLevel()
 {
     if(checkMinWaterDistance())
     {
@@ -123,12 +133,15 @@ float Pump::getWaterLevel()
     }
     //return (distanceDeltaToMilliliters(toF.readRangeSingleMillimeters()));
 }
+*/ 
 
 void Pump::switchOn()
 {
-    // Rotation Direction (if H-Bridge)
-    //digitalWrite(in1, LOW);
-    //digitalWrite(in2, HIGH);
+    /*
+    // Set Rotation Direction (if H-Bridge and Pump supports 2 Dirs)
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, HIGH);
+    */
 
     //analogWrite(enA, 125); // PWM, 0-255, ESP32 Befehl?
 

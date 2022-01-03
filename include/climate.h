@@ -1,7 +1,7 @@
 #ifndef climate_h
 #define climate_h
 #include <DHTesp.h>
-#include <pins.h>
+#include <main.h>
 
 // scoped enumeration for same stateNames
 enum class MeasureState

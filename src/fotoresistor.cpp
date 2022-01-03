@@ -1,5 +1,4 @@
 #include "fotoresistor.h"
-#include "pins.h"
 
 Fotoresistor::Fotoresistor(int resistance, float voltageIn, byte sampleSize, byte multiPin)
 {

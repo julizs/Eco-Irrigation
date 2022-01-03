@@ -1,9 +1,8 @@
 #ifndef plant_h
 #define plant_h
-#include <pins.h>
+#include <main.h>
 #include <fotoresistor.h>
 #include <soilmoisture.h>
-#include <Arduino.h>
 
 class Plant
 {

@@ -9,10 +9,10 @@
 #define button1Pin 15
 #define button2Pin 4
 #define button3Pin 19
-//#define pumpButtonPin 5
-//#define relaisPin 4 
+#define pwmPin 23
 #define toFPin 0  
-#define DHTpin 2 
+#define DHTpin 2
+
 
 // I2C Busses
 #define SDA1 21

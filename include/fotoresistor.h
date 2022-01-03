@@ -1,6 +1,6 @@
 #ifndef fotoresistor_h
 #define fotoresistor_h
-#include "Arduino.h"
+#include "main.h"
 
 class Fotoresistor
 {

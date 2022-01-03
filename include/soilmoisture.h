@@ -1,7 +1,6 @@
 #ifndef soilmoisture_h
 #define soilmoisture_h
-#include <Arduino.h>
-#include <pins.h>
+#include <main.h>
 #include <multiplexer.h>
 
 class SoilMoisture

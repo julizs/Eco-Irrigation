@@ -1,19 +1,20 @@
-#include <Arduino.h>
-#include <Wire.h>
+#include <main.h>
 #include <plant.h>
 #include <climate.h>
 #include <soilmoisture.h>
-#include <fotoresistor.h>
-#include <pins.h>
+#include <pump.h>
+#include <multiplexer.h>
 #include <services.h>
 #include <influxHelper.h>
 #include <LinkedList.h>
 #include <StateMachine.h>
-#include <pump.h>
-#include <multiplexer.h>
+
 
 Services services;
 InfluxHelper influxHelper;
+
+TwoWire I2Cone = TwoWire(0);
+TwoWire I2Ctwo = TwoWire(1);
 
 Climate climate1(500, 2);
 SoilMoisture soilMoisture1(550, 10, C0);
@@ -38,7 +39,6 @@ unsigned long lastDebounceTime = 0; // Last time Output Pin was toggled
 unsigned long debounceDelay = 50;   // Increase if Output flickers
 int buttonState;
 int lastButtonState = HIGH; // Initial State is Off
-//
 
 
 void doMeasurements()
@@ -106,7 +106,7 @@ void checkConnections()
   }
 }
 
-void baseStateLogic()
+void commonStateLogic()
 {
   Serial.println(stateNames[fsm.currentState]);
   //checkConnections();
@@ -123,7 +123,7 @@ void on_initState()
 {
   if (fsm.executeOnce)
   {
-    baseStateLogic();
+    commonStateLogic();
 
     if (!services.getWifiStatus())
     {
@@ -141,7 +141,7 @@ void on_sleepState()
   if (fsm.executeOnce)
   {
     didSleep = false;
-    baseStateLogic();
+    commonStateLogic();
     //ESP.deepSleep(30e6); // Connect Sleep Cable AFTER Uploading Code
     //checkConnections();
     //didSleep = true;
@@ -158,7 +158,7 @@ void on_measureState()
 {
   if (fsm.executeOnce)
   {
-    baseStateLogic();
+    commonStateLogic();
     //WiFi.disconnect();
     doMeasurements();
   }
@@ -168,7 +168,7 @@ void on_evaluateState()
 {
   if (fsm.executeOnce)
   {
-    baseStateLogic();
+    commonStateLogic();
     doEvaluate();
   }
 }
@@ -178,7 +178,7 @@ void on_actionState()
 {
   if (fsm.executeOnce)
   {
-    baseStateLogic();
+    commonStateLogic();
     // Turn Pump on cause of Measurements
     pump1.pumpSignal = true;
   }
@@ -265,7 +265,10 @@ void setup()
   // Wait for serial to init
   while (!Serial){}
   Serial.begin(9600);
-  Wire.begin(); // for VL53L0X
+
+  //Wire.begin();
+  I2Cone.begin(SDA1,SCL1,200000);
+  I2Ctwo.begin(SDA2,SCL2,100000);
 
   climate1.setup();
 
