@@ -11,7 +11,7 @@ void Pump::setup()
     //pinMode(in1, OUTPUT);
     //pinMode(in2, OUTPUT);
 
-    setupToF();
+    //setupToF();
     
     minStateDuration = 1;
     maxWaterDistance = 20000;

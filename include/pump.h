@@ -45,12 +45,13 @@ public:
     void setPumpModel(const Pump::PumpModel& pM);
     void setup();
     void loop();
+    void setupToF();
+    int readToF();
 
 private:
     void switchOn();
-    void switchOff();
-    void setupToF();
-    int readToF();
+    void switchOff(); 
+    
     bool checkPumpPerformance(unsigned short);
 };
 

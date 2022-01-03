@@ -41,17 +41,53 @@ int buttonState;
 int lastButtonState = HIGH; // Initial State is Off
 
 
+void scanI2CBus(TwoWire *wire)
+{
+  Serial.println("Scanning I2C Addresses Channel 1");
+  uint8_t cnt=0;
+  for(uint8_t i=0;i<128;i++){
+    wire->beginTransmission(i);
+    uint8_t ec=wire->endTransmission(true);
+    if(ec==0){
+      if(i<16)Serial.print('0');
+      Serial.print(i,HEX);
+      cnt++;
+    }
+    else Serial.print("..");
+    Serial.print(' ');
+    if ((i&0x0f)==0x0f)Serial.println();
+    }
+  Serial.print("Scan Completed, ");
+  Serial.print(cnt);
+  Serial.println(" I2C Devices found.");
+}
+
 void doMeasurements()
 {
-  // Measurements per EcoBox
+  // Global Measurements per EcoBox
+
+  // Esp32 Main:
+  scanI2CBus(&I2Cone);
+  pump1.setupToF();
+  int waterLevel = pump1.readToF();
   byte rssi = WiFi.RSSI();
-  climate1.loop();
+  //Serial.println("Wasserstand: " + waterLevel);
+  Serial.println("Rssi: " + rssi);
+  
+  influxHelper.writeDataPoint("waterLevel", waterLevel);
+  influxHelper.writeDataPoint("rssi", rssi);
+
+  //Esp32 Cam:
+  //climate1.loop();
   //DHTdata data = climate1.loop();
+
+
+
 
   // Plant-specific Measurements
   for (auto &plant : plants)
   {
-    plant.measureSensors();
+    //plant.measureSensors();
     //Serial.println(plant.lightSensor.measureLight());
   }
 }
@@ -264,19 +300,22 @@ void setup()
 
   // Wait for serial to init
   while (!Serial){}
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   //Wire.begin();
   I2Cone.begin(SDA1,SCL1,200000);
   I2Ctwo.begin(SDA2,SCL2,100000);
 
-  climate1.setup();
-
+  
+  /*
   pinMode(button1Pin, INPUT);
   pinMode(button2Pin, INPUT);
   pinMode(button3Pin, INPUT);
 
+  climate1.setup();
   Multiplexer::setup();
+  */
+  
 
   initState = fsm.addState(&on_initState);
   sleepState = fsm.addState(&on_sleepState);

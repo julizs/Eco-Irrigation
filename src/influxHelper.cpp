@@ -55,7 +55,7 @@ bool InfluxHelper::checkInfluxConnection()
   }
 }
 
-void InfluxHelper::writeDataPoint(int value)
+void InfluxHelper::writeDataPoint(char* key, int value)
 {
   //Clear fields for reusing the data point. Tags will remain untouched 
   sensor.clearFields();
@@ -63,8 +63,8 @@ void InfluxHelper::writeDataPoint(int value)
   //Store measured field keys and field values into data point
   //sensor.addField("common_humidity", m.humidity);
   //sensor.addField("common_temperature", m.temperature);
-  sensor.addField("common_light", value);
-  sensor.addField("rssi", value);
+  sensor.addField(key, value);
+  sensor.addField(key, value);
 
   /* Print into Console what we are writing into point
   // Serial.print("Writing (into measurement/table): ");
