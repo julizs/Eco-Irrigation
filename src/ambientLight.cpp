@@ -37,19 +37,24 @@ void AmbientLight::setupTSL2591()
   Serial.println(((tsl.getTiming() + 1) * 100, DEC) +  "ms");
 }
 
-
-void AmbientLight::readTSL2591()
+TSL2591data AmbientLight::measureLight()
 {
-  // Read all 32 bits, top 16 bits IR, bottom 16 bits full spectrum (Bitschiebeop., Bitmaske)
-  uint32_t lum = tsl.getFullLuminosity();
-  uint16_t ir, full;
-  ir = lum >> 16;
-  full = lum & 0xFFFF;
+    TSL2591data data;
+    
+    // Read all 32 bits, top 16 bits IR, bottom 16 bits full spectrum (Bitschiebeop., Bitmaske)
+    uint32_t lum = tsl.getFullLuminosity();
+    uint16_t ir, full;
+    ir = lum >> 16;
+    full = lum & 0xFFFF;
 
-  // Calc of Lux? Docu
-  Serial.print(F("[ ")); Serial.print(millis()); Serial.print(F(" ms ] "));
-  Serial.print(F("IR: ")); Serial.print(ir);  Serial.print(F("  "));
-  Serial.print(F("Full: ")); Serial.print(full); Serial.print(F("  "));
-  Serial.print(F("Visible: ")); Serial.print(full - ir); Serial.print(F("  "));
-  Serial.print(F("Lux: ")); Serial.println(tsl.calculateLux(full, ir), 6);
+    data.infraRed = ir;
+    data.visibleLight = (full - ir);
+
+    Serial.print(F("[ ")); Serial.print(millis()); Serial.print(F(" ms ] "));
+    Serial.print(F("IR: ")); Serial.print(ir);  Serial.print(F("  "));
+    Serial.print(F("Full: ")); Serial.print(full); Serial.print(F("  "));
+    Serial.print(F("Visible: ")); Serial.print(full - ir); Serial.print(F("  "));
+    Serial.print(F("Lux: ")); Serial.println(tsl.calculateLux(full, ir), 6);
+
+    return data;
 }

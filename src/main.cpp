@@ -79,10 +79,12 @@ void doMeasurements()
   Serial.println("Rssi: " + rssi);
 
   lightSensor1.setupTSL2591();
-  lightSensor1.readTSL2591();
+  TSL2591data data = lightSensor1.measureLight();
   
-  influxHelper.writeDataPoint("waterLevel", waterLevel);
-  influxHelper.writeDataPoint("rssi", rssi);
+  influxHelper.writeDataPoint(p0, "rssi", rssi);
+  influxHelper.writeDataPoint(p2, "waterLevel", waterLevel);
+  influxHelper.writeDataPoint(p3, "Infrared Light", data.infraRed);
+  influxHelper.writeDataPoint(p3, "Visible Light", data.visibleLight);
 
   //Esp32 Cam:
   //climate1.loop();

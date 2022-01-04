@@ -9,7 +9,10 @@ https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#secure-connection
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
 
 // create data point (= row) in a measurement (= table)
-Point sensor("DHT_11");
+Point p0("Wifi_Status");
+Point p1("DHT_22");
+Point p2("VL530X");
+Point p3("TSL2591");
 
 InfluxHelper::InfluxHelper()
 {
@@ -19,8 +22,8 @@ InfluxHelper::InfluxHelper()
 void InfluxHelper::setupInflux()
 {
   // Add tags to data point
-  sensor.addTag("device", DEVICE);
-  sensor.addTag("SSID", WiFi.SSID());
+  p0.addTag("device", DEVICE);
+  p0.addTag("SSID", WiFi.SSID());
 
   /* timestamp
   timestamp (set from client) necessary to write data in batches
@@ -55,20 +58,19 @@ bool InfluxHelper::checkInfluxConnection()
   }
 }
 
-void InfluxHelper::writeDataPoint(char* key, int value)
+void InfluxHelper::writeDataPoint(Point p, char* key, int value)
 {
   //Clear fields for reusing the data point. Tags will remain untouched 
-  sensor.clearFields();
+  p.clearFields();
 
   //Store measured field keys and field values into data point
   //sensor.addField("common_humidity", m.humidity);
   //sensor.addField("common_temperature", m.temperature);
-  sensor.addField(key, value);
-  sensor.addField(key, value);
+  p.addField(key, value);
 
-  /* Print into Console what we are writing into point
+  /* Print to be written point into console
   // Serial.print("Writing (into measurement/table): ");
-  // Serial.println(sensor.toLineProtocol());
+  // Serial.println(p.toLineProtocol());
   */
 
   // If no Wifi signal, try to reconnect
@@ -77,7 +79,7 @@ void InfluxHelper::writeDataPoint(char* key, int value)
   }
 
   // Write data point into measurement/table or into buffer
-  if (!client.writePoint(sensor)) {
+  if (!client.writePoint(p)) {
     Serial.print("InfluxDB write failed: ");
     Serial.println(client.getLastErrorMessage());
   }

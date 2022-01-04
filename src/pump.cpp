@@ -33,6 +33,23 @@ void Pump::setupToF()
   Serial.println("did Setup VL530x");
 }
 
+int Pump:: readToF()
+{
+  delay(500);
+  VL53L0X_RangingMeasurementData_t measure;
+    
+  Serial.print("Reading a measurement... ");
+  toF_1.rangingTest(&measure, false); // pass in 'true' to get debug data printout!
+
+  if (measure.RangeStatus != 4) {  // phase failures have incorrect data
+    Serial.print("Distance (mm): "); Serial.println(measure.RangeMilliMeter);
+  } else {
+    Serial.println(" out of range ");
+  }
+    
+  return measure.RangeMilliMeter;
+}
+
 void Pump::loop()
 {
     switch (currentState)
@@ -89,23 +106,6 @@ void Pump::loop()
         lastState = PumpState::ON;
         break;
     }
-}
-
-int Pump:: readToF()
-{
-  delay(500);
-  VL53L0X_RangingMeasurementData_t measure;
-    
-  Serial.print("Reading a measurement... ");
-  toF_1.rangingTest(&measure, false); // pass in 'true' to get debug data printout!
-
-  if (measure.RangeStatus != 4) {  // phase failures have incorrect data
-    Serial.print("Distance (mm): "); Serial.println(measure.RangeMilliMeter);
-  } else {
-    Serial.println(" out of range ");
-  }
-    
-  delay(1000);
 }
 
 bool Pump::checkPumpPerformance(unsigned short lastPumped)
