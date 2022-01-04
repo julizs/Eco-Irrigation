@@ -19,18 +19,17 @@ void Pump::setup()
 }
 
 void Pump::setupToF()
-{
-  /*  
+{ 
   // Only if SHT_Pin connected to toF sensor
-  pinMode(SHUT_TUF_1, OUTPUT);
-  digitalWrite(SHUT_TUF_1, LOW);
-  digitalWrite(SHUT_TUF_1, HIGH);
-  */
+  pinMode(shut_toF, OUTPUT);
+  digitalWrite(shut_toF, LOW);
+  digitalWrite(shut_toF, HIGH);
 
   toF_1.begin(0x52, &I2Cone); // wie bei TSL2591 Standard Addr. 0x29, Änderung per Software nötig)
-  toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY);
+  //toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY); // Often results in Measurement Error/Timeout
+  toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_DEFAULT);
   Serial.println(toF_1.getMeasurementTimingBudgetMicroSeconds()); // 200k micro sec (0.2 sec) on High Accuracy profile
-  toF_1. setMeasurementTimingBudgetMicroSeconds(300000); // increase to 300k
+  //toF_1. setMeasurementTimingBudgetMicroSeconds(300000); // increase to 300k
   Serial.println("did Setup VL530x");
 }
 
@@ -94,6 +93,7 @@ void Pump::loop()
 
 int Pump:: readToF()
 {
+  delay(500);
   VL53L0X_RangingMeasurementData_t measure;
     
   Serial.print("Reading a measurement... ");

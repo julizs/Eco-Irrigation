@@ -10,7 +10,8 @@
 #define button2Pin 4
 #define button3Pin 19
 #define pwmPin 23
-#define toFPin 0  
+#define toFPin 0
+#define shut_toF 23
 #define DHTpin 2
 
 
