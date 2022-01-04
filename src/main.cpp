@@ -18,11 +18,12 @@ TwoWire I2Ctwo = TwoWire(1);
 
 Climate climate1(500, 2);
 SoilMoisture soilMoisture1(550, 10, C0);
-Fotoresistor fotoResistor1(10000, 3.3, 10, C15);
+//Fotoresistor fotoResistor1(10000, 3.3, 10, C15);
+AmbientLight lightSensor1(2591,I2Ctwo); // TSL2591
 Pump::PumpModel qr50e(12, 12, 2, 240);
 Pump::PumpModel palermo(6, 12, 2, 330);
 Pump pump1(qr50e);
-Plant plant2(fotoResistor1, soilMoisture1);
+Plant plant2(lightSensor1, soilMoisture1);
 std::vector<Plant> plants{plant2};
 
 StateMachine fsm = StateMachine();
@@ -68,11 +69,17 @@ void doMeasurements()
 
   // Esp32 Main:
   scanI2CBus(&I2Cone);
+  scanI2CBus(&I2Ctwo);
+  
   pump1.setupToF();
   int waterLevel = pump1.readToF();
+  Serial.println("Wasserstand: " + waterLevel);
+
   byte rssi = WiFi.RSSI();
-  //Serial.println("Wasserstand: " + waterLevel);
   Serial.println("Rssi: " + rssi);
+
+  lightSensor1.setupTSL2591();
+  lightSensor1.readTSL2591();
   
   influxHelper.writeDataPoint("waterLevel", waterLevel);
   influxHelper.writeDataPoint("rssi", rssi);
@@ -299,13 +306,13 @@ void setup()
 {
 
   // Wait for serial to init
-  while (!Serial){}
+  // while (!Serial){}
   Serial.begin(115200);
 
   //Wire.begin();
   I2Cone.begin(SDA1,SCL1,200000);
   I2Ctwo.begin(SDA2,SCL2,100000);
-
+  delay(500);
   
   /*
   pinMode(button1Pin, INPUT);

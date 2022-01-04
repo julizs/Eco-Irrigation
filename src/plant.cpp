@@ -3,7 +3,7 @@
 
 //Plant::Plant(Fotoresistor &f): lightSensor(f){}
 
-Plant::Plant(Fotoresistor &f, SoilMoisture &s): lightSensor(f)
+Plant::Plant(AmbientLight &l, SoilMoisture &s): lightSensor(l)
 {
     soilMoistureSensors.push_back(s);
 }
@@ -13,7 +13,7 @@ bool Plant::measureSensors()
     bool measurementsSuccessful;
 
     // TODO get lightValue from plantGroup
-    float lightValue = lightSensor.measureLightSmoothed();
+    // float lightValue = lightSensor.measureLightSmoothed();
 
     // Plant has 0-3 sMS
     if(soilMoistureSensors.size() > 0)
