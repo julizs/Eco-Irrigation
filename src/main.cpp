@@ -105,7 +105,6 @@ void doMeasurements()
 void doEvaluate()
 {
   wateringNeeded = true;
-  didCycle = true;
   // influxHelper.WriteDataPoint(lightVal);
 }
 
@@ -131,8 +130,14 @@ void checkButtons()
       {
         Serial.println("Pump Button pressed!");
         
-        wateringNeeded = true; // Go to actionState
-        pump1.pumpSignal = true; // Turn Pump on/off cause of Button
+        if(!wateringNeeded)
+        {
+          wateringNeeded = true;
+        }
+        else
+        {
+          wateringNeeded = false;
+        }
 
         if(fsm.currentState != 4) // otherwise ACTION state before PUMP_IDLE when pressed while Pumping
         {
@@ -225,10 +230,8 @@ void on_actionState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    // Turn Pump on cause of Measurements
-    pump1.pumpSignal = true;
   }
-  // run sub-StateMachines in loop
+  // run sub-StateMachines
   if(wateringNeeded)
   {
     pump1.loop();
@@ -300,7 +303,7 @@ bool transitionS4S1()
   // if(countTime(MIN_STATE_DURATION) && pump1.currentState == PumpState::IDLE && !pump1.pumpSignal)
   if(countTime(MIN_STATE_DURATION) && pump1.lastState == PumpState::DONE)
   {
-    pump1.currentState == PumpState::IDLE;
+    pump1.currentState = PumpState::IDLE;
     return true;
   }
   return false;

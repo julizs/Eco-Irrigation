@@ -31,7 +31,6 @@ public:
     PumpState currentState, lastState;
     const char *stateNames[3] = {"PUMP_IDLE", "PUMP_ON", "PUMP_DONE"};
     unsigned long stateBeginMillis, minStateDuration;
-    bool pumpSignal;
 
     //VL53L0X toF; // Polulu
     Adafruit_VL53L0X toF_1 = Adafruit_VL53L0X();

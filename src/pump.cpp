@@ -95,15 +95,13 @@ void Pump::loop()
         {
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
-            switchOff();
         }
 
-        if (millis() - stateBeginMillis >= minStateDuration * 1000UL && pumpSignal)
+        if (millis() - stateBeginMillis >= minStateDuration * 1000UL && wateringNeeded)
         {
             if(checkWaterLevel()) // Update both currWaterDist and check if valid with 1 Reading
             {
                 currentState = PumpState::ON;
-                //pumpSignal = false;
             }
             else
             {
@@ -120,7 +118,6 @@ void Pump::loop()
         // Execute once
         if (lastState != currentState)
         {
-            pumpSignal = false;
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
         }
@@ -128,14 +125,13 @@ void Pump::loop()
         // Execute each tick
         // 2 Checks for Safety: Water Distance and Max. Pump Time
         switchOn();
-        Serial.print(".");
+        //Serial.print(".");
 
         if (millis() - stateBeginMillis >= minStateDuration * 1000UL &&
         ((millis() - stateBeginMillis >= pumpModel.maxPumpingDuration * 1000UL)
-        || pumpSignal == true)) // minStateTime is up AND (Time is up OR Button pressed again (Stop now!))
+        || wateringNeeded == false)) // minStateTime is up AND (Time is up OR Button pressed again (Stop now!))
         {
             currentState = PumpState::DONE;
-            pumpSignal = false;
         }
 
         lastState = PumpState::ON;
@@ -147,6 +143,9 @@ void Pump::loop()
         {
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
+
+            wateringNeeded = false;
+            switchOff();
 
             int oldWaterDistance = currWaterDist;
             currWaterDist = readToF();
