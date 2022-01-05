@@ -7,5 +7,6 @@
 
 extern TwoWire I2Cone;
 extern TwoWire I2Ctwo;
+extern bool wateringNeeded;
 
 #endif //main_h

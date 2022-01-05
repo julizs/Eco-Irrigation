@@ -29,16 +29,14 @@ public:
 
     PumpModel pumpModel; // PumpModel& pumpModel
     PumpState currentState, lastState;
-    const char *stateNames[2] = {"PUMP_IDLE", "PUMP_ON"};
+    const char *stateNames[3] = {"PUMP_IDLE", "PUMP_ON", "PUMP_DONE"};
     unsigned long stateBeginMillis, minStateDuration;
-    bool pumpSignal, validFillLevel, cycleDone;
+    bool pumpSignal;
 
     //VL53L0X toF; // Polulu
     Adafruit_VL53L0X toF_1 = Adafruit_VL53L0X();
     unsigned short currWaterDist, minWaterDist, maxWaterDist; // aka minWaterLevel
-    unsigned short distanceDelta;
     float mmToMlFactor; // depends on WaterTank
-    float totalPumped, lastPumped, bestPumped;
 
     Pump(PumpModel& pumpModel); // Konstr.
     const PumpModel& getPumpModel() const;
@@ -51,7 +49,7 @@ public:
 private:
     void switchOn();
     void switchOff(); 
-    bool checkFillLevel();
+    bool checkWaterLevel();
     bool checkPumpPerformance(unsigned short);
 };
 

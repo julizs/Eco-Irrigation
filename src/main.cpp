@@ -298,8 +298,9 @@ bool transitionS4S1()
 {
   // pump1.pumpDone && fan1.fanDone && ... || millis() - ... (max. Einschaltzeit)
   // if(countTime(MIN_STATE_DURATION) && pump1.currentState == PumpState::IDLE && !pump1.pumpSignal)
-  if(countTime(MIN_STATE_DURATION) && pump1.cycleDone)
+  if(countTime(MIN_STATE_DURATION) && pump1.lastState == PumpState::DONE)
   {
+    pump1.currentState == PumpState::IDLE;
     return true;
   }
   return false;
