@@ -34,7 +34,7 @@ public:
 
     //VL53L0X toF; // Polulu
     Adafruit_VL53L0X toF_1 = Adafruit_VL53L0X();
-    unsigned short maxWaterDistance; // min allowed WaterLevel
+    unsigned short minWaterDistance, maxWaterDistance; // aka minWaterLevel
     unsigned short waterDistance; // measured WaterLevel
     unsigned short distanceDelta;
     float mmToMlFactor; // depends on WaterTank

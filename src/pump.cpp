@@ -14,7 +14,8 @@ void Pump::setup()
     //setupToF();
     
     minStateDuration = 1;
-    maxWaterDistance = 20000;
+    minWaterDistance = 50;
+    maxWaterDistance = 200;
     currentState = PumpState::IDLE;
 }
 
@@ -25,7 +26,7 @@ void Pump::setupToF()
   digitalWrite(shut_toF, LOW);
   digitalWrite(shut_toF, HIGH);
 
-  toF_1.begin(0x52, &I2Cone); // wie bei TSL2591 Standard Addr. 0x29, Änderung per Software nötig)
+  toF_1.begin(0x52, &I2Cone); // Standard Addr. is 0x29 just like TSL2591, Change via SW)
   //toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY); // Often results in Measurement Error/Timeout
   toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_DEFAULT);
   Serial.println(toF_1.getMeasurementTimingBudgetMicroSeconds()); // 200k micro sec (0.2 sec) on High Accuracy profile
@@ -35,19 +36,41 @@ void Pump::setupToF()
 
 int Pump:: readToF()
 {
-  delay(500);
+  // Do 2 valid Reading and only then calc Average
+  // 3 Attemps per single valid Reading (or e.g. time limit while in IDLE State), then stop
+  // measure.RangeStatus == 4 means Out of Range
+  int avgDistance = 0;
+  int sampleNum = 2;
   VL53L0X_RangingMeasurementData_t measure;
-    
-  Serial.print("Reading a measurement... ");
-  toF_1.rangingTest(&measure, false); // pass in 'true' to get debug data printout!
 
-  if (measure.RangeStatus != 4) {  // phase failures have incorrect data
-    Serial.print("Distance (mm): "); Serial.println(measure.RangeMilliMeter);
-  } else {
-    Serial.println(" out of range ");
+  for(int i = 0; i < sampleNum; i++)
+  { 
+    int distance = 0;
+    bool validReading = false;
+    int j = 0;
+
+    while(j < 3 && !validReading) {
+        if((measure.RangeStatus == 4 || distance < minWaterDistance || distance > maxWaterDistance))
+        {
+            toF_1.rangingTest(&measure, false);
+            distance = measure.RangeMilliMeter;
+            Serial.print("Reading (mm): ");
+            Serial.print(distance);
+            j++; 
+        }
+        else
+        {
+            Serial.println(" is valid");
+            validReading = true;
+            avgDistance += distance;
+        }
+        delay(500); 
+    }
   }
+  
+  avgDistance/= (sampleNum * 1.0f);
     
-  return measure.RangeMilliMeter;
+  return avgDistance;
 }
 
 void Pump::loop()
@@ -87,6 +110,7 @@ void Pump::loop()
         }
 
         // Execute each tick
+        // 2 Checks for Safety: Water Distance and Max. Pump Time
         switchOn();
         Serial.print(".");
 
@@ -96,11 +120,12 @@ void Pump::loop()
         {
             currentState = PumpState::IDLE;
             pumpSignal = false;
+
             // Waterlevel was higher before
             // distanceDelta = waterDistance - toF_1.readRangeSingleMillimeters();
             // lastPumped = distanceDeltaToMilliliters(distanceDelta);
-            if(bestPumped < lastPumped) {bestPumped = lastPumped;}
-            totalPumped += lastPumped;
+            // if(bestPumped < lastPumped) {bestPumped = lastPumped;}
+            // totalPumped += lastPumped;
         }
 
         lastState = PumpState::ON;
@@ -108,9 +133,10 @@ void Pump::loop()
     }
 }
 
+/*
 bool Pump::checkPumpPerformance(unsigned short lastPumped)
 {
-    // Correct: bestPumped struct per Model and PWM value (e.g. Palermo, 100ml, 125)
+    // Correct: bestPumped struct per Model and Voltage or PWM value (e.g. Palermo, 100ml, 125)
     if(bestPumped - lastPumped > 50) // 50 Milliliter Threashold
     {
         Serial.println("Pump Performance deteriorated, need to clean Pump Filter or Exchange Water.");
@@ -118,6 +144,7 @@ bool Pump::checkPumpPerformance(unsigned short lastPumped)
     }
     return false;
 }
+*/
 
 /*
 bool Pump::sufficientWaterLevel()

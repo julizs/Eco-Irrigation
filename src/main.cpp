@@ -73,7 +73,8 @@ void doMeasurements()
   
   pump1.setupToF();
   int waterLevel = pump1.readToF();
-  Serial.println("Wasserstand: " + waterLevel);
+  Serial.print("Wasserstand: ");
+  Serial.println(waterLevel);
 
   byte rssi = WiFi.RSSI();
   Serial.println("Rssi: " + rssi);
