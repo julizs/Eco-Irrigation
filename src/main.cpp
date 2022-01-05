@@ -72,9 +72,9 @@ void doMeasurements()
   scanI2CBus(&I2Ctwo);
   
   pump1.setupToF();
-  int waterLevel = pump1.readToF();
-  Serial.print("Wasserstand: ");
-  Serial.println(waterLevel);
+  //int waterLevel = pump1.readToF();
+  //Serial.print("Wasserstand: ");
+  //Serial.println(waterLevel);
 
   byte rssi = WiFi.RSSI();
   Serial.println("Rssi: " + rssi);
@@ -83,7 +83,7 @@ void doMeasurements()
   TSL2591data data = lightSensor1.measureLight();
   
   influxHelper.writeDataPoint(p0, "rssi", rssi);
-  influxHelper.writeDataPoint(p2, "waterLevel", waterLevel);
+  //influxHelper.writeDataPoint(p2, "waterLevel", waterLevel);
   influxHelper.writeDataPoint(p3, "Infrared Light", data.infraRed);
   influxHelper.writeDataPoint(p3, "Visible Light", data.visibleLight);
 

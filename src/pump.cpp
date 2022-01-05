@@ -10,12 +10,10 @@ void Pump::setup()
     //pinMode(enA, OUTPUT);
     //pinMode(in1, OUTPUT);
     //pinMode(in2, OUTPUT);
-
-    //setupToF();
     
     minStateDuration = 1;
-    minWaterDistance = 50;
-    maxWaterDistance = 200;
+    minWaterDist = 50;
+    maxWaterDist = 200;
     currentState = PumpState::IDLE;
 }
 
@@ -34,6 +32,13 @@ void Pump::setupToF()
   Serial.println("did Setup VL530x");
 }
 
+
+bool Pump::checkFillLevel()
+{
+    int fillLevel = readToF();
+    return fillLevel < maxWaterDist && fillLevel < minWaterDist;
+}
+
 int Pump:: readToF()
 {
   // Do 2 valid Reading and only then calc Average
@@ -50,7 +55,7 @@ int Pump:: readToF()
     int j = 0;
 
     while(j < 3 && !validReading) {
-        if((measure.RangeStatus == 4 || distance < minWaterDistance || distance > maxWaterDistance))
+        if((measure.RangeStatus == 4 || distance < minWaterDist || distance > maxWaterDist))
         {
             toF_1.rangingTest(&measure, false);
             distance = measure.RangeMilliMeter;
@@ -84,15 +89,23 @@ void Pump::loop()
         {
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
-            //waterDistance = toF_1.readRangeSingleMillimeters();
             switchOff();
+            validFillLevel = checkFillLevel();
             cycleDone = true; // IDLE -> 1s -> ON -> IDLE
         }
 
         if (millis() - stateBeginMillis >= minStateDuration * 1000UL && pumpSignal)
         {
-            currentState = PumpState::ON;
-            //pumpSignal = false;
+            if(true) // validFillLevel, Core1 Panicked
+            {
+                currentState = PumpState::ON;
+                //pumpSignal = false;
+            }
+            else
+            {
+                Serial.println("Not enough Water for Irrigation.");
+                currentState = PumpState::DONE;
+            } 
         }
 
         lastState = PumpState::IDLE;
@@ -129,6 +142,23 @@ void Pump::loop()
         }
 
         lastState = PumpState::ON;
+        break;
+
+        case PumpState::DONE:
+
+        if (lastState != currentState)
+        {
+            pumpSignal = false;
+            stateBeginMillis = millis();
+            Serial.println(stateNames[(byte)currentState]);
+
+            // Waterlevel was higher before
+            // int oldWaterDistance = currWaterDist;
+            // currWaterDist = readToF();
+            // Update Pumped Values in InfluxDB
+        }
+
+        lastState = PumpState::DONE;
         break;
     }
 }

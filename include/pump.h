@@ -6,7 +6,8 @@
 enum class PumpState
 {
     IDLE,
-    ON
+    ON,
+    DONE
 };
 
 class Pump
@@ -30,12 +31,11 @@ public:
     PumpState currentState, lastState;
     const char *stateNames[2] = {"PUMP_IDLE", "PUMP_ON"};
     unsigned long stateBeginMillis, minStateDuration;
-    bool pumpSignal, cycleDone;
+    bool pumpSignal, validFillLevel, cycleDone;
 
     //VL53L0X toF; // Polulu
     Adafruit_VL53L0X toF_1 = Adafruit_VL53L0X();
-    unsigned short minWaterDistance, maxWaterDistance; // aka minWaterLevel
-    unsigned short waterDistance; // measured WaterLevel
+    unsigned short currWaterDist, minWaterDist, maxWaterDist; // aka minWaterLevel
     unsigned short distanceDelta;
     float mmToMlFactor; // depends on WaterTank
     float totalPumped, lastPumped, bestPumped;
@@ -51,7 +51,7 @@ public:
 private:
     void switchOn();
     void switchOff(); 
-    
+    bool checkFillLevel();
     bool checkPumpPerformance(unsigned short);
 };
 
