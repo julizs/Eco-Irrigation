@@ -11,9 +11,8 @@ void Multiplexer::setup()
   pinMode(S1, OUTPUT);
   pinMode(S2, OUTPUT);
   pinMode(S3, OUTPUT);
-  //pinMode(analogPin, INPUT);
+  //pinMode(SIG, INPUT);
   
-  // Like this or via Esp Port Manipulation
   digitalWrite(S0, LOW);
   digitalWrite(S1, LOW);
   digitalWrite(S2, LOW);
@@ -48,6 +47,8 @@ int Multiplexer::readChannel(byte channel)
        digitalWrite(controlPin[i], muxChannel[channel][i]); 
      }
 
-     //int val = analogRead(analogPin);  
-     return 666;
+     delay(50);
+
+     int val = analogRead(SIG);
+     return val;
 }

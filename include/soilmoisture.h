@@ -12,7 +12,7 @@ public:
     byte sampleSize;
     byte multiplexerPin; // Never changes, only Association from Sensor to Plant Object
 
-    SoilMoisture(int sensorFloor, byte sampleSize, byte multiplexerPin);
+    SoilMoisture(int sensorFloor, byte multiplexerPin);
 
     int measureSoilMoistureSmoothed();
     int measureSoilMoisture();

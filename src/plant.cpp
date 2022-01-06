@@ -12,18 +12,23 @@ bool Plant::measureSensors()
 {
     bool measurementsSuccessful;
 
-    // TODO get lightValue from plantGroup
-    // float lightValue = lightSensor.measureLightSmoothed();
-
-    // Plant has 0-3 sMS
+    // Plant has 0-3 Soil Moisture Sensors
     if(soilMoistureSensors.size() > 0)
     {
         for(auto& sMS: soilMoistureSensors) {
-        float soilMoisture = sMS.measureSoilMoistureSmoothed();
+        int soilMoisture = sMS.measureSoilMoistureSmoothed();
+        Serial.print(name);
+        Serial.print(" soil moisture: ");
+        Serial.println(soilMoisture);
         }
     }
     
     return measurementsSuccessful;
+}
+
+bool Plant::setName(String newName)
+{
+    name = newName;
 }
 
 bool Plant::writeToInflux()

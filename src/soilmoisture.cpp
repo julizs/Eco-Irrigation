@@ -1,15 +1,15 @@
 #include "soilmoisture.h"
 
-SoilMoisture::SoilMoisture(int sensorFloor, byte sampleSize, byte multiplexerPin)
+SoilMoisture::SoilMoisture(int sensorFloor, byte multiplexerPin)
 {
   this->sensorFloor = sensorFloor;
-  this->sampleSize = sampleSize;
   this->multiplexerPin = multiplexerPin;
 }
 
 int SoilMoisture::measureSoilMoistureSmoothed()
 {
   int sum = 0;
+  sampleSize = 4;
 
   // Analog Smoothing
   for(int i = 0; i < sampleSize; i++)
@@ -22,10 +22,9 @@ int SoilMoisture::measureSoilMoistureSmoothed()
 	  }
 
     sum += soilMoisture;
-    delay(1);
   }
 
-  int smoothedMoisture = sum/sampleSize;
+  int smoothedMoisture = sum/(sampleSize*1.0f);
 
   return smoothedMoisture;
 }

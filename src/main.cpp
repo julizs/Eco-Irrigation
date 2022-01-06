@@ -17,14 +17,16 @@ TwoWire I2Cone = TwoWire(0);
 TwoWire I2Ctwo = TwoWire(1);
 
 Climate climate1(500, 2);
-SoilMoisture soilMoisture1(550, 10, C0);
+SoilMoisture soilMoisture1(1100, 0);
+SoilMoisture soilMoisture2(1100, 1);
 //Fotoresistor fotoResistor1(10000, 3.3, 10, C15);
 AmbientLight lightSensor1(2591,I2Ctwo); // TSL2591
 Pump::PumpModel qr50e(12, 12, 2, 240);
 Pump::PumpModel palermo(6, 12, 2, 330);
 Pump pump1(qr50e);
-Plant plant2(lightSensor1, soilMoisture1);
-std::vector<Plant> plants{plant2};
+Plant plant1(lightSensor1, soilMoisture1);
+Plant plant2(lightSensor1, soilMoisture2);
+std::vector<Plant> plants{plant1, plant2};
 
 StateMachine fsm = StateMachine();
 State *initState, *sleepState, *measureState, *evaluateState, *actionState;
@@ -68,8 +70,8 @@ void doMeasurements()
   // Global Measurements per EcoBox
 
   // Esp32 Main:
-  scanI2CBus(&I2Cone);
-  scanI2CBus(&I2Ctwo);
+  //scanI2CBus(&I2Cone);
+  //scanI2CBus(&I2Ctwo);
   
   //pump1.setupToF();
   //int waterLevel = pump1.readToF();
@@ -82,29 +84,33 @@ void doMeasurements()
   lightSensor1.setupTSL2591();
   TSL2591data data = lightSensor1.measureLight();
   
-  influxHelper.writeDataPoint(p0, "rssi", rssi);
+  //influxHelper.writeDataPoint(p0, "rssi", rssi);
   //influxHelper.writeDataPoint(p2, "waterLevel", waterLevel);
-  influxHelper.writeDataPoint(p3, "Infrared Light", data.infraRed);
-  influxHelper.writeDataPoint(p3, "Visible Light", data.visibleLight);
+  //influxHelper.writeDataPoint(p3, "Infrared Light", data.infraRed);
+  //influxHelper.writeDataPoint(p3, "Visible Light", data.visibleLight);
 
   //Esp32 Cam:
   //climate1.loop();
   //DHTdata data = climate1.loop();
 
-
-
+  /*
+  for(int i = 0; i < 12; i++)
+  {
+    Serial.println(Multiplexer::readChannel(i));
+  }
+  */
 
   // Plant-specific Measurements
   for (auto &plant : plants)
   {
-    //plant.measureSensors();
+    plant.measureSensors();
     //Serial.println(plant.lightSensor.measureLight());
   }
 }
 
 void doEvaluate()
 {
-  wateringNeeded = true;
+  wateringNeeded = false;
   // influxHelper.WriteDataPoint(lightVal);
 }
 
@@ -304,7 +310,7 @@ bool transitionS4S1()
 {
   // pump1.pumpDone && fan1.fanDone && ... || millis() - ... (max. Einschaltzeit)
   // if(countTime(MIN_STATE_DURATION) && pump1.currentState == PumpState::IDLE && !pump1.pumpSignal)
-  if(countTime(MIN_STATE_DURATION) && pump1.lastState == PumpState::DONE)
+  if(countTime(MIN_STATE_DURATION) || pump1.lastState == PumpState::DONE)
   {
     pump1.currentState = PumpState::IDLE;
     return true;
@@ -330,8 +336,12 @@ void setup()
   pinMode(button3Pin, INPUT);
 
   climate1.setup();
-  Multiplexer::setup();
   */
+
+  Multiplexer::setup();
+
+  plants[0].setName("Thymian");
+  plants[1].setName("Orchidee");
   
 
   initState = fsm.addState(&on_initState);
