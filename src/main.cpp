@@ -71,7 +71,7 @@ void doMeasurements()
   scanI2CBus(&I2Cone);
   scanI2CBus(&I2Ctwo);
   
-  pump1.setupToF();
+  //pump1.setupToF();
   //int waterLevel = pump1.readToF();
   //Serial.print("Wasserstand: ");
   //Serial.println(waterLevel);
@@ -180,10 +180,13 @@ void on_initState()
     {
       services.setupWifi();
     }
+    
     if (!influxHelper.checkInfluxConnection())
     {
-      influxHelper.setupInflux();
+      //influxHelper.setupInflux();
+      Serial.println("Couldnt connect to InfluxDB");
     }
+    
   }
 }
 

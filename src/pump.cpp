@@ -11,25 +11,32 @@ void Pump::setup()
     //pinMode(in1, OUTPUT);
     //pinMode(in2, OUTPUT);
     
-    minStateDuration = 2;
+    minStateDuration = 1;
     minWaterDist = 50;
     maxWaterDist = 300;
     currentState = PumpState::IDLE;
 }
 
-void Pump::setupToF()
+bool Pump::setupToF()
 { 
   // Only if SHT_Pin connected to toF sensor
-  pinMode(shut_toF, OUTPUT);
-  digitalWrite(shut_toF, LOW);
-  digitalWrite(shut_toF, HIGH);
+  //pinMode(shut_toF, OUTPUT);
+  //digitalWrite(shut_toF, LOW);
+  //digitalWrite(shut_toF, HIGH);
 
-  toF_1.begin(0x52, &I2Cone); // Standard Addr. is 0x29 just like TSL2591, Change via SW)
-  //toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY); // Often results in Measurement Error/Timeout
+  // Standard Addr. is 0x29 (just like TSL2591) on each Boot, Change via SW)
+  if(!toF_1.begin(0x52, &I2Cone))
+  {
+    Serial.println(F("Failed to boot VL53L0X"));
+    return false;
+  }
+
   toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_DEFAULT);
-  Serial.println(toF_1.getMeasurementTimingBudgetMicroSeconds()); // 200k micro sec (0.2 sec) on High Accuracy profile
+  //toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY); // Often results in Measurement Error/Timeout
+  //Serial.println(toF_1.getMeasurementTimingBudgetMicroSeconds()); // 200k micro sec (0.2 sec) on High Accuracy profile
   //toF_1. setMeasurementTimingBudgetMicroSeconds(300000); // increase to 300k
-  Serial.println("did Setup VL530x");
+
+  return true;
 }
 
 
@@ -51,20 +58,22 @@ int Pump:: readToF()
   // 3 Attemps per single valid Reading (or e.g. time limit while in IDLE State), then stop
   // measure.RangeStatus == 4 means Out of Range
   int avgDistance = 0;
-  int sampleNum = 2;
+  int sampleNum = 4;
+  int readings [sampleNum] = { };
   VL53L0X_RangingMeasurementData_t measure;
 
   for(int i = 0; i < sampleNum; i++)
   { 
     int distance = 0;
     bool validReading = false;
-    int j = 0;
+    int j = 0; // 3 Attemps per single Reading
 
     while(j < 3 && !validReading) {
         if((measure.RangeStatus == 4 || distance < minWaterDist || distance > maxWaterDist))
         {
-            toF_1.rangingTest(&measure, false);
-            distance = measure.RangeMilliMeter;
+            //toF_1.rangingTest(&measure, false);
+            //distance = measure.RangeMilliMeter;
+            distance = toF_1.readRange();
             Serial.print("Reading (mm): ");
             Serial.print(distance);
             j++; 
@@ -72,6 +81,7 @@ int Pump:: readToF()
         else
         {
             Serial.println(" is valid");
+            readings[i] = distance;
             validReading = true;
             avgDistance += distance;
         }
@@ -84,30 +94,50 @@ int Pump:: readToF()
   return avgDistance;
 }
 
+int Pump::readToF_cont()
+{
+    toF_1.startRangeContinuous(100);
+    Serial.println(toF_1.readRange());
+    toF_1.stopRangeContinuous();
+}
+
 void Pump::loop()
 {
     switch (currentState)
     {
 
     case PumpState::IDLE:
-
+    
         if (lastState != currentState)
         {
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
+            ToF_ready = setupToF();
         }
+
+        //readToF_cont();
 
         if (millis() - stateBeginMillis >= minStateDuration * 1000UL && wateringNeeded)
         {
-            if(checkWaterLevel()) // Update both currWaterDist and check if valid with 1 Reading
+            if(ToF_ready)
             {
-                currentState = PumpState::ON;
+                if(checkWaterLevel()) // Update both currWaterDist and check if valid with just 1 Reading
+                {
+                    currentState = PumpState::ON;
+                    ToF_ready = false;
+                }
+                else
+                {
+                    Serial.println("Not enough Water for Irrigation.");
+                    currentState = PumpState::DONE;
+                } 
             }
             else
             {
-                Serial.println("Not enough Water for Irrigation.");
-                currentState = PumpState::DONE;
-            } 
+                // Try to setup again
+                ToF_ready = setupToF();
+                delay(100);
+            }   
         }
 
         lastState = PumpState::IDLE;
@@ -125,7 +155,6 @@ void Pump::loop()
         // Execute each tick
         // 2 Checks for Safety: Water Distance and Max. Pump Time
         switchOn();
-        //Serial.print(".");
 
         if (millis() - stateBeginMillis >= minStateDuration * 1000UL &&
         ((millis() - stateBeginMillis >= pumpModel.maxPumpingDuration * 1000UL)
