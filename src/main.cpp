@@ -11,6 +11,7 @@
 
 
 Services services;
+InfluxHelper influxHelper;
 
 TwoWire I2Cone = TwoWire(0);
 TwoWire I2Ctwo = TwoWire(1);
@@ -73,8 +74,11 @@ void doMeasurements()
   //scanI2CBus(&I2Ctwo);
 
   // Add tags to data point
-  p0.addTag("device", DEVICE);
-  p0.addTag("SSID", WiFi.SSID());
+  if(!p0.hasTags())
+  {
+    p0.addTag("device", DEVICE);
+    p0.addTag("SSID", WiFi.SSID());
+  }
 
   p0.clearFields();
 
@@ -84,7 +88,7 @@ void doMeasurements()
   //p0.addField("waterLevel", waterLevel);
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
-  
+
   influxHelper.writeDataPoint(p0);
 
 

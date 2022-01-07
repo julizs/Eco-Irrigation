@@ -4,13 +4,11 @@
 #include <ambientLight.h>
 #include <soilmoisture.h>
 #include <influxHelper.h>
-#include <string>
 
 class Plant
 {
 public:
-    //char* name[50]; 
-    String name; 
+    char name[50];
     AmbientLight lightSensor;
     std::vector <SoilMoisture> soilMoistureSensors;
     int irLight, visibleLight;
@@ -21,7 +19,7 @@ public:
     Plant(AmbientLight& lightSensor, SoilMoisture& soilMoistureSensor);
     bool addSoilMoistureSensor(SoilMoisture soilMoistureSensor);
     bool removeSoilMoistureSensor(SoilMoisture soilMoistureSensor);
-    bool setName(String name);
+    bool setName(char newName[]);
     bool measureSensors();
     bool writeToInflux();
 };

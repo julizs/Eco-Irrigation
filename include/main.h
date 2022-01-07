@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <Wire.h>
+#include <influxHelper.h>
 #include <pins.h>
 
 extern TwoWire I2Cone;

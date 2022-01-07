@@ -17,7 +17,7 @@ class InfluxHelper
     InfluxHelper();
     void setupInflux();
     bool checkInfluxConnection();
-    void writeDataPoint(Point p);
+    void writeDataPoint(Point &p);
     void doQuery();
 };
 

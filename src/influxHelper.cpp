@@ -54,7 +54,7 @@ bool InfluxHelper::checkInfluxConnection()
   }
 }
 
-void InfluxHelper::writeDataPoint(Point p)
+void InfluxHelper::writeDataPoint(Point &p)
 {
   // If no Wifi signal, try to reconnect
   if ((WiFi.RSSI() == 0) && (wifiMulti.run() != WL_CONNECTED)) {
