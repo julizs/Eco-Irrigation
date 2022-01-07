@@ -17,11 +17,11 @@ class InfluxHelper
     InfluxHelper();
     void setupInflux();
     bool checkInfluxConnection();
-    void writeDataPoint(Point p, char* key, int value);
+    void writeDataPoint(Point p);
     void doQuery();
 };
 
 extern InfluxDBClient client;
-extern Point p0, p1, p2, p3;
+extern Point p0, p1;
 
 #endif // influxHelper_h

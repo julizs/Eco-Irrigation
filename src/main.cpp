@@ -11,7 +11,6 @@
 
 
 Services services;
-InfluxHelper influxHelper;
 
 TwoWire I2Cone = TwoWire(0);
 TwoWire I2Ctwo = TwoWire(1);
@@ -72,22 +71,22 @@ void doMeasurements()
   // Esp32 Main:
   //scanI2CBus(&I2Cone);
   //scanI2CBus(&I2Ctwo);
-  
+
+  // Add tags to data point
+  p0.addTag("device", DEVICE);
+  p0.addTag("SSID", WiFi.SSID());
+
+  p0.clearFields();
+
+  // Add fields to data point
   //pump1.setupToF();
   //int waterLevel = pump1.readToF();
-  //Serial.print("Wasserstand: ");
-  //Serial.println(waterLevel);
-
+  //p0.addField("waterLevel", waterLevel);
   byte rssi = WiFi.RSSI();
-  Serial.println("Rssi: " + rssi);
-
-  lightSensor1.setupTSL2591();
-  TSL2591data data = lightSensor1.measureLight();
+  p0.addField("rssi", rssi);
   
-  //influxHelper.writeDataPoint(p0, "rssi", rssi);
-  //influxHelper.writeDataPoint(p2, "waterLevel", waterLevel);
-  //influxHelper.writeDataPoint(p3, "Infrared Light", data.infraRed);
-  //influxHelper.writeDataPoint(p3, "Visible Light", data.visibleLight);
+  influxHelper.writeDataPoint(p0);
+
 
   //Esp32 Cam:
   //climate1.loop();
