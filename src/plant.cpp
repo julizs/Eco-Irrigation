@@ -23,13 +23,11 @@ bool Plant::measureSensors()
         }
     }
 
-    /*
     // Each Plant has 1 associated TSL2591
     lightSensor.setupTSL2591();
     TSL2591data data = lightSensor.measureLight();
     irLight = data.infraRed;
     visibleLight = data.visibleLight;
-    */
 
     writeToInflux();
     

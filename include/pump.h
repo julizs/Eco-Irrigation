@@ -31,6 +31,7 @@ public:
     PumpState currentState, lastState;
     const char *stateNames[3] = {"PUMP_IDLE", "PUMP_ON", "PUMP_DONE"};
     unsigned long stateBeginMillis, minStateDuration;
+    //int pwmFrequency, pwmChannel, pwmResolution;
 
     //VL53L0X toF; // Polulu
     Adafruit_VL53L0X toF_1 = Adafruit_VL53L0X();
@@ -50,6 +51,7 @@ public:
 private:
     void switchOn();
     void switchOff(); 
+    void setupPWM();
     bool checkWaterLevel();
     bool checkPumpPerformance(unsigned short);
 };

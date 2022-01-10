@@ -15,6 +15,19 @@ void Pump::setup()
     minWaterDist = 50;
     maxWaterDist = 300;
     currentState = PumpState::IDLE;
+
+    setupPWM();
+}
+
+void Pump::setupPWM()
+{
+    // Setup 2 PWM Channels for Pumps
+    // https://randomnerdtutorials.com/esp32-pwm-arduino-ide/
+    // https://diyi0t.com/arduino-pwm-tutorial/
+    ledcSetup(1, 5000, 8); // Channel, Frequency, Resolution (8 Bit, 0-255)
+    ledcSetup(2, 5000, 8);
+    ledcAttachPin(pumpPWM_Pin_1, 0);
+    ledcAttachPin(pumpPWM_Pin_2, 1);
 }
 
 bool Pump::setupToF()
@@ -121,14 +134,14 @@ void Pump::loop()
         {
             if(ToF_ready)
             {
-                if(checkWaterLevel()) // Update both currWaterDist and check if valid with just 1 Reading
+                if(checkWaterLevel()) // Update both currWaterDist and check if valid with same 1 Reading
                 {
                     currentState = PumpState::ON;
-                    ToF_ready = false;
+                    ToF_ready = false; // For next iteration
                 }
                 else
                 {
-                    Serial.println("Not enough Water for Irrigation.");
+                    Serial.println("Not enough Water, skipping Irrigation.");
                     currentState = PumpState::DONE;
                 } 
             }
@@ -219,19 +232,24 @@ float Pump::currentwaterLevel()
 void Pump::switchOn()
 {
     /*
-    // Set Rotation Direction (if H-Bridge and Pump supports 2 Dirs)
+    // Set Rotation Direction (only if H-Bridge and Pump supports 2 Directions)
     digitalWrite(in1, LOW);
     digitalWrite(in2, HIGH);
     */
 
-    //analogWrite(enA, 125); // PWM, 0-255, ESP32 Befehl?
+    // Esp8266
+    //analogWrite(enA, 125); 
 
-    //digitalWrite(pumpPin, HIGH); // Relais
+    // Esp32
+    ledcWrite(1, 255); // Run Pump1 with 5V (12V Input L298N, 10V Output at max. PWM Duty)
+    ledcWrite(2, 255);
+    
+    //digitalWrite(pumpPin, HIGH); // via Relais
 }
 
 void Pump::switchOff()
 {
-    //digitalWrite(pumpPin, LOW); // Relais
+    //digitalWrite(pumpPin, LOW); // via Relais
 }
 
 const Pump::PumpModel &Pump::getPumpModel() const
