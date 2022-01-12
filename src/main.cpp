@@ -21,8 +21,8 @@ SoilMoisture soilMoisture1(1100, 0);
 SoilMoisture soilMoisture2(1100, 1);
 //Fotoresistor fotoResistor1(10000, 3.3, 10, C15);
 AmbientLight lightSensor1(2591,I2Ctwo); // TSL2591
-Pump::PumpModel qr50e(12, 12, 2, 240);
-Pump::PumpModel palermo(6, 12, 2, 330);
+Pump::PumpModel qr50e(12, 12, 4, 240);
+Pump::PumpModel palermo(6, 12, 4, 330);
 Pump pump1(qr50e);
 Plant plant1(lightSensor1, soilMoisture1);
 Plant plant2(lightSensor1, soilMoisture2);
@@ -113,7 +113,7 @@ void doMeasurements()
 
 void doEvaluate()
 {
-  wateringNeeded = false;
+  wateringNeeded = true;
   // influxHelper.WriteDataPoint(lightVal);
 }
 
@@ -243,6 +243,7 @@ void on_actionState()
   {
     commonStateLogic();
   }
+
   // run sub-StateMachines
   if(wateringNeeded)
   {
@@ -311,11 +312,10 @@ bool transitionS3S4()
 
 bool transitionS4S1()
 {
-  // pump1.pumpDone && fan1.fanDone && ... || millis() - ... (max. Einschaltzeit)
-  // if(countTime(MIN_STATE_DURATION) && pump1.currentState == PumpState::IDLE && !pump1.pumpSignal)
-  if(countTime(MIN_STATE_DURATION) || pump1.lastState == PumpState::DONE)
+  // min State Duration must be over AND Pump done, Fan done, ...
+  if(countTime(MIN_STATE_DURATION) && pump1.lastState == PumpState::DONE)
   {
-    pump1.currentState = PumpState::IDLE;
+    pump1.currentState = PumpState::IDLE; // Reset Sub StateMachine
     return true;
   }
   return false;

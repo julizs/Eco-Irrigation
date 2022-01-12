@@ -8,11 +8,11 @@
 
 #define button1Pin 15
 #define button2Pin 4
-#define button3Pin 19
-#define pumpPWM_Pin_1 34
-#define pumpPWM_Pin_2 35
+//#define button3Pin 19
+#define pumpPWM_Pin_1 23
+#define pumpPWM_Pin_2 19
 #define toFPin 0
-#define shut_toF 23
+//define shut_toF 23
 #define DHTpin 2
 
 

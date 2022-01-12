@@ -11,7 +11,7 @@ void Pump::setup()
     //pinMode(in1, OUTPUT);
     //pinMode(in2, OUTPUT);
     
-    minStateDuration = 1;
+    minStateDuration = 4;
     minWaterDist = 50;
     maxWaterDist = 300;
     currentState = PumpState::IDLE;
@@ -24,10 +24,12 @@ void Pump::setupPWM()
     // Setup 2 PWM Channels for Pumps
     // https://randomnerdtutorials.com/esp32-pwm-arduino-ide/
     // https://diyi0t.com/arduino-pwm-tutorial/
-    ledcSetup(1, 5000, 8); // Channel, Frequency, Resolution (8 Bit, 0-255)
-    ledcSetup(2, 5000, 8);
-    ledcAttachPin(pumpPWM_Pin_1, 0);
-    ledcAttachPin(pumpPWM_Pin_2, 1);
+    pinMode(pumpPWM_Pin_1, OUTPUT);
+    pinMode(pumpPWM_Pin_2, OUTPUT);
+    ledcSetup(pwmChannel1, freq, res); // Channel, Frequency, Resolution (8 Bit, 0-255)
+    ledcSetup(pwmChannel2, freq, res);
+    ledcAttachPin(pumpPWM_Pin_1, pwmChannel1);
+    ledcAttachPin(pumpPWM_Pin_2, pwmChannel2);
 }
 
 bool Pump::setupToF()
@@ -56,12 +58,24 @@ bool Pump::setupToF()
 bool Pump::checkWaterLevel()
 {
     int waterLevel = readToF();
+
     if(waterLevel < maxWaterDist && waterLevel > minWaterDist)
     {
         // Update only valid Values
+        Serial.print("Valid average WaterLevel Read: ");
+        Serial.println(waterLevel);
+
         currWaterDist = waterLevel;
+        //p0.addField("waterLevel", waterLevel);
+        //influxHelper.writeDataPoint(p0);
+
         return true;
     }
+    else
+    {
+        Serial.println("Invalid WaterLevel Read");
+    }
+
     return false;
 }
 
@@ -87,13 +101,10 @@ int Pump:: readToF()
             //toF_1.rangingTest(&measure, false);
             //distance = measure.RangeMilliMeter;
             distance = toF_1.readRange();
-            Serial.print("Reading (mm): ");
-            Serial.print(distance);
             j++; 
         }
         else
         {
-            Serial.println(" is valid");
             readings[i] = distance;
             validReading = true;
             avgDistance += distance;
@@ -238,11 +249,12 @@ void Pump::switchOn()
     */
 
     // Esp8266
-    //analogWrite(enA, 125); 
+    //analogWrite(enA, 125);
 
     // Esp32
-    ledcWrite(1, 255); // Run Pump1 with 5V (12V Input L298N, 10V Output at max. PWM Duty)
-    ledcWrite(2, 255);
+    // Run Pump1 with 5V (12V Input L298N, 10V Output at max. PWM Duty)
+    ledcWrite(pwmChannel1, 255); // Palermo
+    ledcWrite(pwmChannel2, 150); // QR50E
     
     //digitalWrite(pumpPin, HIGH); // via Relais
 }
@@ -250,6 +262,8 @@ void Pump::switchOn()
 void Pump::switchOff()
 {
     //digitalWrite(pumpPin, LOW); // via Relais
+    ledcWrite(pwmChannel1, 0); // Palermo
+    ledcWrite(pwmChannel2, 0); // QR50E
 }
 
 const Pump::PumpModel &Pump::getPumpModel() const
