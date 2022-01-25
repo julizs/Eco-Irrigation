@@ -22,7 +22,7 @@ SoilMoisture soilMoisture2(1100, 1);
 //Fotoresistor fotoResistor1(10000, 3.3, 10, C15);
 AmbientLight lightSensor1(2591,I2Ctwo); // TSL2591
 Pump::PumpModel qr50e(12, 12, 4, 240);
-Pump::PumpModel palermo(6, 12, 4, 330);
+Pump::PumpModel palermo(6, 12, 6, 330);
 Pump pump1(qr50e);
 Plant plant1(lightSensor1, soilMoisture1);
 Plant plant2(lightSensor1, soilMoisture2);
@@ -72,6 +72,9 @@ void doMeasurements()
   // Esp32 Main:
   //scanI2CBus(&I2Cone);
   //scanI2CBus(&I2Ctwo);
+
+  //services.doGetRequest();
+  services.doJSONGetRequest();
 
   // Add tags to data point
   if(!p0.hasTags())

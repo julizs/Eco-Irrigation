@@ -254,7 +254,7 @@ void Pump::switchOn()
     // Esp32
     // Run Pump1 with 5V (12V Input L298N, 10V Output at max. PWM Duty)
     ledcWrite(pwmChannel1, 255); // Palermo
-    ledcWrite(pwmChannel2, 150); // QR50E
+    ledcWrite(pwmChannel2, 255); // QR50E
     
     //digitalWrite(pumpPin, HIGH); // via Relais
 }

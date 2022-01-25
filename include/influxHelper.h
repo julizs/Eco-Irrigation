@@ -19,9 +19,13 @@ class InfluxHelper
     bool checkInfluxConnection();
     void writeDataPoint(Point &p);
     void doQuery();
+
+    void addPlant(char plantName[]);
+    void removePlant(char plantName[]);
+    void assignSoilMoistSensor(char plantName[], unsigned short);
 };
 
 extern InfluxDBClient client;
-extern Point p0, p1;
+extern Point p0, p1, p2;
 
 #endif // influxHelper_h

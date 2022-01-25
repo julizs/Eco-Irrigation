@@ -9,10 +9,12 @@ https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#secure-connection
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
 
 // create data point (= row) in a measurement (= table)
-// measurement name is string in constructor?
-// 1 measurement/point per sensor or 1 for env and 1 per plant?
+// measurement name is string in point constructor?
+// point obj gets reused for entering a row into the measurement
+// 1 measurement/point per sensor or 1 for env data and 1 per plant data?
 Point p0("Environment Data");
 Point p1("Plant Data");
+Point p2("Sensor Assignment");
 
 InfluxHelper::InfluxHelper()
 {
@@ -113,3 +115,31 @@ void InfluxHelper::doQuery()
   result.close();
 }
 
+
+/*
+// Before: no sensor assignments, all sensors insert data into
+// measurements but no plant tags yet
+// User creates a new plant, no sensor assignments yet
+void InfluxHelper::addPlant(char plantName[])
+{
+  p2.addTag("plantName", plantName);
+}
+
+// All old data should keep recent sensor/plant assignments before change
+void InfluxHelper::removePlant(char plantName[])
+{
+  p2.clearFields();
+  p2.clearTags();
+  writeDataPoint(p2);
+}
+
+// First assign or reassign a SoilMoisture Sensor to a plant
+void InfluxHelper::assignSoilMoistSensor(char plantName[], unsigned short multiplexerChannel)
+{
+  p2.clearFields();
+  p2.clearTags();
+  p2.addTag("plantName", plantName);
+  p2.addField("soilMoistureSensor", multiplexerChannel);
+  writeDataPoint(p2);
+}
+*/

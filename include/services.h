@@ -10,6 +10,9 @@ extern WiFiMulti wifiMulti;
 extern ESP8266WiFiMulti wifiMulti;
 #define DEVICE "ESP8266"
 #endif
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+#include <StreamUtils.h>
 
 //#define WIFI_SSID "FRITZ!Box 7430 ED"
 //#define WIFI_PASSWORD "49391909776212256241"
@@ -22,6 +25,8 @@ class Services
     Services();
     void setupWifi();
     void setupWifiMulti();
+    void doGetRequest();
+    void doJSONGetRequest();
     bool getWifiStatus();
     bool getWifiMultiStatus();
 };

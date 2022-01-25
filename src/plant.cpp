@@ -29,6 +29,8 @@ bool Plant::measureSensors()
     irLight = data.infraRed;
     visibleLight = data.visibleLight;
 
+    // Do in doMeasurements() in main
+    // Too many Connections (1 per Plant) to InfluxDB, SSL failed
     writeToInflux();
     
     return measurementsSuccessful;
