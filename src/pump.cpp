@@ -59,10 +59,10 @@ bool Pump::checkWaterLevel()
 {
     int waterLevel = readToF();
 
-    if(waterLevel < maxWaterDist && waterLevel > minWaterDist)
+    if(waterLevel < maxWaterDist && waterLevel > minWaterDist) // Limits set by User, maxLegitWaterDist, minLegitWaterDist
     {
         // Update only valid Values
-        Serial.print("Valid average WaterLevel Read: ");
+        Serial.print("WaterLevel is ok for Irrigation: ");
         Serial.println(waterLevel);
 
         currWaterDist = waterLevel;
@@ -73,7 +73,7 @@ bool Pump::checkWaterLevel()
     }
     else
     {
-        Serial.println("Invalid WaterLevel Read");
+        Serial.println("WaterLevel is too low or too high.");
     }
 
     return false;
@@ -96,7 +96,7 @@ int Pump:: readToF()
     int j = 0; // 3 Attemps per single Reading
 
     while(j < 3 && !validReading) {
-        if((measure.RangeStatus == 4 || distance < minWaterDist || distance > maxWaterDist))
+        if((measure.RangeStatus == 4 || distance < minWaterDist || distance > maxWaterDist)) // Water Container Physical Limits, maxPossibleWaterDist, ...
         {
             //toF_1.rangingTest(&measure, false);
             //distance = measure.RangeMilliMeter;
@@ -105,7 +105,7 @@ int Pump:: readToF()
         }
         else
         {
-            readings[i] = distance;
+            //readings[i] = distance;
             validReading = true;
             avgDistance += distance;
         }

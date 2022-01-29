@@ -1,10 +1,5 @@
 #include "multiplexer.h"
 
-Multiplexer::Multiplexer()
-{
-
-}
-
 void Multiplexer::setup()
 {
   pinMode(S0, OUTPUT);

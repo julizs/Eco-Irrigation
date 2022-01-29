@@ -72,8 +72,10 @@ void Services::doGetRequest()
 }
 
 // https://arduinojson.org/v6/how-to/use-arduinojson-with-httpclient/
-void Services::doJSONGetRequest()
+DynamicJsonDocument Services::doJSONGetRequest()
 {
+  DynamicJsonDocument doc(2048);
+
   if(WiFi.status()== WL_CONNECTED)
     {
       HTTPClient http;
@@ -87,14 +89,20 @@ void Services::doJSONGetRequest()
       if (httpResponseCode>0) 
       {
         // Parse response
-        DynamicJsonDocument doc(2048);
         deserializeJson(doc, http.getStream());
         //ReadLoggingStream loggingStream(http.getStream(), Serial); // StreamUtils.h
         //deserializeJson(doc, loggingStream);
 
+        /*
         // Read values
         Serial.println(doc[0].as<String>());
         Serial.println(doc[0]["plantName"].as<String>());
+
+        for(int i = 0; i < doc.size(); i++)
+        {
+          Serial.println(doc[i]["plantName"].as<String>());
+        }
+        */
       }
       else {
         Serial.print("Error code: ");
@@ -104,4 +112,6 @@ void Services::doJSONGetRequest()
       // Disconnect
       http.end();
     }
+
+    return doc;
 }

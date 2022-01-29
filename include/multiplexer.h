@@ -6,7 +6,7 @@
 class Multiplexer
 {
 public:
-    Multiplexer();
+    
     static void setup();
     static int readChannel(byte channel);
 };

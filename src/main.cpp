@@ -2,12 +2,14 @@
 #include <plant.h>
 #include <climate.h>
 #include <soilmoisture.h>
+#include <SoilMoist.h>
 #include <pump.h>
 #include <multiplexer.h>
 #include <services.h>
 #include <influxHelper.h>
 #include <LinkedList.h>
 #include <StateMachine.h>
+#include <ArduinoJson.h>
 
 
 Services services;
@@ -67,14 +69,41 @@ void scanI2CBus(TwoWire *wire)
 
 void doMeasurements()
 {
-  // Global Measurements per EcoBox
-
-  // Esp32 Main:
   //scanI2CBus(&I2Cone);
   //scanI2CBus(&I2Ctwo);
 
-  //services.doGetRequest();
-  services.doJSONGetRequest();
+  DynamicJsonDocument doc = services.doJSONGetRequest();
+
+  // For each plant
+  for(int i = 0; i < doc.size(); i++)
+  { 
+    String plantName = doc[i]["plantName"].as<String>();
+    Point p("Plant Data"); // Write new data point/row into this table
+    p1.addTag("Plant", plantName);
+
+    Serial.println();
+    Serial.println(doc[i]["_id"].as<String>());
+    Serial.println(doc[i]["plantName"].as<String>());
+
+    for(int j = 0; j < sizeof(doc[i]["moistureSensors"]); j++)
+    {
+      int moistureSensor = doc[i]["moistureSensors"][j].as<int>();
+      if(moistureSensor != 0)
+      {
+        // Serial.print("Measure Moisture: ");
+        // Serial.print(moistureSensor);
+        char key[25];
+        sprintf(key, "Soil Moisture Sensor %d", j);
+        int value = SoilMoist::measureSoilMoistureSmoothed(moistureSensor);
+        p.addField(key, value);
+      }
+    }
+
+    int lightSensor = doc[i]["lightSensor"].as<int>();
+    //p.addField(key, );
+
+    Serial.println();
+  }
 
   // Add tags to data point
   if(!p0.hasTags())
@@ -83,6 +112,7 @@ void doMeasurements()
     p0.addTag("SSID", WiFi.SSID());
   }
 
+  // Reuse data point
   p0.clearFields();
 
   // Add fields to data point
@@ -94,10 +124,12 @@ void doMeasurements()
 
   influxHelper.writeDataPoint(p0);
 
-
-  //Esp32 Cam:
-  //climate1.loop();
-  //DHTdata data = climate1.loop();
+  // Plant-specific Measurements
+  for (auto &plant : plants)
+  {
+    plant.measureSensors();
+    //Serial.println(plant.lightSensor.measureLight());
+  }
 
   /*
   for(int i = 0; i < 12; i++)
@@ -105,13 +137,6 @@ void doMeasurements()
     Serial.println(Multiplexer::readChannel(i));
   }
   */
-
-  // Plant-specific Measurements
-  for (auto &plant : plants)
-  {
-    plant.measureSensors();
-    //Serial.println(plant.lightSensor.measureLight());
-  }
 }
 
 void doEvaluate()
@@ -326,8 +351,6 @@ bool transitionS4S1()
 
 void setup()
 {
-
-  // Wait for serial to init
   // while (!Serial){}
   Serial.begin(115200);
 
@@ -349,7 +372,6 @@ void setup()
   plants[0].setName("Thymian");
   plants[1].setName("Orchidee");
   
-
   initState = fsm.addState(&on_initState);
   sleepState = fsm.addState(&on_sleepState);
   measureState = fsm.addState(&on_measureState);
@@ -366,10 +388,9 @@ void setup()
 
 void loop()
 {
-
   fsm.run();
   //delay(LOOP_DELAY);
-
+  
   // Check constantly in all States and Sub StateMachines:
   checkButtons();
 }
