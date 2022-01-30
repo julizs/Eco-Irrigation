@@ -72,71 +72,93 @@ void doMeasurements()
   //scanI2CBus(&I2Cone);
   //scanI2CBus(&I2Ctwo);
 
-  DynamicJsonDocument doc = services.doJSONGetRequest();
 
-  // For each plant
-  for(int i = 0; i < doc.size(); i++)
-  { 
-    String plantName = doc[i]["plantName"].as<String>();
-    Point p("Plant Data"); // Write new data point/row into this table
-    p1.addTag("Plant", plantName);
-
-    Serial.println();
-    Serial.println(doc[i]["_id"].as<String>());
-    Serial.println(doc[i]["plantName"].as<String>());
-
-    for(int j = 0; j < sizeof(doc[i]["moistureSensors"]); j++)
-    {
-      int moistureSensor = doc[i]["moistureSensors"][j].as<int>();
-      if(moistureSensor != 0)
-      {
-        // Serial.print("Measure Moisture: ");
-        // Serial.print(moistureSensor);
-        char key[25];
-        sprintf(key, "Soil Moisture Sensor %d", j);
-        int value = SoilMoist::measureSoilMoistureSmoothed(moistureSensor);
-        p.addField(key, value);
-      }
-    }
-
-    int lightSensor = doc[i]["lightSensor"].as<int>();
-    //p.addField(key, );
-
-    Serial.println();
-  }
-
-  // Add tags to data point
+  // ESP32-SPECIFIC (GLOBAL) MEASUREMENTS
+  // Reuse datapoint, add tags and clear fields
   if(!p0.hasTags())
   {
     p0.addTag("device", DEVICE);
     p0.addTag("SSID", WiFi.SSID());
   }
 
-  // Reuse data point
   p0.clearFields();
 
-  // Add fields to data point
-  //pump1.setupToF();
-  //int waterLevel = pump1.readToF();
-  //p0.addField("waterLevel", waterLevel);
+  // pump1.setupToF();
+  // int waterLevel = pump1.readToF();
+  // p0.addField("waterLevel", waterLevel);
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
 
   influxHelper.writeDataPoint(p0);
 
+
+
+
+  // PLANT-SPECIFIC MEASUREMENTS
+  // 1. Get Plant-Sensor Assignments/Configs
+  DynamicJsonDocument doc = services.doJSONGetRequest();
+
+  // 2. Setup Sensors only once
+  lightSensor1.setupTSL2591();
+
+  // 3. Measure the assigned Sensors from each plant
+  // (First check assignments in each measure iteration since user could have changed them
+  // and only measure the assigned ones)
+  Point p("Plant Data"); // Write new data point/row into this table, reuse datapoint
+  int lastLightSensorNum;
+  TSL2591data data;
+
+  // For each plant
+  for(int i = 0; i < doc.size(); i++)
+  { 
+    String plantName = doc[i]["plantName"].as<String>();
+    p.clearTags();
+    p.clearFields();
+    p.addTag("Plant", plantName);
+
+    Serial.println();
+    Serial.println(doc[i]["_id"].as<String>());
+    Serial.println(doc[i]["plantName"].as<String>());
+
+    // Remove any r["_field"] Filter in InfluxDB Cell Script Editor so all added
+    // or removed Sensorvalues are shown
+    for(int j = 0; j < sizeof(doc[i]["moistureSensors"]); j++)
+    {
+      int moistureSensor = doc[i]["moistureSensors"][j].as<int>(); 
+      if(moistureSensor != 0) // ignore 0s, e.g. 67000 (=channels 6,7)
+      {
+        // Serial.print("Measure Moisture: ");
+        // Serial.print(moistureSensor);
+        char key[25];
+        sprintf(key, "Soil Moisture Sensor %d", moistureSensor);
+        // Measure moistureSensor-1 (User enters 1-16, Multiplexer reads 0-15)
+        int value = SoilMoist::measureSoilMoistureSmoothed(moistureSensor - 1);
+        p.addField(key, value);
+      }
+    }
+
+    // TODO Multiple lightSensors, select the assigned one
+    // Only remeasure lightSensor of plant if sensor wasnt already measured
+    int currentLightSensorNum = doc[i]["lightSensor"].as<int>();
+    //if(i != 0 && lastLightSensorNum != currentLightSensorNum)
+    //{
+    data = lightSensor1.measureLight();
+    //}
+    p.addField("Infrared Light", data.infraRed);
+    p.addField("Visible Light", data.visibleLight);
+
+    influxHelper.writeDataPoint(p);
+
+    Serial.println();
+  }
+  
+
   // Plant-specific Measurements
   for (auto &plant : plants)
   {
-    plant.measureSensors();
-    //Serial.println(plant.lightSensor.measureLight());
+    // plant.measureSensors();
+    // Serial.println(plant.lightSensor.measureLight());
   }
-
-  /*
-  for(int i = 0; i < 12; i++)
-  {
-    Serial.println(Multiplexer::readChannel(i));
-  }
-  */
 }
 
 void doEvaluate()

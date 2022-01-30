@@ -33,11 +33,16 @@ void InfluxHelper::setupInflux()
   client.setWriteOptions(WriteOptions().writePrecision(WritePrecision::MS));
 
   /* Write Data as Batch
-  batch = set of data points, sent at once (more efficient)
   https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#batch-size
+  https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#buffer-handling-and-retrying
+  batch = set of data points, sent at once (more efficient)
   batchsize dependant on number of data points per measurement and dashboard update rate
+  bufferSize should be at least 2x batchSize
+  with batchSize(0) or bufferSize(0): Often ssl connection error
   */
-  client.setWriteOptions(WriteOptions().batchSize(2));
+  client.setWriteOptions(WriteOptions().batchSize(4));
+  client.setWriteOptions(WriteOptions().bufferSize(16));
+  client.setWriteOptions(WriteOptions().flushInterval(30));
 }
 
 bool InfluxHelper::checkInfluxConnection()
@@ -64,21 +69,23 @@ void InfluxHelper::writeDataPoint(Point &p)
   }
 
   // Write data point into measurement/table or into buffer
+  
   if (!client.writePoint(p)) {
     Serial.print("InfluxDB write failed: ");
     Serial.println(client.getLastErrorMessage());
   }
 
-   /* Check Buffer
-   if(!client.isBufferEmpty())
-   {
-     Serial.println("Wrote data point into buffer.");
-   }
-   else 
-   {
-     Serial.println("Flushed Buffer, sent all points to server.");
-   };
-   */
+  /*
+  //Check Buffer
+  if(client.isBufferEmpty())
+  {
+    Serial.println("Buffer is empty.");
+  }
+  else 
+  {
+    Serial.println("Wrote data point into buffer.");
+  };
+  */
 }
 
 void InfluxHelper::doQuery()
