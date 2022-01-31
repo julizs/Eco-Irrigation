@@ -1,5 +1,5 @@
-#ifndef services_h
-#define services_h
+#ifndef Services_h
+#define Services_h
 
 #if defined(ESP32)
 #include <WiFiMulti.h>
@@ -31,4 +31,4 @@ class Services
     bool getWifiMultiStatus();
 };
 
-#endif //services_h
+#endif // Services_h

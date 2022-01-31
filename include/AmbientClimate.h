@@ -1,5 +1,5 @@
-#ifndef climate_h
-#define climate_h
+#ifndef AmbientClimate_h
+#define AmbientClimate_h
 #include <DHTesp.h>
 #include <main.h>
 
@@ -17,7 +17,7 @@ struct DHTdata
     float humidity;
 };
 
-class Climate
+class AmbientClimate
 {
     public:
     DHTesp dht;
@@ -30,7 +30,7 @@ class Climate
     MeasureState currentState, lastState;
     unsigned long stateBeginMillis;
  
-    Climate(int maxPollingRate, int measureAttempts); // Konstr 
+    AmbientClimate(int maxPollingRate, int measureAttempts); // Konstr 
     void setup();
     void loop();
     DHTdata measureClimateDHT();
@@ -40,4 +40,4 @@ class Climate
     bool validTemperature();
 };
 
-#endif // climate_h
+#endif // AmbientClimate_h

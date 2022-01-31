@@ -1,5 +1,6 @@
-#ifndef multiplexer.h
-#define multiplexer.h
+#ifndef Multiplexer_h
+#define Multiplexer_h
+
 #include <pins.h>
 #include <Arduino.h>
 
@@ -11,4 +12,4 @@ public:
     static int readChannel(byte channel);
 };
 
-#endif //multiplexer.h
+#endif // Multiplexer.h

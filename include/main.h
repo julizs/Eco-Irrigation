@@ -3,8 +3,11 @@
 
 #include <Arduino.h>
 #include <Wire.h>
-#include <influxHelper.h>
-#include <pins.h>
+#include <Pins.h>
+
+#include <Multiplexer.h>
+#include <Services.h>
+#include <InfluxHelper.h>
 
 extern TwoWire I2Cone;
 extern TwoWire I2Ctwo;

@@ -1,5 +1,5 @@
-#ifndef influxHelper_h
-#define influxHelper_h
+#ifndef InfluxHelper_h
+#define InfluxHelper_h
 
 #include <InfluxDbClient.h>
 #include <InfluxDbCloud.h>
@@ -28,4 +28,4 @@ class InfluxHelper
 extern InfluxDBClient client;
 extern Point p0, p1, p2;
 
-#endif // influxHelper_h
+#endif // InfluxHelper_h

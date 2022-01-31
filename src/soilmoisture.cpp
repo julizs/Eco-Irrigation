@@ -1,49 +1,55 @@
-#include "soilmoisture.h"
+#include "SoilMoisture.h"
 
-SoilMoisture::SoilMoisture(int sensorFloor, byte multiplexerPin)
-{
-  this->sensorFloor = sensorFloor;
-  this->multiplexerPin = multiplexerPin;
-}
-
-int SoilMoisture::measureSoilMoistureSmoothed()
+int SoilMoisture::measureSoilMoistureSmoothed(int pinNum)
 {
   int sum = 0;
-  sampleSize = 4;
+  int sampleSize = 4;
+  int actualSamples = 0;
 
   // Analog Smoothing
   for(int i = 0; i < sampleSize; i++)
   {
-    int soilMoisture = measureSoilMoisture();
+    int soilMoisture = SoilMoisture::measureSoilMoisture(pinNum);
 
-    if(isnan(soilMoisture))
+    if(!isnan(soilMoisture))
 	  {
-		 Serial.println("Soil Moisture Measurement failed.");
+		 sum += soilMoisture;
+         actualSamples++;
 	  }
-
-    sum += soilMoisture;
+      delay(10);
   }
 
-  int smoothedMoisture = sum/(sampleSize*1.0f);
+  int smoothedMoisture = sum/(actualSamples*1.0f);
+
+  Serial.print("Measured Multiplexer Channel: ");
+  Serial.print(pinNum);
+  Serial.print(" which is MoistureSensor: ");
+  Serial.print(pinNum + 1);
+  // Serial.print("Valid SoilMoist Samples: ");
+  // Serial.print(actualSamples);
+  Serial.println();
 
   return smoothedMoisture;
 }
 
-int SoilMoisture::measureSoilMoisture()
+int SoilMoisture::measureSoilMoisture(int pinNum)
 {
-  // Range: 0-1023, 1023 is maximum Dryness
+  // Value Range: 0-1023 @Esp8266, 1023 is max Dryness
+  // Value Range: 1000-3000 @Esp32, 3000 is max Dryness
+  // Constrain needed for mappedValue, measurement sometimes under typical individual Floor Level of Sensor
   
-  //int rawValue = analogRead(analogPin);
-  int rawValue = Multiplexer::readChannel(multiplexerPin);
-  // measured Value sometimes under Floor, constrain needed for calc of percentage
+  int sensorFloor = 1000;
+  int rawValue = Multiplexer::readChannel(pinNum);
   int constrainedValue = constrain(rawValue, sensorFloor, 1024);
 
   return rawValue;
 }
 
-float SoilMoisture::calcPercentage(int constrainedValue)
+float SoilMoisture::voltageToPercentage(int constrainedValue)
 {
+  int sensorFloor = 1000;
   int mappedValue = map(constrainedValue,1024,sensorFloor,0,100);
   float percentageValue = ( 100.0f - ( (mappedValue/1023.0f) * 100.0f ) );
+
   return percentageValue;
 }

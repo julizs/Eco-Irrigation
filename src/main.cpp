@@ -1,12 +1,8 @@
 #include <main.h>
-#include <plant.h>
-#include <climate.h>
-#include <soilmoisture.h>
-#include <SoilMoist.h>
-#include <pump.h>
-#include <multiplexer.h>
-#include <services.h>
-#include <influxHelper.h>
+#include <AmbientClimate.h>
+#include <SoilMoisture.h>
+#include <AmbientLight.h>
+#include <Pump.h>
 #include <LinkedList.h>
 #include <StateMachine.h>
 #include <ArduinoJson.h>
@@ -18,17 +14,19 @@ InfluxHelper influxHelper;
 TwoWire I2Cone = TwoWire(0);
 TwoWire I2Ctwo = TwoWire(1);
 
-Climate climate1(500, 2);
-SoilMoisture soilMoisture1(1100, 0);
-SoilMoisture soilMoisture2(1100, 1);
+//SoilMoisture soilMoisture1(1100, 0);
+//SoilMoisture soilMoisture2(1100, 1);
 //Fotoresistor fotoResistor1(10000, 3.3, 10, C15);
-AmbientLight lightSensor1(2591,I2Ctwo); // TSL2591
+AmbientClimate climate1(500, 2);
+AmbientLight lightSensor1(1);
+AmbientLight lightSensor2(2);
 Pump::PumpModel qr50e(12, 12, 4, 240);
 Pump::PumpModel palermo(6, 12, 6, 330);
 Pump pump1(qr50e);
-Plant plant1(lightSensor1, soilMoisture1);
-Plant plant2(lightSensor1, soilMoisture2);
-std::vector<Plant> plants{plant1, plant2};
+
+//Plant plant1(lightSensor2, soilMoisture1);
+//Plant plant2(lightSensor2, soilMoisture2);
+//std::vector<Plant> plants{plant1, plant2};
 
 StateMachine fsm = StateMachine();
 State *initState, *sleepState, *measureState, *evaluateState, *actionState;
@@ -99,7 +97,8 @@ void doMeasurements()
   DynamicJsonDocument doc = services.doJSONGetRequest();
 
   // 2. Setup Sensors only once
-  lightSensor1.setupTSL2591();
+  lightSensor1.setupTSL2591(I2Cone); // not found
+  lightSensor2.setupTSL2591(I2Ctwo); // ok
 
   // 3. Measure the assigned Sensors from each plant
   // (First check assignments in each measure iteration since user could have changed them
@@ -132,7 +131,7 @@ void doMeasurements()
         char key[25];
         sprintf(key, "Soil Moisture Sensor %d", moistureSensor);
         // Measure moistureSensor-1 (User enters 1-16, Multiplexer reads 0-15)
-        int value = SoilMoist::measureSoilMoistureSmoothed(moistureSensor - 1);
+        int value = SoilMoisture::measureSoilMoistureSmoothed(moistureSensor - 1);
         p.addField(key, value);
       }
     }
@@ -142,7 +141,7 @@ void doMeasurements()
     int currentLightSensorNum = doc[i]["lightSensor"].as<int>();
     //if(i != 0 && lastLightSensorNum != currentLightSensorNum)
     //{
-    data = lightSensor1.measureLight();
+    data = lightSensor2.measureLight();
     //}
     p.addField("Infrared Light", data.infraRed);
     p.addField("Visible Light", data.visibleLight);
@@ -152,13 +151,14 @@ void doMeasurements()
     Serial.println();
   }
   
-
+  /*
   // Plant-specific Measurements
   for (auto &plant : plants)
   {
     // plant.measureSensors();
     // Serial.println(plant.lightSensor.measureLight());
   }
+  */
 }
 
 void doEvaluate()
@@ -391,8 +391,8 @@ void setup()
 
   Multiplexer::setup();
 
-  plants[0].setName("Thymian");
-  plants[1].setName("Orchidee");
+  //plants[0].setName("Thymian");
+  //plants[1].setName("Orchidee");
   
   initState = fsm.addState(&on_initState);
   sleepState = fsm.addState(&on_sleepState);

@@ -1,5 +1,5 @@
-#ifndef pump_h
-#define pump_h
+#ifndef Pump_h
+#define Pump_h
 #include <main.h>
 #include "Adafruit_VL53L0X.h"
 
@@ -62,4 +62,4 @@ private:
     bool checkPumpPerformance(unsigned short);
 };
 
-#endif // pump_h
+#endif // Pump_h

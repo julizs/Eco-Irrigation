@@ -1,17 +1,17 @@
-#include "climate.h"
+#include "AmbientClimate.h"
 
-Climate::Climate(int maxPollingRate, int measureAttempts)
+AmbientClimate::AmbientClimate(int maxPollingRate, int measureAttempts)
 {
   this->maxPollingRate = maxPollingRate;
   this->measureAttemps = measureAttemps;
 }
 
-void Climate::setup()
+void AmbientClimate::setup()
 {
   dht.setup(DHTpin, DHTesp::DHT11);
 }
 
-void Climate::loop()
+void AmbientClimate::loop()
 {
   switch (currentState)
   {
@@ -74,7 +74,7 @@ void Climate::loop()
   }
 }
 
-bool Climate::validHumidity()
+bool AmbientClimate::validHumidity()
 {
   if (isnan(humidity) || humidity >= dht.getUpperBoundHumidity() || humidity <= dht.getLowerBoundHumidity())
   {
@@ -83,7 +83,7 @@ bool Climate::validHumidity()
   return true;
 }
 
-bool Climate::validTemperature()
+bool AmbientClimate::validTemperature()
 {
   if (isnan(temperature) || temperature >= dht.getUpperBoundTemperature() || temperature <= dht.getLowerBoundTemperature())
   {
@@ -92,13 +92,13 @@ bool Climate::validTemperature()
   return true;
 }
 
-float Climate::measureHumidityDHT()
+float AmbientClimate::measureHumidityDHT()
 {
   float humidity = dht.getHumidity();
   return humidity;
 }
 
-float Climate::measureTemperatureDHT()
+float AmbientClimate::measureTemperatureDHT()
 {
   float temperature = dht.getTemperature();
   return temperature;

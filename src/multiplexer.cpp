@@ -1,4 +1,4 @@
-#include "multiplexer.h"
+#include "Multiplexer.h"
 
 void Multiplexer::setup()
 {

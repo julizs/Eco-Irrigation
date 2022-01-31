@@ -1,40 +1,49 @@
-#include <ambientLight.h>
+#include <AmbientLight.h>
 
-AmbientLight::AmbientLight(int sensorId, TwoWire &bus) : bus(bus) 
+AmbientLight::AmbientLight(int sensorId)
 {
   this->sensorId = sensorId;
   Adafruit_TSL2591 tsl = Adafruit_TSL2591();
 }
 
-void AmbientLight::setupTSL2591()
+void AmbientLight::setupTSL2591(TwoWire &bus)
 {
-  if (tsl.begin(&I2Ctwo)) // &bus geht nicht
+  if (tsl.begin(&bus)) // &I2Ctwo
   {
-    Serial.println("did Setup tsl2591.");
+    Serial.print("did Setup tsl2591 with ID: ");
+    Serial.print(sensorId);
+    Serial.println();
+
+    // Sensor Details (Name, Version, ID, min/max, Res)
+    sensor_t sensor;
+    tsl.getSensor(&sensor);
+    Serial.print("Version: ");
+    Serial.print(sensor.version);
+    Serial.println();
+    
+    // Adapt to brighter/dimmer light situations with gain & integrationTime
+    //tsl.setGain(TSL2591_GAIN_LOW);    // 1x gain (bright light)
+    tsl.setGain(TSL2591_GAIN_MED);      // 25x gain
+    //tsl.setGain(TSL2591_GAIN_HIGH);   // 428x gain
+    
+    // tsl.setTiming(TSL2591_INTEGRATIONTIME_100MS);  // shortest (bright light)
+    tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS); // "Belichtungszeit"
+    // tsl.setTiming(TSL2591_INTEGRATIONTIME_600MS);  // longest (dim light)
+
+    Serial.print("Gain: ");
+    Serial.print(tsl.getGain());
+    Serial.println();
+    Serial.print("Timing: ");
+    Serial.print(((tsl.getTiming() + 1) * 100, DEC));
+    Serial.println();
   } 
   else 
   {
-    Serial.println(F("tsl2591 not found."));
+    Serial.print("could not setup tsl2591 with ID: ");
+    Serial.print(sensorId);
+    Serial.println();
     // while (1);
   }
-
-  // Sensor Details (Name, Version, ID, min/max, Res)
-  sensor_t sensor;
-  tsl.getSensor(&sensor);
-  Serial.println(sensor.version);
-  
-  // Adapt to brighter/dimmer light situations with gain & integrationTime
-
-  //tsl.setGain(TSL2591_GAIN_LOW);    // 1x gain (bright light)
-  tsl.setGain(TSL2591_GAIN_MED);      // 25x gain
-  //tsl.setGain(TSL2591_GAIN_HIGH);   // 428x gain
-  
-  // tsl.setTiming(TSL2591_INTEGRATIONTIME_100MS);  // shortest (bright light)
-  tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS); // "Belichtungszeit"
-  // tsl.setTiming(TSL2591_INTEGRATIONTIME_600MS);  // longest (dim light)
-
-  Serial.println(tsl.getGain());
-  Serial.println(((tsl.getTiming() + 1) * 100, DEC) +  "ms");
 }
 
 TSL2591data AmbientLight::measureLight()

@@ -1,5 +1,5 @@
-#ifndef pins_h
-#define pins_h
+#ifndef Pins_h
+#define Pins_h
 
 #if defined(ESP32)
 //#include <WiFiMulti.h>
@@ -59,4 +59,4 @@
 // Egal ob Esp32 oder Esp8266
 #define C15 15
 
-#endif //pins_h
+#endif // Pins_h
