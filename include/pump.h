@@ -51,8 +51,8 @@ public:
     void setup();
     void loop();
     bool setupToF();
-    int readToF();
-    int readToF_cont();
+    float readToF();
+    float readToF_cont();
 
 private:
     void switchOn();

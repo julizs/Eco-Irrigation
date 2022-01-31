@@ -39,10 +39,10 @@ bool Pump::setupToF()
     // digitalWrite(shut_toF, LOW);
     // digitalWrite(shut_toF, HIGH);
 
-    // Only rerun setup on first time or if sensor satus suggests
+    // Only rerun setup on first time or if sensor satus suggests, see library
     if (ToF_ready == false || (toF_1.Status != VL53L0X_ERROR_NONE))
     {
-        if (!toF_1.begin(0x52, &I2Cone)) // change i2C addr
+        if (!toF_1.begin(0x52, &I2Cone)) // change i2C addr via sw
         {
             Serial.println(F("Failed to boot VL53L0X"));
             ToF_ready = false;
@@ -82,14 +82,17 @@ bool Pump::checkWaterLevel()
     return false;
 }
 
-int Pump::readToF()
+float Pump::readToF()
 {
     // Do 2 valid Reading and only then calc Average
     // 3 Attemps per single valid Reading (or e.g. time limit while in IDLE State), then stop
     // measure.RangeStatus == 4 means Out of Range
-    int avgDistance = 0;
-    int sampleNum = 4;
-    int readings[sampleNum] = {};
+
+    // More consistent readings, but: Continous Readings give Out of Range
+    toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY);
+
+    float avgDistance = 0;
+    int sampleNum = 8;
     VL53L0X_RangingMeasurementData_t measure;
 
     for (int i = 0; i < sampleNum; i++)
@@ -109,24 +112,49 @@ int Pump::readToF()
             }
             else
             {
-                //readings[i] = distance;
                 validReading = true;
                 avgDistance += distance;
+                Serial.print(distance);
+                Serial.print(" ");
             }
-            delay(500);
+            delay(200);
         }
     }
 
     avgDistance /= (sampleNum * 1.0f);
+    Serial.print("Avg: ");
+    Serial.println(avgDistance);
 
     return avgDistance;
 }
 
-int Pump::readToF_cont()
+float Pump::readToF_cont()
 {
+    toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_DEFAULT);
+
+    std::vector<int> distances;
+    int i = 0;
+    float sum = 0.0f;
+    int sampleNum = 8;
+    
     toF_1.startRangeContinuous(100);
-    Serial.println(toF_1.readRange());
+    while(i < sampleNum)
+    {
+        int distance = toF_1.readRange();
+        sum += distance;
+        distances.push_back(distance);
+        Serial.print(distance);
+        Serial.print(" ");
+        if (toF_1.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
+        i++;
+    }
+    
     toF_1.stopRangeContinuous();
+
+    float avgDistance = sum / (distances.size() * 1.0f);
+    Serial.print("Avg: ");
+    Serial.println(avgDistance);
+    return avgDistance;
 }
 
 void Pump::loop()
