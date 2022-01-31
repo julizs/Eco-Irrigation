@@ -42,7 +42,7 @@ void AmbientLight::setupTSL2591(TwoWire &bus)
     Serial.print("could not setup tsl2591 with ID: ");
     Serial.print(sensorId);
     Serial.println();
-    // while (1);
+    // while (1); // Wait infinitely till Sensor initialised
   }
 }
 

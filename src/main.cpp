@@ -80,10 +80,10 @@ void doMeasurements()
   }
 
   p0.clearFields();
-
-  // pump1.setupToF();
-  // int waterLevel = pump1.readToF();
-  // p0.addField("waterLevel", waterLevel);
+ 
+  pump1.setupToF();
+  int waterLevel = pump1.readToF();
+  p0.addField("waterLevel", waterLevel);
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
 
