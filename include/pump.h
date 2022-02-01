@@ -2,6 +2,7 @@
 #define Pump_h
 #include <main.h>
 #include "Adafruit_VL53L0X.h"
+#include <VL53L0X.h>
 
 enum class PumpState
 {
@@ -40,7 +41,9 @@ public:
     int dutyCycle = 200;
 
     //VL53L0X toF; // Polulu
+    //VL53L0X toF_2;
     Adafruit_VL53L0X toF_1 = Adafruit_VL53L0X();
+    Adafruit_VL53L0X toF_2 = Adafruit_VL53L0X();
     unsigned short currWaterDist, minWaterDist, maxWaterDist; // aka minWaterLevel
     float mmToMlFactor; // depends on WaterTank
     bool ToF_ready;
@@ -51,6 +54,7 @@ public:
     void setup();
     void loop();
     bool setupToF();
+    bool setupToF_2();
     float readToF();
     float readToF_cont();
 

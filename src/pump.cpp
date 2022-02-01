@@ -42,55 +42,71 @@ bool Pump::setupToF()
     // Only rerun setup on first time or if sensor satus suggests, see library
     if (ToF_ready == false || (toF_1.Status != VL53L0X_ERROR_NONE))
     {
-        if (!toF_1.begin(0x52, &I2Cone)) // change i2C addr via sw
+        if (!toF_1.begin(0x52, &I2Cone))
         {
-            Serial.println(F("Failed to boot VL53L0X"));
+            Serial.println(F("Failed to boot toF_1"));
             ToF_ready = false;
             return false;
         }
     }
     ToF_ready = true;
     return true;
+}
 
-    // toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_DEFAULT);
-    // toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY); // Often results in Measurement Error/Timeout
-    // Serial.println(toF_1.getMeasurementTimingBudgetMicroSeconds()); // 200k micro sec (0.2 sec) on High Accuracy profile
-    // toF_1. setMeasurementTimingBudgetMicroSeconds(300000); // increase to 300k
+bool Pump::setupToF_2()
+{
+    /*
+    // Polulu Library
+    toF_2.setTimeout(500);
+    toF_2.setAddress(0x50);
+    if (!toF_2.init())
+    {
+        Serial.println("Failed to boot toF_2");
+        // while (1) {}
+    }
+    */
+
+    // Adafruit Library, on i2c bus with TSL2591, Error -5,  
+    // i2c-Scanner recognizes no Address of the 2nd VL530X
+    digitalWrite(shut_toF, LOW);
+    delay(100);
+    digitalWrite(shut_toF, HIGH);
+    delay(100);
+    if (!toF_2.begin(0x51, &I2Ctwo))
+    {
+        Serial.println(F("Failed to boot toF_2"));
+        //ToF_ready = false;
+        //return false;
+    }
 }
 
 bool Pump::checkWaterLevel()
 {
-    int waterLevel = readToF();
+    float waterLevel = readToF();
+    currWaterDist = waterLevel;
 
-    if (waterLevel < maxWaterDist && waterLevel > minWaterDist) // Limits set by User, maxLegitWaterDist, minLegitWaterDist
+    if (waterLevel < maxWaterDist) // Limits set by User, minWaterDist doesnt matter
     {
-        // Update only valid Values
-        Serial.print("WaterLevel is ok for Irrigation: ");
-        Serial.println(waterLevel);
-
-        currWaterDist = waterLevel;
-        //p0.addField("waterLevel", waterLevel);
-        //influxHelper.writeDataPoint(p0);
-
+        Serial.print("WaterLevel is sufficient for Irrigation: ");
         return true;
     }
     else
     {
-        Serial.println("WaterLevel is too low or too high.");
+        Serial.println("WaterLevel is too low for Irrigation.");
+        return false;
     }
-
-    return false;
 }
 
 float Pump::readToF()
 {
+    // More consistent readings, but: Continous Readings Func outputs Out of Range
+    toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY);
+    // Serial.println(toF_1.getMeasurementTimingBudgetMicroSeconds());
+    // toF_1.setMeasurementTimingBudgetMicroSeconds(300000);
+
     // Do 2 valid Reading and only then calc Average
     // 3 Attemps per single valid Reading (or e.g. time limit while in IDLE State), then stop
     // measure.RangeStatus == 4 means Out of Range
-
-    // More consistent readings, but: Continous Readings give Out of Range
-    toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY);
-
     float avgDistance = 0;
     int sampleNum = 8;
     VL53L0X_RangingMeasurementData_t measure;
@@ -136,19 +152,22 @@ float Pump::readToF_cont()
     int i = 0;
     float sum = 0.0f;
     int sampleNum = 8;
-    
+
     toF_1.startRangeContinuous(100);
-    while(i < sampleNum)
+    while (i < sampleNum)
     {
         int distance = toF_1.readRange();
         sum += distance;
         distances.push_back(distance);
         Serial.print(distance);
         Serial.print(" ");
-        if (toF_1.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
+        if (toF_1.timeoutOccurred())
+        {
+            Serial.print(" TIMEOUT");
+        }
         i++;
     }
-    
+
     toF_1.stopRangeContinuous();
 
     float avgDistance = sum / (distances.size() * 1.0f);

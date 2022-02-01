@@ -46,7 +46,7 @@ int lastButtonState = HIGH; // Initial State is Off
 
 void scanI2CBus(TwoWire *wire)
 {
-  Serial.println("Scanning I2C Addresses Channel 1");
+  Serial.println("Scanning I2C Addresses Channel: ");
   uint8_t cnt=0;
   for(uint8_t i=0;i<128;i++){
     wire->beginTransmission(i);
@@ -67,9 +67,8 @@ void scanI2CBus(TwoWire *wire)
 
 void doMeasurements()
 {
-  //scanI2CBus(&I2Cone);
-  //scanI2CBus(&I2Ctwo);
-
+  scanI2CBus(&I2Cone);
+  scanI2CBus(&I2Ctwo);
 
   // ESP32-SPECIFIC (GLOBAL) MEASUREMENTS
   // Reuse datapoint, add tags and clear fields
@@ -82,6 +81,7 @@ void doMeasurements()
   p0.clearFields();
  
   pump1.setupToF();
+  pump1.setupToF_2();
   int waterLevel = pump1.readToF();
   //pump1.readToF_cont();
   p0.addField("waterLevel", waterLevel);
@@ -98,8 +98,8 @@ void doMeasurements()
   DynamicJsonDocument doc = services.doJSONGetRequest();
 
   // 2. Setup Sensors only once
-  lightSensor1.setupTSL2591(I2Cone); // not found
-  lightSensor2.setupTSL2591(I2Ctwo); // ok
+  lightSensor1.setupTSL2591(I2Cone);
+  lightSensor2.setupTSL2591(I2Ctwo);
 
   // 3. Measure the assigned Sensors from each plant
   // (First check assignments in each measure iteration since user could have changed them
@@ -381,6 +381,10 @@ void setup()
   I2Cone.begin(SDA1,SCL1,200000);
   I2Ctwo.begin(SDA2,SCL2,100000);
   delay(500);
+
+  // Immediately Shut down 2nd ToF to start with different i2C Address later
+  pinMode(shut_toF, OUTPUT);
+  digitalWrite(shut_toF, LOW);
   
   /*
   pinMode(button1Pin, INPUT);
