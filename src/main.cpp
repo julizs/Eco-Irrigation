@@ -80,11 +80,13 @@ void doMeasurements()
 
   p0.clearFields();
  
-  pump1.setupToF();
+  pump1.setupToF_1();
   pump1.setupToF_2();
-  int waterLevel = pump1.readToF();
+  int waterLevel = pump1.readToF(pump1.toF_1);
+  int waterLevel2 = pump1.readToF(pump1.toF_2);
   //pump1.readToF_cont();
-  p0.addField("waterLevel", waterLevel);
+  p0.addField("water level bucket 1", waterLevel);
+  p0.addField("water level bucket 2", waterLevel2);
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
 
@@ -380,7 +382,7 @@ void setup()
   //Wire.begin();
   I2Cone.begin(SDA1,SCL1,200000);
   I2Ctwo.begin(SDA2,SCL2,100000);
-  delay(500);
+  delay(100);
 
   // Immediately Shut down 2nd ToF to start with different i2C Address later
   pinMode(shut_toF, OUTPUT);

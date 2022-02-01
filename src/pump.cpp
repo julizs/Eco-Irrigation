@@ -32,7 +32,7 @@ void Pump::setupPWM()
     ledcAttachPin(pumpPWM_Pin_2, pwmChannel2);
 }
 
-bool Pump::setupToF()
+bool Pump::setupToF_1()
 {
     // Only if SHT_Pin connected to toF sensor
     // pinMode(shut_toF, OUTPUT);
@@ -40,49 +40,44 @@ bool Pump::setupToF()
     // digitalWrite(shut_toF, HIGH);
 
     // Only rerun setup on first time or if sensor satus suggests, see library
-    if (ToF_ready == false || (toF_1.Status != VL53L0X_ERROR_NONE))
+    if (toF_1_ready == false || (toF_1.Status != VL53L0X_ERROR_NONE))
     {
         if (!toF_1.begin(0x52, &I2Cone))
         {
             Serial.println(F("Failed to boot toF_1"));
-            ToF_ready = false;
+            toF_1_ready = false;
             return false;
         }
     }
-    ToF_ready = true;
+    toF_1_ready = true;
     return true;
 }
 
 bool Pump::setupToF_2()
 {
-    /*
-    // Polulu Library
-    toF_2.setTimeout(500);
-    toF_2.setAddress(0x50);
-    if (!toF_2.init())
+    // Adafruit Library, on i2c bus with TSL2591, Error -5,
+    // works on same i2c bus with other VL530X with immediat shutPin LOW in main.setup()
+    if (toF_2_ready == false || (toF_2.Status != VL53L0X_ERROR_NONE))
     {
-        Serial.println("Failed to boot toF_2");
-        // while (1) {}
-    }
-    */
+        digitalWrite(shut_toF, LOW);
+        delay(20);
+        digitalWrite(shut_toF, HIGH);
+        delay(20);
 
-    // Adafruit Library, on i2c bus with TSL2591, Error -5,  
-    // i2c-Scanner recognizes no Address of the 2nd VL530X
-    digitalWrite(shut_toF, LOW);
-    delay(100);
-    digitalWrite(shut_toF, HIGH);
-    delay(100);
-    if (!toF_2.begin(0x51, &I2Ctwo))
-    {
-        Serial.println(F("Failed to boot toF_2"));
-        //ToF_ready = false;
-        //return false;
+        if (!toF_2.begin(0x51, &I2Cone))
+        {
+            Serial.println(F("Failed to boot toF_2"));
+            toF_2_ready = false;
+            //return false;
+        }
     }
+    toF_2_ready = true;
+    return true;
 }
 
 bool Pump::checkWaterLevel()
 {
-    float waterLevel = readToF();
+    float waterLevel = readToF(toF_1);
     currWaterDist = waterLevel;
 
     if (waterLevel < maxWaterDist) // Limits set by User, minWaterDist doesnt matter
@@ -97,10 +92,10 @@ bool Pump::checkWaterLevel()
     }
 }
 
-float Pump::readToF()
+float Pump::readToF(Adafruit_VL53L0X toF)
 {
     // More consistent readings, but: Continous Readings Func outputs Out of Range
-    toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY);
+    toF.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY);
     // Serial.println(toF_1.getMeasurementTimingBudgetMicroSeconds());
     // toF_1.setMeasurementTimingBudgetMicroSeconds(300000);
 
@@ -123,7 +118,7 @@ float Pump::readToF()
             {
                 //toF_1.rangingTest(&measure, false);
                 //distance = measure.RangeMilliMeter;
-                distance = toF_1.readRange();
+                distance = toF.readRange();
                 j++;
             }
             else
@@ -187,19 +182,19 @@ void Pump::loop()
         {
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
-            ToF_ready = setupToF();
+            toF_1_ready = setupToF_1();
         }
 
         //readToF_cont();
 
         if (millis() - stateBeginMillis >= minStateDuration * 1000UL && wateringNeeded)
         {
-            if (ToF_ready)
+            if (toF_1_ready)
             {
                 if (checkWaterLevel()) // Update both currWaterDist and check if valid with same 1 Reading
                 {
                     currentState = PumpState::ON;
-                    //ToF_ready = false; // For next iteration
+                    //toF_1_ready = false; // For next iteration
                 }
                 else
                 {
@@ -210,7 +205,7 @@ void Pump::loop()
             else
             {
                 // Try to setup again
-                ToF_ready = setupToF();
+                toF_1_ready = setupToF_1();
                 delay(100);
             }
         }
@@ -251,7 +246,7 @@ void Pump::loop()
             switchOff();
 
             int oldWaterDistance = currWaterDist;
-            currWaterDist = readToF();
+            currWaterDist = readToF(toF_1);
             int pumpedWater = oldWaterDistance - currWaterDist;
             // Send Values in InfluxDB for Persistence
         }

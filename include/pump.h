@@ -46,16 +46,16 @@ public:
     Adafruit_VL53L0X toF_2 = Adafruit_VL53L0X();
     unsigned short currWaterDist, minWaterDist, maxWaterDist; // aka minWaterLevel
     float mmToMlFactor; // depends on WaterTank
-    bool ToF_ready;
+    bool toF_1_ready, toF_2_ready;
 
     Pump(PumpModel& pumpModel); // Konstr.
     const PumpModel& getPumpModel() const;
     void setPumpModel(const Pump::PumpModel& pM);
     void setup();
     void loop();
-    bool setupToF();
+    bool setupToF_1();
     bool setupToF_2();
-    float readToF();
+    float readToF(Adafruit_VL53L0X toF);
     float readToF_cont();
 
 private:
