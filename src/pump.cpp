@@ -32,6 +32,32 @@ void Pump::setupPWM()
     ledcAttachPin(pumpPWM_Pin_2, pwmChannel2);
 }
 
+bool Pump::setupIna_1()
+{
+    if(!ina219.begin(&I2Ctwo))
+    {
+        Serial.println(F("Failed to boot Ina219_1"));
+        return false;
+    }
+    return true;
+}
+
+INAdata Pump::readIna_1()
+{
+    INAdata data;
+    time_s= millis()/1000; // convert time to sec
+
+    data.busVoltage = ina219.getBusVoltage_V();
+    data.shuntVoltage = ina219.getShuntVoltage_mV();
+    data.voltage = busVoltage_V + (shuntVoltage_mV / 1000);
+    data.current = ina219.getCurrent_mA();
+    //power_mW = ina219.getPower_mW(); 
+    data.power = current_mA*voltage_V;
+    data.energy =(power_mW*time_s)/3600; // energy in watt hour
+    
+    return data;
+}
+
 bool Pump::setupToF_1()
 {
     // Only if SHT_Pin connected to toF sensor
@@ -242,6 +268,13 @@ void Pump::loop()
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
 
+            // WARNING, ssl influx error/lag -> switchOff() doesnt get executed
+            // -> Send datapoint at the end, AFTER switchOff
+            INAdata data = readIna_1();
+            p0.addField("voltage", data.voltage);
+            p0.addField("current", data.current);
+            p0.addField("power", data.power);
+
             wateringNeeded = false;
             switchOff();
 
@@ -249,6 +282,8 @@ void Pump::loop()
             currWaterDist = readToF(toF_1);
             int pumpedWater = oldWaterDistance - currWaterDist;
             // Send Values in InfluxDB for Persistence
+
+            influxHelper.writeDataPoint(p0);
         }
 
         lastState = PumpState::DONE;

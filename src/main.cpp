@@ -87,8 +87,12 @@ void doMeasurements()
   //pump1.readToF_cont();
   p0.addField("water level bucket 1", waterLevel);
   p0.addField("water level bucket 2", waterLevel2);
+
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
+
+  pump1.setupIna_1();
+  //INAdata data = pump1.readIna_1();
 
   influxHelper.writeDataPoint(p0);
 

@@ -2,6 +2,7 @@
 #define Pump_h
 #include <main.h>
 #include "Adafruit_VL53L0X.h"
+#include "Adafruit_INA219.h"
 #include <VL53L0X.h>
 
 enum class PumpState
@@ -9,6 +10,16 @@ enum class PumpState
     IDLE,
     ON,
     DONE
+};
+
+struct INAdata
+{
+    float busVoltage;
+    float shuntVoltage;
+    float voltage;
+    float current;
+    float power;
+    float energy;
 };
 
 class Pump
@@ -48,6 +59,13 @@ public:
     float mmToMlFactor; // depends on WaterTank
     bool toF_1_ready, toF_2_ready;
 
+    Adafruit_INA219 ina219;
+    float voltage_V = 0, shuntVoltage_mV, busVoltage_V;
+    float current_mA = 0;
+    float power_mW = 0;
+    float energy_Wh = 0;
+    long time_s = 0;
+
     Pump(PumpModel& pumpModel); // Konstr.
     const PumpModel& getPumpModel() const;
     void setPumpModel(const Pump::PumpModel& pM);
@@ -55,6 +73,10 @@ public:
     void loop();
     bool setupToF_1();
     bool setupToF_2();
+
+    bool setupIna_1();
+    INAdata readIna_1();
+
     float readToF(Adafruit_VL53L0X toF);
     float readToF_cont();
 
