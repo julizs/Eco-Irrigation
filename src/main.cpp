@@ -7,7 +7,6 @@
 #include <StateMachine.h>
 #include <ArduinoJson.h>
 
-
 Services services;
 InfluxHelper influxHelper;
 
@@ -43,23 +42,27 @@ unsigned long debounceDelay = 50;   // Increase if Output flickers
 int buttonState;
 int lastButtonState = HIGH; // Initial State is Off
 
-
 void scanI2CBus(TwoWire *wire)
 {
   Serial.println("Scanning I2C Addresses Channel: ");
-  uint8_t cnt=0;
-  for(uint8_t i=0;i<128;i++){
+  uint8_t cnt = 0;
+  for (uint8_t i = 0; i < 128; i++)
+  {
     wire->beginTransmission(i);
-    uint8_t ec=wire->endTransmission(true);
-    if(ec==0){
-      if(i<16)Serial.print('0');
-      Serial.print(i,HEX);
+    uint8_t ec = wire->endTransmission(true);
+    if (ec == 0)
+    {
+      if (i < 16)
+        Serial.print('0');
+      Serial.print(i, HEX);
       cnt++;
     }
-    else Serial.print("..");
+    else
+      Serial.print("..");
     Serial.print(' ');
-    if ((i&0x0f)==0x0f)Serial.println();
-    }
+    if ((i & 0x0f) == 0x0f)
+      Serial.println();
+  }
   Serial.print("Scan Completed, ");
   Serial.print(cnt);
   Serial.println(" I2C Devices found.");
@@ -72,14 +75,14 @@ void doMeasurements()
 
   // ESP32-SPECIFIC (GLOBAL) MEASUREMENTS
   // Reuse datapoint, add tags and clear fields
-  if(!p0.hasTags())
+  if (!p0.hasTags())
   {
     p0.addTag("device", DEVICE);
     p0.addTag("SSID", WiFi.SSID());
   }
 
   p0.clearFields();
- 
+
   pump1.setupToF_1();
   pump1.setupToF_2();
   int waterLevel = pump1.readToF(pump1.toF_1);
@@ -91,13 +94,17 @@ void doMeasurements()
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
 
+  INAdata inaData = pump1.readIna_1();
+  p0.addField("voltage", inaData.voltage);
+  p0.addField("current", inaData.current);
+  p0.addField("power", inaData.power);
+  p0.addField("busVoltage", inaData.busVoltage);
+  p0.addField("shuntVoltage", inaData.shuntVoltage);
+
   pump1.setupIna_1();
   //INAdata data = pump1.readIna_1();
 
   influxHelper.writeDataPoint(p0);
-
-
-
 
   // PLANT-SPECIFIC MEASUREMENTS
   // 1. Get Plant-Sensor Assignments/Configs
@@ -115,8 +122,8 @@ void doMeasurements()
   TSL2591data data;
 
   // For each plant
-  for(int i = 0; i < doc.size(); i++)
-  { 
+  for (int i = 0; i < doc.size(); i++)
+  {
     String plantName = doc[i]["plantName"].as<String>();
     p.clearTags();
     p.clearFields();
@@ -128,10 +135,10 @@ void doMeasurements()
 
     // Remove any r["_field"] Filter in InfluxDB Cell Script Editor so all added
     // or removed Sensorvalues are shown
-    for(int j = 0; j < sizeof(doc[i]["moistureSensors"]); j++)
+    for (int j = 0; j < sizeof(doc[i]["moistureSensors"]); j++)
     {
-      int moistureSensor = doc[i]["moistureSensors"][j].as<int>(); 
-      if(moistureSensor != 0) // ignore 0s, e.g. 67000 (=channels 6,7)
+      int moistureSensor = doc[i]["moistureSensors"][j].as<int>();
+      if (moistureSensor != 0) // ignore 0s, e.g. 67000 (=channels 6,7)
       {
         // Serial.print("Measure Moisture: ");
         // Serial.print(moistureSensor);
@@ -157,7 +164,7 @@ void doMeasurements()
 
     Serial.println();
   }
-  
+
   /*
   // Plant-specific Measurements
   for (auto &plant : plants)
@@ -195,8 +202,8 @@ void checkButtons()
       if (buttonState == LOW)
       {
         Serial.println("Pump Button pressed!");
-        
-        if(!wateringNeeded)
+
+        if (!wateringNeeded)
         {
           wateringNeeded = true;
         }
@@ -205,10 +212,10 @@ void checkButtons()
           wateringNeeded = false;
         }
 
-        if(fsm.currentState != 4) // otherwise ACTION state before PUMP_IDLE when pressed while Pumping
+        if (fsm.currentState != 4) // otherwise ACTION state before PUMP_IDLE when pressed while Pumping
         {
           fsm.transitionTo(actionState);
-        }  
+        }
       }
     }
   }
@@ -246,13 +253,12 @@ void on_initState()
     {
       services.setupWifi();
     }
-    
+
     if (!influxHelper.checkInfluxConnection())
     {
       //influxHelper.setupInflux();
       Serial.println("Couldnt connect to InfluxDB");
     }
-    
   }
 }
 
@@ -268,7 +274,7 @@ void on_sleepState()
   }
   // Simulate Sleep
   // Serial.print(".");
-  if(millis() - stateBeginMillis >= SLEEP_INTERVAL * 1000UL)
+  if (millis() - stateBeginMillis >= SLEEP_INTERVAL * 1000UL)
   {
     didSleep = true;
   }
@@ -302,7 +308,7 @@ void on_actionState()
   }
 
   // run sub-StateMachines
-  if(wateringNeeded)
+  if (wateringNeeded)
   {
     pump1.loop();
   }
@@ -370,7 +376,7 @@ bool transitionS3S4()
 bool transitionS4S1()
 {
   // min State Duration must be over AND Pump done, Fan done, ...
-  if(countTime(MIN_STATE_DURATION) && pump1.lastState == PumpState::DONE)
+  if (countTime(MIN_STATE_DURATION) && pump1.lastState == PumpState::DONE)
   {
     pump1.currentState = PumpState::IDLE; // Reset Sub StateMachine
     return true;
@@ -384,14 +390,14 @@ void setup()
   Serial.begin(115200);
 
   //Wire.begin();
-  I2Cone.begin(SDA1,SCL1,200000);
-  I2Ctwo.begin(SDA2,SCL2,100000);
+  I2Cone.begin(SDA1, SCL1, 200000);
+  I2Ctwo.begin(SDA2, SCL2, 100000);
   delay(100);
 
   // Immediately Shut down 2nd ToF to start with different i2C Address later
   pinMode(shut_toF, OUTPUT);
   digitalWrite(shut_toF, LOW);
-  
+
   /*
   pinMode(button1Pin, INPUT);
   pinMode(button2Pin, INPUT);
@@ -404,7 +410,7 @@ void setup()
 
   //plants[0].setName("Thymian");
   //plants[1].setName("Orchidee");
-  
+
   initState = fsm.addState(&on_initState);
   sleepState = fsm.addState(&on_sleepState);
   measureState = fsm.addState(&on_measureState);
@@ -423,7 +429,7 @@ void loop()
 {
   fsm.run();
   //delay(LOOP_DELAY);
-  
+
   // Check constantly in all States and Sub StateMachines:
   checkButtons();
 }

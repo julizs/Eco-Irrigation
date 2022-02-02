@@ -45,15 +45,15 @@ bool Pump::setupIna_1()
 INAdata Pump::readIna_1()
 {
     INAdata data;
-    time_s= millis()/1000; // convert time to sec
+    time_s= millis() / 1000; // convert time to sec
 
     data.busVoltage = ina219.getBusVoltage_V();
     data.shuntVoltage = ina219.getShuntVoltage_mV();
-    data.voltage = busVoltage_V + (shuntVoltage_mV / 1000);
-    data.current = ina219.getCurrent_mA();
-    //power_mW = ina219.getPower_mW(); 
-    data.power = current_mA*voltage_V;
-    data.energy =(power_mW*time_s)/3600; // energy in watt hour
+    data.voltage = data.busVoltage + (data.shuntVoltage / 1000);
+    data.current = abs(ina219.getCurrent_mA()); // shows negative
+    //power_mW = ina219.getPower_mW();
+    data.power = data.current * data.busVoltage;
+    data.energy =(data.power * time_s) / 3600; // energy in watt hour
     
     return data;
 }
@@ -270,10 +270,12 @@ void Pump::loop()
 
             // WARNING, ssl influx error/lag -> switchOff() doesnt get executed
             // -> Send datapoint at the end, AFTER switchOff
-            INAdata data = readIna_1();
-            p0.addField("voltage", data.voltage);
-            p0.addField("current", data.current);
-            p0.addField("power", data.power);
+            INAdata inaData = readIna_1();
+            p0.addField("voltage", inaData.voltage);
+            p0.addField("current", inaData.current);
+            p0.addField("power", inaData.power);
+            p0.addField("busVoltage", inaData.busVoltage);
+            p0.addField("shuntVoltage", inaData.shuntVoltage);
 
             wateringNeeded = false;
             switchOff();
