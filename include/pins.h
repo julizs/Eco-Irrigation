@@ -6,13 +6,12 @@
 //WiFiMulti wifiMulti;
 #define DEVICE "ESP32"
 
-#define button1Pin 15
+#define button1Pin 34
 //#define button2Pin 4
 //#define button3Pin 19
 #define pumpPWM_Pin_1 4 // 23
 #define pumpPWM_Pin_2 2 // 19
 #define shut_toF 19 // 4
-//#define DHTpin 2
 
 // I2C Busses
 #define SDA1 21
@@ -32,9 +31,14 @@
 #define S3 33
 #define SIG 32
 
+// DHT22 und MH-Z19 PWM
+// (Pins 34 and 35 can only be input, no output)
+// #define DHT_IN 34
+#define MHZ19_PWM 35
+
 // Relais
-#define RELAIS_1 35
-#define RELAIS_2 34
+#define RELAIS_1 15
+#define RELAIS_2 23
 
 // L298N
 //#define enA 34

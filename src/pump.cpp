@@ -246,8 +246,6 @@ void Pump::loop()
         {
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
-            digitalWrite(RELAIS_1, HIGH);
-            digitalWrite(RELAIS_2, LOW);
         }
 
         // Execute each tick

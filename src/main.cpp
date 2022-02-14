@@ -238,6 +238,9 @@ void commonStateLogic()
   Serial.println(stateNames[fsm.currentState]);
   //checkConnections();
   stateBeginMillis = millis();
+
+  digitalWrite(RELAIS_1, HIGH);
+  digitalWrite(RELAIS_2, HIGH);
 }
 
 bool countTime(int duration)
@@ -309,6 +312,9 @@ void on_actionState()
   {
     commonStateLogic();
   }
+
+  //digitalWrite(RELAIS_1, LOW);
+  digitalWrite(RELAIS_2, LOW);
 
   // run sub-StateMachines
   if (wateringNeeded)
@@ -401,8 +407,11 @@ void setup()
   pinMode(shut_toF, OUTPUT);
   digitalWrite(shut_toF, LOW);
 
+  // LOW-Trigger Relais
   pinMode(RELAIS_1, OUTPUT);
   pinMode(RELAIS_2, OUTPUT);
+  digitalWrite(RELAIS_1, HIGH);
+  digitalWrite(RELAIS_2, HIGH);
 
   /*
   pinMode(button1Pin, INPUT);
