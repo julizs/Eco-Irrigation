@@ -9,10 +9,10 @@
 #define button1Pin 15
 //#define button2Pin 4
 //#define button3Pin 19
-#define pumpPWM_Pin_1 23
-#define pumpPWM_Pin_2 19
-#define shut_toF 4
-#define DHTpin 2
+#define pumpPWM_Pin_1 4 // 23
+#define pumpPWM_Pin_2 2 // 19
+#define shut_toF 19 // 4
+//#define DHTpin 2
 
 // I2C Busses
 #define SDA1 21
@@ -20,12 +20,21 @@
 #define SDA2 5
 #define SCL2 18
 
+// Dotmatrix (Max7219)
+#define DATA 13
+#define CS 12
+#define CLK 14
+
 // Multiplexer
 #define S0 27
 #define S1 26
 #define S2 25
 #define S3 33
 #define SIG 32
+
+// Relais
+#define RELAIS_1 35
+#define RELAIS_2 34
 
 // L298N
 //#define enA 34

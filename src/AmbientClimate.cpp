@@ -8,7 +8,7 @@ AmbientClimate::AmbientClimate(int maxPollingRate, int measureAttempts)
 
 void AmbientClimate::setup()
 {
-  dht.setup(DHTpin, DHTesp::DHT11);
+  //dht.setup(DHTpin, DHTesp::DHT11);
 }
 
 void AmbientClimate::loop()

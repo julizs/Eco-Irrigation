@@ -3,6 +3,7 @@
 #include <SoilMoisture.h>
 #include <AmbientLight.h>
 #include <Pump.h>
+#include <StatusDisplay.h>
 #include <LinkedList.h>
 #include <StateMachine.h>
 #include <ArduinoJson.h>
@@ -22,6 +23,7 @@ AmbientLight lightSensor2(2);
 Pump::PumpModel qr50e(12, 12, 4, 240);
 Pump::PumpModel palermo(6, 12, 6, 330);
 Pump pump1(qr50e);
+StatusDisplay displayController;
 
 //Plant plant1(lightSensor2, soilMoisture1);
 //Plant plant2(lightSensor2, soilMoisture2);
@@ -94,6 +96,7 @@ void doMeasurements()
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
 
+  // Idle Power Consumption of L298N
   INAdata inaData = pump1.readIna_1();
   p0.addField("voltage", inaData.voltage);
   p0.addField("current", inaData.current);
@@ -398,6 +401,9 @@ void setup()
   pinMode(shut_toF, OUTPUT);
   digitalWrite(shut_toF, LOW);
 
+  pinMode(RELAIS_1, OUTPUT);
+  pinMode(RELAIS_2, OUTPUT);
+
   /*
   pinMode(button1Pin, INPUT);
   pinMode(button2Pin, INPUT);
@@ -405,6 +411,8 @@ void setup()
 
   climate1.setup();
   */
+
+  displayController.setupLEDMatrix();
 
   Multiplexer::setup();
 
@@ -429,6 +437,8 @@ void loop()
 {
   fsm.run();
   //delay(LOOP_DELAY);
+  
+  displayController.displayPlantStatus();
 
   // Check constantly in all States and Sub StateMachines:
   checkButtons();

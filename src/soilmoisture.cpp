@@ -21,7 +21,8 @@ int SoilMoisture::measureSoilMoistureSmoothed(int pinNum)
 
   int smoothedMoisture = sum/(actualSamples*1.0f);
 
-  Serial.print("Measured Multiplexer Channel: ");
+  Serial.print(smoothedMoisture);
+  Serial.print(" measured Multiplexer Channel: ");
   Serial.print(pinNum);
   Serial.print(" which is MoistureSensor: ");
   Serial.print(pinNum + 1);

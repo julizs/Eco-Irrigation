@@ -53,7 +53,7 @@ INAdata Pump::readIna_1()
     data.current = abs(ina219.getCurrent_mA()); // shows negative
     //power_mW = ina219.getPower_mW();
     data.power = data.current * data.busVoltage;
-    data.energy =(data.power * time_s) / 3600; // energy in watt hour
+    data.energy = (data.power * time_s) / 3600; // energy in watt hour
     
     return data;
 }
@@ -246,6 +246,8 @@ void Pump::loop()
         {
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
+            digitalWrite(RELAIS_1, HIGH);
+            digitalWrite(RELAIS_2, LOW);
         }
 
         // Execute each tick
@@ -267,9 +269,7 @@ void Pump::loop()
         {
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
-
-            // WARNING, ssl influx error/lag -> switchOff() doesnt get executed
-            // -> Send datapoint at the end, AFTER switchOff
+ 
             INAdata inaData = readIna_1();
             p0.addField("voltage", inaData.voltage);
             p0.addField("current", inaData.current);
