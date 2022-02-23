@@ -20,18 +20,17 @@ int SoilMoisture::measureSoilMoistureSmoothed(int pinNum)
   }
 
   int moistureSmoothed = sum/(actualSamples*1.0f);
-  int moisturePercentage = voltageToPercentage(pinNum, moistureSmoothed);
 
-  Serial.print(moisturePercentage);
-  Serial.print(" measured Multiplexer Channel: ");
-  Serial.print(pinNum);
-  Serial.print(" which is MoistureSensor: ");
+  Serial.print(moistureSmoothed);
+  Serial.print(" Measured MoistureSensor: ");
   Serial.print(pinNum + 1);
+  Serial.print(" on Multiplexer Channel: ");
+  Serial.print(pinNum);
   // Serial.print("Valid SoilMoist Samples: ");
   // Serial.print(actualSamples);
   Serial.println();
 
-  return moisturePercentage;
+  return moistureSmoothed;
 }
 
 int SoilMoisture::measureSoilMoisture(int pinNum)
@@ -47,9 +46,17 @@ int SoilMoisture::voltageToPercentage(int pinNum, int smoothedValue)
   int range[2];
   getSensorRange(pinNum, range);
   int moistureContrained = constrain(smoothedValue, range[0], range[1]);
-  // Map with reversed Values (3000 = 0% Moisture)
-  int moisturePercentage = map(moistureContrained,range[0],range[1] + 1, 101, 0);
 
+  // Serial.print("Min: "); Serial.print(range[0]);
+  // Serial.print(" Max: "); Serial.println(range[1]);
+
+  int moisturePercentage = -1;
+  if(range[0] != 0 && range[1] != 0)
+  {
+    // Map with reversed Values (3000 = 0% Moisture)
+    moisturePercentage = map(moistureContrained,range[0],range[1], 100, 0);
+  }
+  
   return moisturePercentage;
 }
 

@@ -45,15 +45,13 @@ bool Pump::setupIna_1()
 INAdata Pump::readIna_1()
 {
     INAdata data;
-    time_s= millis() / 1000; // convert time to sec
-
     data.busVoltage = ina219.getBusVoltage_V();
-    data.shuntVoltage = ina219.getShuntVoltage_mV();
-    data.voltage = data.busVoltage + (data.shuntVoltage / 1000);
-    data.current = abs(ina219.getCurrent_mA()); // shows negative
+    data.shuntVoltage = abs(ina219.getShuntVoltage_mV()/1000.0f);
+    data.voltage = data.busVoltage + data.shuntVoltage;
+    // Constrain to 0 - 10 Ampere, otherwise infinity bug when on USB, InfluxDB fail to write
+    data.current = abs(constrain(ina219.getCurrent_mA(),0,10000)/1000.0f);
     //power_mW = ina219.getPower_mW();
     data.power = data.current * data.busVoltage;
-    data.energy = (data.power * time_s) / 3600; // energy in watt hour
     
     return data;
 }

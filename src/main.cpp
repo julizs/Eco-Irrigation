@@ -128,14 +128,14 @@ void doMeasurements()
   // For each plant
   for (int i = 0; i < doc.size(); i++)
   {
-    String plantName = doc[i]["plantName"].as<String>();
+    String plantName = doc[i]["name"].as<String>();
     p.clearTags();
     p.clearFields();
     p.addTag("Plant", plantName);
 
-    Serial.println();
-    Serial.println(doc[i]["_id"].as<String>());
-    Serial.println(doc[i]["plantName"].as<String>());
+    //Serial.println(doc[i]["_id"].as<String>());
+    Serial.print("Plant: ");
+    Serial.println(doc[i]["name"].as<String>());
 
     // Remove any r["_field"] Filter in InfluxDB Cell Script Editor so all added
     // or removed Sensorvalues are shown
@@ -146,11 +146,13 @@ void doMeasurements()
       {
         // Serial.print("Measure Moisture: ");
         // Serial.print(moistureSensor);
+        int pinNum = moistureSensor - 1;
         char key[25];
         sprintf(key, "Soil Moisture Sensor %d", moistureSensor);
         // Measure moistureSensor-1 (User enters 1-16, Multiplexer reads 0-15)
-        int value = SoilMoisture::measureSoilMoistureSmoothed(moistureSensor - 1);
-        p.addField(key, value);
+        int moistureSmoothed = SoilMoisture::measureSoilMoistureSmoothed(pinNum);
+        int moisturePercentage = SoilMoisture::voltageToPercentage(pinNum, moistureSmoothed);
+        p.addField(key, moisturePercentage);
       }
     }
 
