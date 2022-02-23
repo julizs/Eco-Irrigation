@@ -72,7 +72,7 @@ void Services::doGetRequest()
 }
 
 // https://arduinojson.org/v6/how-to/use-arduinojson-with-httpclient/
-DynamicJsonDocument Services::doJSONGetRequest()
+DynamicJsonDocument Services::doJSONGetRequest(char url[])
 {
   DynamicJsonDocument doc(2048);
 
@@ -83,7 +83,7 @@ DynamicJsonDocument Services::doJSONGetRequest()
       // Send request
       // http.useHTTP10(true); // Error
       http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-      http.begin("https://juli.uber.space/node/plants");
+      http.begin(url);
       int httpResponseCode = http.GET();
 
       if (httpResponseCode>0) 

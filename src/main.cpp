@@ -111,7 +111,8 @@ void doMeasurements()
 
   // PLANT-SPECIFIC MEASUREMENTS
   // 1. Get Plant-Sensor Assignments/Configs
-  DynamicJsonDocument doc = services.doJSONGetRequest();
+  char url[] = "https://juli.uber.space/node/plants";
+  DynamicJsonDocument doc = services.doJSONGetRequest(url);
 
   // 2. Setup Sensors only once
   lightSensor1.setupTSL2591(I2Cone);

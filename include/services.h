@@ -26,7 +26,7 @@ class Services
     void setupWifi();
     void setupWifiMulti();
     void doGetRequest();
-    DynamicJsonDocument doJSONGetRequest();
+    DynamicJsonDocument doJSONGetRequest(char url[]);
     bool getWifiStatus();
     bool getWifiMultiStatus();
 };

@@ -9,7 +9,8 @@ public:
     
     static int measureSoilMoistureSmoothed(int pinNum);
     static int measureSoilMoisture(int pinNum);
-    float voltageToPercentage(int constrainedValue);
+    static void getSensorRange(int pinNum, int range[]);
+    static int voltageToPercentage(int pinNum, int rawValue);
 };
 
 #endif // SoilMoisture_h

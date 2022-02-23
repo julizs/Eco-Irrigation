@@ -9,19 +9,20 @@ int SoilMoisture::measureSoilMoistureSmoothed(int pinNum)
   // Analog Smoothing
   for(int i = 0; i < sampleSize; i++)
   {
-    int soilMoisture = SoilMoisture::measureSoilMoisture(pinNum);
+    int moistureRaw = SoilMoisture::measureSoilMoisture(pinNum);
 
-    if(!isnan(soilMoisture))
+    if(!isnan(moistureRaw))
 	  {
-		 sum += soilMoisture;
+		 sum += moistureRaw;
          actualSamples++;
 	  }
       delay(10);
   }
 
-  int smoothedMoisture = sum/(actualSamples*1.0f);
+  int moistureSmoothed = sum/(actualSamples*1.0f);
+  int moisturePercentage = voltageToPercentage(pinNum, moistureSmoothed);
 
-  Serial.print(smoothedMoisture);
+  Serial.print(moisturePercentage);
   Serial.print(" measured Multiplexer Channel: ");
   Serial.print(pinNum);
   Serial.print(" which is MoistureSensor: ");
@@ -30,27 +31,36 @@ int SoilMoisture::measureSoilMoistureSmoothed(int pinNum)
   // Serial.print(actualSamples);
   Serial.println();
 
-  return smoothedMoisture;
+  return moisturePercentage;
 }
 
 int SoilMoisture::measureSoilMoisture(int pinNum)
 {
-  // Value Range: 0-1023 @Esp8266, 1023 is max Dryness
-  // Value Range: 1000-3000 @Esp32, 3000 is max Dryness
-  // Constrain needed for mappedValue, measurement sometimes under typical individual Floor Level of Sensor
-  
-  int sensorFloor = 1000;
-  int rawValue = Multiplexer::readChannel(pinNum);
-  int constrainedValue = constrain(rawValue, sensorFloor, 1024);
-
-  return rawValue;
+  // Moisture Range: around 1000-3000 @ 5V, 3000 is max Dryness
+  int moistureRaw = Multiplexer::readChannel(pinNum);
+  return moistureRaw;
 }
 
-float SoilMoisture::voltageToPercentage(int constrainedValue)
+int SoilMoisture::voltageToPercentage(int pinNum, int smoothedValue)
 {
-  int sensorFloor = 1000;
-  int mappedValue = map(constrainedValue,1024,sensorFloor,0,100);
-  float percentageValue = ( 100.0f - ( (mappedValue/1023.0f) * 100.0f ) );
+  // Constrain measured Values to SensorRange before Map
+  int range[2];
+  getSensorRange(pinNum, range);
+  int moistureContrained = constrain(smoothedValue, range[0], range[1]);
+  // Map with reversed Values (3000 = 0% Moisture)
+  int moisturePercentage = map(moistureContrained,range[0],range[1] + 1, 101, 0);
 
-  return percentageValue;
+  return moisturePercentage;
+}
+
+void SoilMoisture::getSensorRange(int pinNum, int range[])
+{
+  // Send Request to REST API and get min and max Voltage, which varies
+  // from Sensor to Sensor (pinNum is Sensor ID, from 0 - 15)
+  // C++ passes Arrays to Funcs with Call by Reference, Original Array gets changed
+
+  char url[] = "https://juli.uber.space/node/moistureSensors";
+  DynamicJsonDocument doc = services.doJSONGetRequest(url);
+  range[0] = doc[pinNum]["minVoltage"].as<int>();
+  range[1] = doc[pinNum]["maxVoltage"].as<int>();
 }
