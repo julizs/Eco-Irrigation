@@ -37,8 +37,9 @@
 #define MHZ19_PWM 35
 
 // Relais
-#define RELAIS_1 15
-#define RELAIS_2 23
+const int Relais[] = {15,23};
+//#define RELAIS_1 15
+//#define RELAIS_2 23
 
 // L298N
 //#define enA 34

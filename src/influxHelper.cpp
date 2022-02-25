@@ -14,7 +14,7 @@ InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKE
 // 1 measurement/point per sensor or 1 for env data and 1 per plant data?
 Point p0("Environment Data");
 Point p1("Plant Data");
-Point p2("Sensor Assignment");
+Point p2("Irrigations"); // "Plant Groups" ?
 
 InfluxHelper::InfluxHelper()
 {

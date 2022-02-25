@@ -14,5 +14,6 @@ extern TwoWire I2Ctwo;
 extern InfluxHelper influxHelper;
 extern Services services;
 extern bool wateringNeeded;
+extern const char baseUrl[];
 
 #endif //main_h

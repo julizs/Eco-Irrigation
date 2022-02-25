@@ -8,6 +8,9 @@
 #include <StateMachine.h>
 #include <ArduinoJson.h>
 
+
+const char baseUrl[] = "https://juli.uber.space/node";
+
 Services services;
 InfluxHelper influxHelper;
 
@@ -184,6 +187,8 @@ void doMeasurements()
 void doEvaluate()
 {
   wateringNeeded = true;
+  const char* blubb[] = {"succulents", "flowers"}; 
+  pump1.setIrrigationProcedure(blubb);
   // influxHelper.WriteDataPoint(lightVal);
 }
 
@@ -242,8 +247,8 @@ void commonStateLogic()
   //checkConnections();
   stateBeginMillis = millis();
 
-  digitalWrite(RELAIS_1, HIGH);
-  digitalWrite(RELAIS_2, HIGH);
+  digitalWrite(Relais[0], HIGH);
+  digitalWrite(Relais[1], HIGH);
 }
 
 bool countTime(int duration)
@@ -316,8 +321,8 @@ void on_actionState()
     commonStateLogic();
   }
 
-  //digitalWrite(RELAIS_1, LOW);
-  digitalWrite(RELAIS_2, LOW);
+  //digitalWrite(Relais[0], LOW);
+  digitalWrite(Relais[1], LOW);
 
   // run sub-StateMachines
   if (wateringNeeded)
@@ -411,10 +416,15 @@ void setup()
   digitalWrite(shut_toF, LOW);
 
   // LOW-Trigger Relais
-  pinMode(RELAIS_1, OUTPUT);
-  pinMode(RELAIS_2, OUTPUT);
-  digitalWrite(RELAIS_1, HIGH);
-  digitalWrite(RELAIS_2, HIGH);
+  for(int i = 0; i < sizeof(Relais); i++)
+  {
+    pinMode(Relais[i], OUTPUT);
+    digitalWrite(Relais[i], HIGH);
+  }
+  //pinMode(RELAIS_1, OUTPUT);
+  //pinMode(RELAIS_2, OUTPUT);
+  //digitalWrite(RELAIS_1, HIGH);
+  //digitalWrite(RELAIS_2, HIGH);
 
   /*
   pinMode(button1Pin, INPUT);

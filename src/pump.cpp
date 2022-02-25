@@ -99,6 +99,68 @@ bool Pump::setupToF_2()
     return true;
 }
 
+void Pump::setIrrigationProcedure(const char* plantGroups[])
+{
+    char url[50] = "";
+    strcat(url, baseUrl); strcat(url, "/solenoidValves");
+    DynamicJsonDocument doc = services.doJSONGetRequest(url);
+
+    // For every Solenoid
+    for(int i = 0; i < doc.size(); i++)
+    {
+        const char* plantGroupOpen = doc[i]["open"];
+        const char* plantGroupClosed = doc[i]["closed"];
+
+        // For every PlantGroup to irrigate
+        for(int k = 0; k < 2; k++) // sizeof(plantGroups) is 4, wrong
+        {
+            if((plantGroupOpen != NULL) && (plantGroupOpen[0] != '\0'))
+            {
+                if(strcmp(plantGroupOpen, plantGroups[k]) == 0)
+                {
+                    Serial.print(plantGroups[k]);
+                    Serial.print(", Irrigate: ");
+                    Serial.print(doc[i]["name"].as<String>());
+                    Serial.print(", Open, ");
+                    Serial.print(doc[i]["relais"].as<String>());
+                    Serial.print(" , ");
+                    Serial.println(doc[i]["pump"].as<String>());
+                }
+            }
+            if((plantGroupClosed != NULL) && (plantGroupClosed[0] != '\0'))
+            {
+                if(strcmp(plantGroupClosed, plantGroups[k]) == 0)
+                {
+                    Serial.print(plantGroups[k]);
+                    Serial.print(", Irrigate: ");
+                    Serial.print(doc[i]["name"].as<String>());
+                    Serial.print(", Closed, ");
+                    Serial.print(doc[i]["relais"].as<String>());
+                    Serial.print(" , ");
+                    Serial.println(doc[i]["pump"].as<String>());
+                }
+            }     
+        }
+
+        /*
+        for(int j = 0; j < sizeof(plantGroupOpen); j++)
+        {   
+            String plantGroupsOpen = doc[i]["open"][j].as<String>();
+            Serial.println(plantGroupsOpen);
+            // String plantGroupsOpen = doc[i]["open"][j].as<String>();
+            
+            for(int k = 0; k < sizeof(plantGroups); k++)
+            {
+                if(strcmp(plantGroupsOpen, plantGroups[k]) == 0)
+                {
+                    Serial.println("YUP!");
+                }
+            } 
+        }
+        */
+    }
+}
+
 bool Pump::checkWaterLevel()
 {
     float waterLevel = readToF(toF_1);
@@ -267,21 +329,33 @@ void Pump::loop()
             Serial.println(stateNames[(byte)currentState]);
  
             INAdata inaData = readIna_1();
+            p0.clearFields();
             p0.addField("voltage", inaData.voltage);
             p0.addField("current", inaData.current);
             p0.addField("power", inaData.power);
             p0.addField("busVoltage", inaData.busVoltage);
             p0.addField("shuntVoltage", inaData.shuntVoltage);
 
+            delay(100);
+
             wateringNeeded = false;
             switchOff();
 
             int oldWaterDistance = currWaterDist;
             currWaterDist = readToF(toF_1);
-            int pumpedWater = oldWaterDistance - currWaterDist;
-            // Send Values in InfluxDB for Persistence
+            int pumpedWaterMM = oldWaterDistance - currWaterDist;
+            int pumpedWaterML = pumpedWaterMM * 100;
+
+            // Tags?
+            // 
+            p2.clearTags();
+            p2.clearFields();
+            // p2.addTag("Plant Group", plantGroup);
+            p2.addField("pumpedWaterMM", pumpedWaterMM);
+            p2.addField("pumpedWaterML", pumpedWaterML);
 
             influxHelper.writeDataPoint(p0);
+            influxHelper.writeDataPoint(p2);
         }
 
         lastState = PumpState::DONE;
