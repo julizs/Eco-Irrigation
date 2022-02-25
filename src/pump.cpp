@@ -103,6 +103,7 @@ void Pump::setIrrigationProcedure(const char* plantGroups[])
 {
     char url[50] = "";
     strcat(url, baseUrl); strcat(url, "/solenoidValves");
+    // 1 GET Request only, not 1 Request per plantGroup
     DynamicJsonDocument doc = services.doJSONGetRequest(url);
 
     // For every Solenoid
@@ -131,33 +132,10 @@ void Pump::setIrrigationProcedure(const char* plantGroups[])
             {
                 if(strcmp(plantGroupClosed, plantGroups[k]) == 0)
                 {
-                    Serial.print(plantGroups[k]);
-                    Serial.print(", Irrigate: ");
-                    Serial.print(doc[i]["name"].as<String>());
-                    Serial.print(", Closed, ");
-                    Serial.print(doc[i]["relais"].as<String>());
-                    Serial.print(" , ");
-                    Serial.println(doc[i]["pump"].as<String>());
+                    // 
                 }
             }     
         }
-
-        /*
-        for(int j = 0; j < sizeof(plantGroupOpen); j++)
-        {   
-            String plantGroupsOpen = doc[i]["open"][j].as<String>();
-            Serial.println(plantGroupsOpen);
-            // String plantGroupsOpen = doc[i]["open"][j].as<String>();
-            
-            for(int k = 0; k < sizeof(plantGroups); k++)
-            {
-                if(strcmp(plantGroupsOpen, plantGroups[k]) == 0)
-                {
-                    Serial.println("YUP!");
-                }
-            } 
-        }
-        */
     }
 }
 
