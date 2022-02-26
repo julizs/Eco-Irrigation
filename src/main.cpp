@@ -47,6 +47,20 @@ unsigned long debounceDelay = 50;   // Increase if Output flickers
 int buttonState;
 int lastButtonState = HIGH; // Initial State is Off
 
+/* HTTP-Server
+  Run Server that handles HTTP Calls from Buttons
+  Send Params in Body instead of Lookup mongoDB Table
+  Server runs parallel on 2nd Core
+  Wake up from Sleep every 1 Minutes and check "WakeUp" in MongoDB table,
+  if false go back to Sleep (30 Minutes)
+  User has to Wake up Esp32 with Button first, then Web Buttons 
+  work / get handled immediately on Press
+  */
+void startServer()
+{
+  
+}
+
 void scanI2CBus(TwoWire *wire)
 {
   Serial.println("Scanning I2C Addresses Channel: ");
@@ -251,6 +265,8 @@ void checkWebButtons()
   pump1.doIrrigation(pumpName, irrigationAmount);
 
   // 3. Check Manual Irrigation of Plant
+
+  // 4. Reset Command Table
 }
 
 void checkConnections()
@@ -267,7 +283,7 @@ void commonStateLogic()
   //checkConnections();
   stateBeginMillis = millis();
 
-  checkWebButtons();
+  // checkWebButtons();
 
   digitalWrite(Relais[0], HIGH);
   digitalWrite(Relais[1], HIGH);

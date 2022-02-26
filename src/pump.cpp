@@ -144,6 +144,7 @@ void Pump::prepareIrrigation(const char *plantGroup, int irrigationAmount)
 
         // Per Plant Group:
         // 1. TODO Drive Relais
+        Serial.println(relaisChannel); Serial.println(relaisOpen);
 
         // 2. Drive Pump
         doIrrigation(pumpName, irrigationAmount);
@@ -167,11 +168,9 @@ void Pump::doIrrigation(const char* pumpName, int irrigationAmount)
     }
     float pumpTime = (irrigationAmount / (litersPerHour * 1000.0f)) * 3600;
 
-    /*
-    Serial.print("Irrigate: ");Serial.println(plantGroup);
-    Serial.println(pwmChannel);Serial.println(pumpTime);
-    Serial.println(relaisChannel);Serial.println(relaisOpen);
-    */
+    // Serial.print("Irrigate: "); Serial.println(plantGroup);
+    Serial.println(pwmChannel); Serial.println(pumpTime);
+    
 }
 
 bool Pump::checkWaterLevel()
