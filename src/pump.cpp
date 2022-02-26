@@ -7,9 +7,9 @@ Pump::Pump(PumpModel &p) : pumpModel(p)
 
 void Pump::setup()
 {
-    //pinMode(enA, OUTPUT);
-    //pinMode(in1, OUTPUT);
-    //pinMode(in2, OUTPUT);
+    // pinMode(enA, OUTPUT);
+    // pinMode(in1, OUTPUT);
+    // pinMode(in2, OUTPUT);
 
     minStateDuration = 4;
     minWaterDist = 50;
@@ -34,7 +34,7 @@ void Pump::setupPWM()
 
 bool Pump::setupIna_1()
 {
-    if(!ina219.begin(&I2Ctwo))
+    if (!ina219.begin(&I2Ctwo))
     {
         Serial.println(F("Failed to boot Ina219_1"));
         return false;
@@ -46,13 +46,13 @@ INAdata Pump::readIna_1()
 {
     INAdata data;
     data.busVoltage = ina219.getBusVoltage_V();
-    data.shuntVoltage = abs(ina219.getShuntVoltage_mV()/1000.0f);
+    data.shuntVoltage = abs(ina219.getShuntVoltage_mV() / 1000.0f);
     data.voltage = data.busVoltage + data.shuntVoltage;
     // Constrain to 0 - 10 Ampere, otherwise infinity bug when on USB, InfluxDB fail to write
-    data.current = abs(constrain(ina219.getCurrent_mA(),0,10000)/1000.0f);
-    //power_mW = ina219.getPower_mW();
+    data.current = abs(constrain(ina219.getCurrent_mA(), 0, 10000) / 1000.0f);
+    // power_mW = ina219.getPower_mW();
     data.power = data.current * data.busVoltage;
-    
+
     return data;
 }
 
@@ -92,50 +92,68 @@ bool Pump::setupToF_2()
         {
             Serial.println(F("Failed to boot toF_2"));
             toF_2_ready = false;
-            //return false;
+            // return false;
         }
     }
     toF_2_ready = true;
     return true;
 }
 
-void Pump::setIrrigationProcedure(const char* plantGroups[])
+// IrrSystem Algo decides PumpTime according to Mililiters
+// and Info from Pump Model (PWM, FlowRate etc.)
+// 1 State Machine loop per Irrigation
+void Pump::irrigate(const char *plantGroup, int irrigationAmount)
 {
     char url[50] = "";
-    strcat(url, baseUrl); strcat(url, "/solenoidValves");
-    // 1 GET Request only, not 1 Request per plantGroup
-    DynamicJsonDocument doc = services.doJSONGetRequest(url);
+    strcat(url, baseUrl);
+    strcat(url, "/solenoidValves");
+    DynamicJsonDocument solenoids = services.doJSONGetRequest(url);
+
+    bool relaisOpen;
 
     // For every Solenoid
-    for(int i = 0; i < doc.size(); i++)
+    for (int i = 0; i < solenoids.size(); i++)
     {
-        const char* plantGroupOpen = doc[i]["open"];
-        const char* plantGroupClosed = doc[i]["closed"];
+        // Get nessesary Relais Info
+        int relaisChannel = solenoids[i]["relais"].as<int>() - 1;
+        const char *plantGroupOpen = solenoids[i]["open"];
+        const char *plantGroupClosed = solenoids[i]["closed"];
 
-        // For every PlantGroup to irrigate
-        for(int k = 0; k < 2; k++) // sizeof(plantGroups) is 4, wrong
+        // strcmp, if PlantGroup is in this Solenoid State
+        if (strcmp(plantGroupOpen, plantGroup) == 0)
         {
-            if((plantGroupOpen != NULL) && (plantGroupOpen[0] != '\0'))
-            {
-                if(strcmp(plantGroupOpen, plantGroups[k]) == 0)
-                {
-                    Serial.print(plantGroups[k]);
-                    Serial.print(", Irrigate: ");
-                    Serial.print(doc[i]["name"].as<String>());
-                    Serial.print(", Open, ");
-                    Serial.print(doc[i]["relais"].as<String>());
-                    Serial.print(" , ");
-                    Serial.println(doc[i]["pump"].as<String>());
-                }
-            }
-            if((plantGroupClosed != NULL) && (plantGroupClosed[0] != '\0'))
-            {
-                if(strcmp(plantGroupClosed, plantGroups[k]) == 0)
-                {
-                    // 
-                }
-            }     
+            relaisOpen = true;
+            
         }
+        else if (strcmp(plantGroupClosed, plantGroup) == 0)
+        {
+            relaisOpen = false;
+        }
+        else
+        {
+            Serial.println("Do not irrigate.");
+            continue; // Skip rest, goto next Soleonoid
+        }
+
+
+        // Get necessary Pump info
+        char url[50] = "";
+        strcat(url, baseUrl);
+        strcat(url, "/pumps/");
+        strcat(url, solenoids[i]["pump"]);
+        DynamicJsonDocument pump = services.doJSONGetRequest(url);
+        // JsonArray flowRate = pump["flowRate"].as<JsonArray>();
+        int litersPerHour = pump["flowRate"][1].as<int>();
+        int pwmChannel = pump["pwmChannel"].as<int>();
+        if (litersPerHour == 0)
+        {
+            litersPerHour = 300;
+        } // avoid DivideByZero
+        float pumpTime = (irrigationAmount / (litersPerHour * 1000.0f)) * 3600;
+
+        Serial.print("Irrigate: ");Serial.println(plantGroup); 
+        Serial.println(pwmChannel);Serial.println(pumpTime); 
+        Serial.println(relaisChannel);Serial.println(relaisOpen);
     }
 }
 
@@ -180,8 +198,8 @@ float Pump::readToF(Adafruit_VL53L0X toF)
         {
             if ((measure.RangeStatus == 4 || distance < minWaterDist || distance > maxWaterDist)) // Water Container Physical Limits, maxPossibleWaterDist, ...
             {
-                //toF_1.rangingTest(&measure, false);
-                //distance = measure.RangeMilliMeter;
+                // toF_1.rangingTest(&measure, false);
+                // distance = measure.RangeMilliMeter;
                 distance = toF.readRange();
                 j++;
             }
@@ -249,7 +267,7 @@ void Pump::loop()
             toF_1_ready = setupToF_1();
         }
 
-        //readToF_cont();
+        // readToF_cont();
 
         if (millis() - stateBeginMillis >= minStateDuration * 1000UL && wateringNeeded)
         {
@@ -258,7 +276,7 @@ void Pump::loop()
                 if (checkWaterLevel()) // Update both currWaterDist and check if valid with same 1 Reading
                 {
                     currentState = PumpState::ON;
-                    //toF_1_ready = false; // For next iteration
+                    // toF_1_ready = false; // For next iteration
                 }
                 else
                 {
@@ -305,7 +323,7 @@ void Pump::loop()
         {
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
- 
+
             INAdata inaData = readIna_1();
             p0.clearFields();
             p0.addField("voltage", inaData.voltage);
@@ -325,7 +343,7 @@ void Pump::loop()
             int pumpedWaterML = pumpedWaterMM * 100;
 
             // Tags?
-            // 
+            //
             p2.clearTags();
             p2.clearFields();
             // p2.addTag("Plant Group", plantGroup);
@@ -379,19 +397,19 @@ void Pump::switchOn()
     */
 
     // Esp8266
-    //analogWrite(enA, 125);
+    // analogWrite(enA, 125);
 
     // Esp32
     // Run Pump1 with 5V (12V Input L298N, 10V Output at max. PWM Duty)
     ledcWrite(pwmChannel1, 255); // Palermo
     ledcWrite(pwmChannel2, 255); // QR50E
 
-    //digitalWrite(pumpPin, HIGH); // via Relais
+    // digitalWrite(pumpPin, HIGH); // via Relais
 }
 
 void Pump::switchOff()
 {
-    //digitalWrite(pumpPin, LOW); // via Relais
+    // digitalWrite(pumpPin, LOW); // via Relais
     ledcWrite(pwmChannel1, 0); // Palermo
     ledcWrite(pwmChannel2, 0); // QR50E
 }

@@ -187,9 +187,10 @@ void doMeasurements()
 void doEvaluate()
 {
   wateringNeeded = true;
-  const char* blubb[] = {"succulents", "flowers"}; 
-  pump1.setIrrigationProcedure(blubb);
-  // influxHelper.WriteDataPoint(lightVal);
+  // Algorithm decides Irrigation based on recent Irrigations of PlantGroup,
+  // and needs of Plants inside PlantGroup (e.g. Moisture Need, Size of Plant, ...)s
+  pump1.irrigate("succulents", 350);
+  pump1.irrigate("vegetables", 550);
 }
 
 void checkButtons()
@@ -299,8 +300,8 @@ void on_measureState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    //WiFi.disconnect();
-    doMeasurements();
+    // WiFi.disconnect();
+    // doMeasurements();
   }
 }
 
