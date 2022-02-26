@@ -189,8 +189,8 @@ void doEvaluate()
   wateringNeeded = true;
   // Algorithm decides Irrigation based on recent Irrigations of PlantGroup,
   // and needs of Plants inside PlantGroup (e.g. Moisture Need, Size of Plant, ...)s
-  pump1.irrigate("succulents", 350);
-  pump1.irrigate("vegetables", 550);
+  pump1.prepareIrrigation("succulents", 350);
+  pump1.prepareIrrigation("vegetables", 550);
 }
 
 void checkButtons()
@@ -234,6 +234,25 @@ void checkButtons()
   lastButtonState = reading;
 }
 
+void checkWebButtons()
+{
+  char url[50] = "";
+  strcat(url, baseUrl);
+  strcat(url, "/commands");
+  DynamicJsonDocument commands = services.doJSONGetRequest(url);
+
+  // 1. Switch Relais
+  bool relaisOpen = commands["Solenoid"];
+  // TODO Drive Relais
+
+  // 2. Check Manual Pump
+  const char* pumpName = commands["Pump"][0];
+  int irrigationAmount = commands["Pump"][1];
+  pump1.doIrrigation(pumpName, irrigationAmount);
+
+  // 3. Check Manual Irrigation of Plant
+}
+
 void checkConnections()
 {
   if (!influxHelper.checkInfluxConnection() || !services.getWifiStatus())
@@ -247,6 +266,8 @@ void commonStateLogic()
   Serial.println(stateNames[fsm.currentState]);
   //checkConnections();
   stateBeginMillis = millis();
+
+  checkWebButtons();
 
   digitalWrite(Relais[0], HIGH);
   digitalWrite(Relais[1], HIGH);

@@ -99,11 +99,18 @@ bool Pump::setupToF_2()
     return true;
 }
 
-// IrrSystem Algo decides PumpTime according to Mililiters
-// and Info from Pump Model (PWM, FlowRate etc.)
-// 1 State Machine loop per Irrigation
-void Pump::irrigate(const char *plantGroup, int irrigationAmount)
+/*
+IrrSystem Algo decides PumpTime according to Mililiters
+and Info from Pump Model (PWM, FlowRate etc.)
+1 State Machine loop per Irrigation
+*/
+void Pump::prepareIrrigation(const char *plantGroup, int irrigationAmount)
 {
+    // 1. Check if Irrigation is possible, return if not
+    // 1.1 InfluxDB, (Less than 2 Liter this day, less than 1 Liter in past 4 hours)
+    // 1.2 ToF Distance (enough Water)
+
+    // 2. Get Solenoid, Relais and Pump Information
     char url[50] = "";
     strcat(url, baseUrl);
     strcat(url, "/solenoidValves");
@@ -123,7 +130,6 @@ void Pump::irrigate(const char *plantGroup, int irrigationAmount)
         if (strcmp(plantGroupOpen, plantGroup) == 0)
         {
             relaisOpen = true;
-            
         }
         else if (strcmp(plantGroupClosed, plantGroup) == 0)
         {
@@ -131,30 +137,41 @@ void Pump::irrigate(const char *plantGroup, int irrigationAmount)
         }
         else
         {
-            Serial.println("Do not irrigate.");
-            continue; // Skip rest, goto next Soleonoid
+            continue; // Skip rest of Code, goto next Soleonoid
         }
 
+        const char *pumpName = solenoids[i]["pump"];
 
-        // Get necessary Pump info
-        char url[50] = "";
-        strcat(url, baseUrl);
-        strcat(url, "/pumps/");
-        strcat(url, solenoids[i]["pump"]);
-        DynamicJsonDocument pump = services.doJSONGetRequest(url);
-        // JsonArray flowRate = pump["flowRate"].as<JsonArray>();
-        int litersPerHour = pump["flowRate"][1].as<int>();
-        int pwmChannel = pump["pwmChannel"].as<int>();
-        if (litersPerHour == 0)
-        {
-            litersPerHour = 300;
-        } // avoid DivideByZero
-        float pumpTime = (irrigationAmount / (litersPerHour * 1000.0f)) * 3600;
+        // Per Plant Group:
+        // 1. TODO Drive Relais
 
-        Serial.print("Irrigate: ");Serial.println(plantGroup); 
-        Serial.println(pwmChannel);Serial.println(pumpTime); 
-        Serial.println(relaisChannel);Serial.println(relaisOpen);
+        // 2. Drive Pump
+        doIrrigation(pumpName, irrigationAmount);
     }
+}
+
+void Pump::doIrrigation(const char* pumpName, int irrigationAmount)
+{
+    char url[50] = "";
+    strcat(url, baseUrl);
+    strcat(url, "/pumps/");
+    strcat(url, pumpName);
+    DynamicJsonDocument pump = services.doJSONGetRequest(url);
+
+    int litersPerHour = pump["flowRate"][1].as<int>();
+    int pwmChannel = pump["pwmChannel"].as<int>();
+    if (litersPerHour == 0)
+    {
+        // avoid DivideByZero
+        litersPerHour = 300;
+    }
+    float pumpTime = (irrigationAmount / (litersPerHour * 1000.0f)) * 3600;
+
+    /*
+    Serial.print("Irrigate: ");Serial.println(plantGroup);
+    Serial.println(pwmChannel);Serial.println(pumpTime);
+    Serial.println(relaisChannel);Serial.println(relaisOpen);
+    */
 }
 
 bool Pump::checkWaterLevel()

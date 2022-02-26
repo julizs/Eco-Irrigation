@@ -65,7 +65,8 @@ public:
     Pump(PumpModel& pumpModel); // Konstr.
     const PumpModel& getPumpModel() const;
     void setPumpModel(const Pump::PumpModel& pM);
-    void irrigate(const char* plantGroup, int irrigationAmount);
+    void prepareIrrigation(const char* plantGroup, int irrigationAmount);
+    void doIrrigation(const char* pumpName, int irrigationAmount);
     void setup();
     void loop();
     bool setupToF_1();
