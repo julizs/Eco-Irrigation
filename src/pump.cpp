@@ -3,6 +3,7 @@
 Pump::Pump(PumpModel &p) : pumpModel(p)
 {
     setup();
+    // Cistern cistern1(0x51);
 }
 
 void Pump::setup()
@@ -12,8 +13,6 @@ void Pump::setup()
     // pinMode(in2, OUTPUT);
 
     minStateDuration = 4;
-    minWaterDist = 50;
-    maxWaterDist = 300;
     currentState = PumpState::IDLE;
 
     setupPWM();
@@ -32,7 +31,7 @@ void Pump::setupPWM()
     ledcAttachPin(pumpPWM_Pin_2, pwmChannel2);
 }
 
-bool Pump::setupIna_1()
+bool Pump::setupIna()
 {
     if (!ina219.begin(&I2Ctwo))
     {
@@ -42,7 +41,7 @@ bool Pump::setupIna_1()
     return true;
 }
 
-INAdata Pump::readIna_1()
+INAdata Pump::readIna()
 {
     INAdata data;
     data.busVoltage = ina219.getBusVoltage_V();
@@ -54,49 +53,6 @@ INAdata Pump::readIna_1()
     data.power = data.current * data.busVoltage;
 
     return data;
-}
-
-bool Pump::setupToF_1()
-{
-    // Only if SHT_Pin connected to toF sensor
-    // pinMode(shut_toF, OUTPUT);
-    // digitalWrite(shut_toF, LOW);
-    // digitalWrite(shut_toF, HIGH);
-
-    // Only rerun setup on first time or if sensor satus suggests, see library
-    if (toF_1_ready == false || (toF_1.Status != VL53L0X_ERROR_NONE))
-    {
-        if (!toF_1.begin(0x52, &I2Cone))
-        {
-            Serial.println(F("Failed to boot toF_1"));
-            toF_1_ready = false;
-            return false;
-        }
-    }
-    toF_1_ready = true;
-    return true;
-}
-
-bool Pump::setupToF_2()
-{
-    // Adafruit Library, on i2c bus with TSL2591, Error -5,
-    // works on same i2c bus with other VL530X with immediat shutPin LOW in main.setup()
-    if (toF_2_ready == false || (toF_2.Status != VL53L0X_ERROR_NONE))
-    {
-        digitalWrite(shut_toF, LOW);
-        delay(20);
-        digitalWrite(shut_toF, HIGH);
-        delay(20);
-
-        if (!toF_2.begin(0x51, &I2Cone))
-        {
-            Serial.println(F("Failed to boot toF_2"));
-            toF_2_ready = false;
-            // return false;
-        }
-    }
-    toF_2_ready = true;
-    return true;
 }
 
 /*
@@ -169,166 +125,6 @@ void Pump::doIrrigation(const char* pumpName, int irrigationAmount)
     
 }
 
-bool Pump::checkWaterLevel()
-{
-    float waterLevel = evaluateToF(toF_1);
-    currWaterDist = waterLevel;
-
-    if (waterLevel < maxWaterDist) // Limits set by User, minWaterDist doesnt matter
-    {
-        Serial.print("WaterLevel is sufficient for Irrigation: ");
-        return true;
-    }
-    else
-    {
-        Serial.println("WaterLevel is too low for Irrigation.");
-        return false;
-    }
-}
-
-void Pump::readToF(Adafruit_VL53L0X toF, int distances[])
-{
-    // More consistent readings, but: Continous Readings Func outputs Out of Range
-    toF.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY);
-    // Serial.println(toF_1.getMeasurementTimingBudgetMicroSeconds());
-    // toF_1.setMeasurementTimingBudgetMicroSeconds(300000);
-
-    // Do n-valid Readings and only then calc Average
-    // 3 Attemps per single valid Reading (or e.g. time limit while in IDLE State), then stop
-    // measure.RangeStatus == 4 means Out of Range
-    float avgDistance = 0;
-    int samples = 8;
-    VL53L0X_RangingMeasurementData_t measure;
-
-    // std::vector<int> distances;
-    // int distances[samples];
-
-    for (int i = 0; i < samples; i++)
-    {
-        int distance = 0;
-        bool validReading = false;
-        int j = 0; // 3 Attemps per single Reading
-
-        while (j < 3 && !validReading)
-        {
-            if ((measure.RangeStatus == 4 || distance < minWaterDist || distance > maxWaterDist)) // Water Container Physical Limits, maxPossibleWaterDist, ...
-            {
-                // toF_1.rangingTest(&measure, false);
-                // distance = measure.RangeMilliMeter;
-                distance = toF.readRange();
-                j++;
-            }
-            else
-            {
-                validReading = true;
-                avgDistance += distance;
-                // Serial.print(distance);
-                // Serial.print(" ");
-
-                // distances.push_back(distance);
-                distances[i] = distance;
-            }
-            delay(200);
-        }
-    }
-
-    // avgDistance /= (sampleNum * 1.0f);
-    // Serial.print("Avg: ");
-    // Serial.println(avgDistance);
-
-    // return avgDistance;
-}
-
-float Pump::evaluateToF(Adafruit_VL53L0X toF)
-{
-    float avgDistance = 0.0f;
-    float tolerance = 5.0f;
-    int totalSamples = 8;
-    int validSamples = totalSamples;
-    int distances[totalSamples];
-
-    readToF(toF, distances);
-    delay(200);
-
-    /*
-    for(int i = 0; i < distances.size(); i++)
-    {
-        Serial.print(distances[i]);
-        Serial.print(" ");
-        avgDistance += distances[i];
-    }
-    */
-
-    for(int i = 0; i < totalSamples; i++)
-    {
-        avgDistance += distances[i];
-    }
-
-    avgDistance = avgDistance / totalSamples;
-
-    for(int i = 0; i < totalSamples; i++)
-    {
-        // e.g. avgDistance 80mm, two invalid Readings 74mm, 86mm
-        if(abs(avgDistance - distances[i]) > tolerance)
-        {
-            //distances.erase(distances.begin() + i);
-            distances[i] = -1;
-        }
-    }
-
-    avgDistance = 0.0f;
-
-    for(int i = 0; i < totalSamples; i++)
-    {
-        if(distances[i] != -1)
-        {
-            avgDistance += distances[i];
-        }
-        else
-        {
-            validSamples -= 1;
-        }
-        Serial.print(distances[i]);
-        Serial.print(" ");
-    }
-
-    avgDistance = avgDistance / validSamples;
-
-    return avgDistance;
-}
-
-float Pump::readToF_cont()
-{
-    toF_1.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_DEFAULT);
-
-    std::vector<int> distances;
-    int i = 0;
-    float sum = 0.0f;
-    int sampleNum = 8;
-
-    toF_1.startRangeContinuous(100);
-    while (i < sampleNum)
-    {
-        int distance = toF_1.readRange();
-        sum += distance;
-        distances.push_back(distance);
-        Serial.print(distance);
-        Serial.print(" ");
-        if (toF_1.timeoutOccurred())
-        {
-            Serial.print(" TIMEOUT");
-        }
-        i++;
-    }
-
-    toF_1.stopRangeContinuous();
-
-    float avgDistance = sum / (distances.size() * 1.0f);
-    Serial.print("Avg: ");
-    Serial.println(avgDistance);
-    return avgDistance;
-}
-
 void Pump::loop()
 {
     switch (currentState)
@@ -340,16 +136,16 @@ void Pump::loop()
         {
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
-            toF_1_ready = setupToF_1();
-        }
 
-        // readToF_cont();
+            // Check if ToF Sensor of Cistern (containing this Pump) is ready
+            cistern1.toF_ready = cistern1.setupToF(0x51);
+        }
 
         if (millis() - stateBeginMillis >= minStateDuration * 1000UL && wateringNeeded)
         {
-            if (toF_1_ready)
+            if (cistern1.toF_ready)
             {
-                if (checkWaterLevel()) // Update both currWaterDist and check if valid with same 1 Reading
+                if (cistern1.checkWaterLevel()) // Update both currWaterDist and check if valid with same 1 Reading
                 {
                     currentState = PumpState::ON;
                     // toF_1_ready = false; // For next iteration
@@ -363,7 +159,7 @@ void Pump::loop()
             else
             {
                 // Try to setup again
-                toF_1_ready = setupToF_1();
+                cistern1.toF_ready = cistern1.setupToF(0x51);
                 delay(100);
             }
         }
@@ -400,7 +196,7 @@ void Pump::loop()
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
 
-            INAdata inaData = readIna_1();
+            INAdata inaData = readIna();
             p0.clearFields();
             p0.addField("voltage", inaData.voltage);
             p0.addField("current", inaData.current);
@@ -411,23 +207,13 @@ void Pump::loop()
             delay(100);
 
             wateringNeeded = false;
+
             switchOff();
 
-            int oldWaterDistance = currWaterDist;
-            currWaterDist = evaluateToF(toF_1);
-            int pumpedWaterMM = oldWaterDistance - currWaterDist;
-            int pumpedWaterML = pumpedWaterMM * 100;
+            // Do InfluxDB Updates AFTER turning off pump
+            cistern1.updateWaterLevel();
 
-            // Tags?
-            //
-            p2.clearTags();
-            p2.clearFields();
-            // p2.addTag("Plant Group", plantGroup);
-            p2.addField("pumpedWaterMM", pumpedWaterMM);
-            p2.addField("pumpedWaterML", pumpedWaterML);
-
-            influxHelper.writeDataPoint(p0);
-            influxHelper.writeDataPoint(p2);
+            influxHelper.writeDataPoint(p0);  
         }
 
         lastState = PumpState::DONE;

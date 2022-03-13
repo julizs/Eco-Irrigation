@@ -1,9 +1,8 @@
 #ifndef Pump_h
 #define Pump_h
 #include <main.h>
-#include "Adafruit_VL53L0X.h"
+#include <Cistern.h>
 #include "Adafruit_INA219.h"
-#include <VL53L0X.h>
 
 enum class PumpState
 {
@@ -51,12 +50,7 @@ public:
     const int res = 8;
     int dutyCycle = 200;
 
-    //VL53L0X toF; // Polulu
-    //VL53L0X toF_2;
-    Adafruit_VL53L0X toF_1 = Adafruit_VL53L0X();
-    Adafruit_VL53L0X toF_2 = Adafruit_VL53L0X();
-    unsigned short currWaterDist, minWaterDist, maxWaterDist; // aka minWaterLevel
-    bool toF_1_ready, toF_2_ready;
+    Cistern cistern1;
 
     Adafruit_INA219 ina219;
     float voltage_V, shuntVoltage_mV, busVoltage_V;
@@ -69,21 +63,14 @@ public:
     void doIrrigation(const char* pumpName, int irrigationAmount);
     void setup();
     void loop();
-    bool setupToF_1();
-    bool setupToF_2();
 
-    bool setupIna_1();
-    INAdata readIna_1();
-
-    float evaluateToF(Adafruit_VL53L0X toF);
-    void readToF(Adafruit_VL53L0X toF, int distances[]);
-    float readToF_cont();
+    bool setupIna();
+    INAdata readIna();
 
 private:
     void switchOn();
     void switchOff(); 
     void setupPWM();
-    bool checkWaterLevel();
     bool checkPumpPerformance(unsigned short);
 };
 

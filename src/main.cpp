@@ -103,38 +103,37 @@ void doMeasurements()
 
   p0.clearFields();
 
-  if (pump1.setupToF_1())
+  if (pump1.cistern1.setupToF(0x51))
   {
-    int waterLevel = pump1.evaluateToF(pump1.toF_1);
+    int waterLevel = pump1.cistern1.evaluateToF();
     p0.addField("water level bucket 1", waterLevel);
   }
   else
   {
     Serial.println("Failed to measure ToF_1");
   }
-  if(pump1.setupToF_2())
+  if(pump1.cistern1.setupToF(0x51))
   {
-    int waterLevel2 = pump1.evaluateToF(pump1.toF_2);
+    int waterLevel2 = pump1.cistern1.evaluateToF();
     p0.addField("water level bucket 2", waterLevel2);
   }
   else
   {
     Serial.println("Failed to measure ToF_2");
   }
-  //pump1.readToF_cont();
 
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
 
   // Idle Power Consumption of L298N
-  INAdata inaData = pump1.readIna_1();
+  INAdata inaData = pump1.readIna();
   p0.addField("voltage", inaData.voltage);
   p0.addField("current", inaData.current);
   p0.addField("power", inaData.power);
   p0.addField("busVoltage", inaData.busVoltage);
   p0.addField("shuntVoltage", inaData.shuntVoltage);
 
-  pump1.setupIna_1();
+  pump1.setupIna();
   //INAdata data = pump1.readIna_1();
 
   influxHelper.writeDataPoint(p0);
