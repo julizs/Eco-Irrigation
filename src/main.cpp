@@ -51,8 +51,9 @@ int lastButtonState = HIGH; // Initial State is Off
   Run Server that handles HTTP Calls from Buttons
   Send Params in Body instead of Lookup mongoDB Table
   Server runs parallel on 2nd Core
-  Wake up from Sleep every 1 Minutes and check "WakeUp" in MongoDB table,
+  Wake up from Sleep every 1 Minute and check "WakeUp" in MongoDB table,
   if false go back to Sleep (30 Minutes)
+  Esp posts its current IP Address into commands/settings mongoDb table (?)
   User has to Wake up Esp32 with Button first, then Web Buttons 
   work / get handled immediately on Press
   */
@@ -102,13 +103,25 @@ void doMeasurements()
 
   p0.clearFields();
 
-  pump1.setupToF_1();
-  pump1.setupToF_2();
-  int waterLevel = pump1.readToF(pump1.toF_1);
-  int waterLevel2 = pump1.readToF(pump1.toF_2);
+  if (pump1.setupToF_1())
+  {
+    int waterLevel = pump1.evaluateToF(pump1.toF_1);
+    p0.addField("water level bucket 1", waterLevel);
+  }
+  else
+  {
+    Serial.println("Failed to measure ToF_1");
+  }
+  if(pump1.setupToF_2())
+  {
+    int waterLevel2 = pump1.evaluateToF(pump1.toF_2);
+    p0.addField("water level bucket 2", waterLevel2);
+  }
+  else
+  {
+    Serial.println("Failed to measure ToF_2");
+  }
   //pump1.readToF_cont();
-  p0.addField("water level bucket 1", waterLevel);
-  p0.addField("water level bucket 2", waterLevel2);
 
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
@@ -198,13 +211,22 @@ void doMeasurements()
   */
 }
 
+/* Irrigation Algorithm
+  Consider recent Irrigations of PlantGroup and needs of each Plants inside PlantGroup (e.g. Moisture Need, Size of Plant, ...)
+  (all Plants that are affected of this Irrigation need to be considered)
+  1.1 (Quick) Get PlantGroup Table, check recent Irrigations (InfluxDB) of this Group (e.g. less than 1l today, less than 0.5l in past 4 hours)
+  1.2 (Long) Get every single Plant from the PlantGroup and check soilMoisture (do this in State 1 already, with 2nd Core ?)
+  3. Check Waterlevel in Tank, if not enough then create failed Irrigation InfluxDB datapoint
+  (Reason for Irrigation: ... , Irrigation Amount: ..., Reason for Failure: ...)
+  */
 void doEvaluate()
 {
   wateringNeeded = true;
-  // Algorithm decides Irrigation based on recent Irrigations of PlantGroup,
-  // and needs of Plants inside PlantGroup (e.g. Moisture Need, Size of Plant, ...)s
-  pump1.prepareIrrigation("succulents", 350);
-  pump1.prepareIrrigation("vegetables", 550);
+  
+  // pump1.prepareIrrigation("succulents", 350);
+  // pump1.prepareIrrigation("vegetables", 550);
+  // pump1.prepareIrrigation("Tomate", 150);
+ 
 }
 
 void checkButtons()
@@ -338,7 +360,7 @@ void on_measureState()
   {
     commonStateLogic();
     // WiFi.disconnect();
-    // doMeasurements();
+    doMeasurements();
   }
 }
 

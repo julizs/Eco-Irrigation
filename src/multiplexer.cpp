@@ -39,7 +39,7 @@ int Multiplexer::readChannel(byte channel)
      // according to 2D Array to select Channel, then read analog
      for(int i = 0; i < 4; i ++)
      { 
-       digitalWrite(controlPin[i], muxChannel[channel][i]); 
+       digitalWrite(controlPin[i], muxChannel[channel][i]);
      }
 
      delay(50);

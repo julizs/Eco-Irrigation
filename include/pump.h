@@ -75,7 +75,8 @@ public:
     bool setupIna_1();
     INAdata readIna_1();
 
-    float readToF(Adafruit_VL53L0X toF);
+    float evaluateToF(Adafruit_VL53L0X toF);
+    void readToF(Adafruit_VL53L0X toF, int distances[]);
     float readToF_cont();
 
 private:

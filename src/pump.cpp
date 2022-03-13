@@ -103,14 +103,11 @@ bool Pump::setupToF_2()
 IrrSystem Algo decides PumpTime according to Mililiters
 and Info from Pump Model (PWM, FlowRate etc.)
 1 State Machine loop per Irrigation
+irrigationSubject can be a plant or plantGroup
 */
-void Pump::prepareIrrigation(const char *plantGroup, int irrigationAmount)
+void Pump::prepareIrrigation(const char *irrigationSubject, int irrigationAmount)
 {
-    // 1. Check if Irrigation is possible, return if not
-    // 1.1 InfluxDB, (Less than 2 Liter this day, less than 1 Liter in past 4 hours)
-    // 1.2 ToF Distance (enough Water)
-
-    // 2. Get Solenoid, Relais and Pump Information
+    // 2. Get Solenoid (Relais Channel), SolenoidState (Relais State) and Pump Name
     char url[50] = "";
     strcat(url, baseUrl);
     strcat(url, "/solenoidValves");
@@ -121,29 +118,28 @@ void Pump::prepareIrrigation(const char *plantGroup, int irrigationAmount)
     // For every Solenoid
     for (int i = 0; i < solenoids.size(); i++)
     {
-        // Get nessesary Relais Info
-        int relaisChannel = solenoids[i]["relais"].as<int>() - 1;
         const char *plantGroupOpen = solenoids[i]["open"];
         const char *plantGroupClosed = solenoids[i]["closed"];
 
-        // strcmp, if PlantGroup is in this Solenoid State
-        if (strcmp(plantGroupOpen, plantGroup) == 0)
+        // Check if PlantGroup is attached to this Solenoid (and which State)
+        if (strcmp(plantGroupOpen, irrigationSubject) == 0)
         {
             relaisOpen = true;
         }
-        else if (strcmp(plantGroupClosed, plantGroup) == 0)
+        else if (strcmp(plantGroupClosed, irrigationSubject) == 0)
         {
             relaisOpen = false;
         }
         else
         {
-            continue; // Skip rest of Code, goto next Soleonoid
+            continue; // Skip rest of Code, goto next Solenoid
         }
 
         const char *pumpName = solenoids[i]["pump"];
 
         // Per Plant Group:
         // 1. TODO Drive Relais
+        int relaisChannel = solenoids[i]["relais"].as<int>() - 1;
         Serial.println(relaisChannel); Serial.println(relaisOpen);
 
         // 2. Drive Pump
@@ -175,7 +171,7 @@ void Pump::doIrrigation(const char* pumpName, int irrigationAmount)
 
 bool Pump::checkWaterLevel()
 {
-    float waterLevel = readToF(toF_1);
+    float waterLevel = evaluateToF(toF_1);
     currWaterDist = waterLevel;
 
     if (waterLevel < maxWaterDist) // Limits set by User, minWaterDist doesnt matter
@@ -190,21 +186,24 @@ bool Pump::checkWaterLevel()
     }
 }
 
-float Pump::readToF(Adafruit_VL53L0X toF)
+void Pump::readToF(Adafruit_VL53L0X toF, int distances[])
 {
     // More consistent readings, but: Continous Readings Func outputs Out of Range
     toF.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY);
     // Serial.println(toF_1.getMeasurementTimingBudgetMicroSeconds());
     // toF_1.setMeasurementTimingBudgetMicroSeconds(300000);
 
-    // Do 2 valid Reading and only then calc Average
+    // Do n-valid Readings and only then calc Average
     // 3 Attemps per single valid Reading (or e.g. time limit while in IDLE State), then stop
     // measure.RangeStatus == 4 means Out of Range
     float avgDistance = 0;
-    int sampleNum = 8;
+    int samples = 8;
     VL53L0X_RangingMeasurementData_t measure;
 
-    for (int i = 0; i < sampleNum; i++)
+    // std::vector<int> distances;
+    // int distances[samples];
+
+    for (int i = 0; i < samples; i++)
     {
         int distance = 0;
         bool validReading = false;
@@ -223,16 +222,77 @@ float Pump::readToF(Adafruit_VL53L0X toF)
             {
                 validReading = true;
                 avgDistance += distance;
-                Serial.print(distance);
-                Serial.print(" ");
+                // Serial.print(distance);
+                // Serial.print(" ");
+
+                // distances.push_back(distance);
+                distances[i] = distance;
             }
             delay(200);
         }
     }
 
-    avgDistance /= (sampleNum * 1.0f);
-    Serial.print("Avg: ");
-    Serial.println(avgDistance);
+    // avgDistance /= (sampleNum * 1.0f);
+    // Serial.print("Avg: ");
+    // Serial.println(avgDistance);
+
+    // return avgDistance;
+}
+
+float Pump::evaluateToF(Adafruit_VL53L0X toF)
+{
+    float avgDistance = 0.0f;
+    float tolerance = 5.0f;
+    int totalSamples = 8;
+    int validSamples = totalSamples;
+    int distances[totalSamples];
+
+    readToF(toF, distances);
+    delay(200);
+
+    /*
+    for(int i = 0; i < distances.size(); i++)
+    {
+        Serial.print(distances[i]);
+        Serial.print(" ");
+        avgDistance += distances[i];
+    }
+    */
+
+    for(int i = 0; i < totalSamples; i++)
+    {
+        avgDistance += distances[i];
+    }
+
+    avgDistance = avgDistance / totalSamples;
+
+    for(int i = 0; i < totalSamples; i++)
+    {
+        // e.g. avgDistance 80mm, two invalid Readings 74mm, 86mm
+        if(abs(avgDistance - distances[i]) > tolerance)
+        {
+            //distances.erase(distances.begin() + i);
+            distances[i] = -1;
+        }
+    }
+
+    avgDistance = 0.0f;
+
+    for(int i = 0; i < totalSamples; i++)
+    {
+        if(distances[i] != -1)
+        {
+            avgDistance += distances[i];
+        }
+        else
+        {
+            validSamples -= 1;
+        }
+        Serial.print(distances[i]);
+        Serial.print(" ");
+    }
+
+    avgDistance = avgDistance / validSamples;
 
     return avgDistance;
 }
@@ -354,7 +414,7 @@ void Pump::loop()
             switchOff();
 
             int oldWaterDistance = currWaterDist;
-            currWaterDist = readToF(toF_1);
+            currWaterDist = evaluateToF(toF_1);
             int pumpedWaterMM = oldWaterDistance - currWaterDist;
             int pumpedWaterML = pumpedWaterMM * 100;
 

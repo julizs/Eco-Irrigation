@@ -45,7 +45,7 @@ int SoilMoisture::voltageToPercentage(int pinNum, int smoothedValue)
   // Constrain measured Values to SensorRange before Map
   int range[2];
   getSensorRange(pinNum, range);
-  int moistureContrained = constrain(smoothedValue, range[0], range[1]);
+  int moistureConstrained = constrain(smoothedValue, range[0], range[1]);
 
   // Serial.print("Min: "); Serial.print(range[0]);
   // Serial.print(" Max: "); Serial.println(range[1]);
@@ -54,7 +54,7 @@ int SoilMoisture::voltageToPercentage(int pinNum, int smoothedValue)
   if(range[0] != 0 && range[1] != 0)
   {
     // Map with reversed Values (3000 = 0% Moisture)
-    moisturePercentage = map(moistureContrained,range[0],range[1], 100, 0);
+    moisturePercentage = map(moistureConstrained,range[0],range[1], 100, 0);
   }
   
   return moisturePercentage;
