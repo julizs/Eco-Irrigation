@@ -37,7 +37,7 @@ public:
     float voltage_V, shuntVoltage_mV, busVoltage_V;
     float current_mA, power_mW;
 
-    Pump(int pwmChannel, int pwmPin);
+    Pump(int pwmChannel, int pwmPin, Cistern& cistern);
     void setup();
     void loop();
     void prepareIrrigation(const char* plantGroup, int irrigationAmount);

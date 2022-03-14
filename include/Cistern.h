@@ -6,7 +6,7 @@
 #include <main.h>
 
 /*
-Has 1 ToF Sensor, Water Temp Sensor, Water PH Sensor, 1 Pump?
+Each pump has 1 associated ToF Sensor, Water Temp Sensor, Water PH Sensor
 */
 class Cistern
 {
@@ -18,11 +18,12 @@ class Cistern
         bool toF_ready;
 
         // Cistern();
-        // Cistern(int toF_address);
-        bool setupToF(int toF_address);
+        Cistern(int toF_address);
+        bool setupToF();
+        void shutToF();
 
         float evaluateToF();
-        void readToF(Adafruit_VL53L0X toF, int distances[]);
+        void readToF(int distances[]);
         float readToF_cont();
         void updateWaterLevel();
         bool checkWaterLevel();

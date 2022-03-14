@@ -21,7 +21,10 @@ TwoWire I2Ctwo = TwoWire(1);
 AmbientClimate climate1(500, 2);
 AmbientLight lightSensor1(1);
 AmbientLight lightSensor2(2);
-Pump pump1(0, pump_PWM_1);
+Cistern cistern1(0x51); // shut
+Cistern cistern2(0x52);
+Pump pump1(0, pump_PWM_1, cistern1);
+Pump pump2(1, pump_PWM_2, cistern2);
 StatusDisplay displayController;
 
 //Plant plant1(lightSensor2, soilMoisture1);
@@ -84,6 +87,22 @@ void scanI2CBus(TwoWire *wire)
   Serial.println(" I2C Devices found.");
 }
 
+void setupToFs()
+{
+  // Setup ToF in correct Order
+  if(!cistern2.toF_ready)
+  {
+    cistern2.setupToF();
+    // Serial.println("Did Re-setup " + cistern2.toF_address);
+  }
+  if(!cistern1.toF_ready)
+  {
+    cistern1.shutToF();
+    cistern1.setupToF();
+    // Serial.println("Did Re-setup " + cistern1.toF_address);
+  }
+}
+
 void doMeasurements()
 {
   scanI2CBus(&I2Cone);
@@ -99,25 +118,15 @@ void doMeasurements()
 
   p0.clearFields();
 
-  if (pump1.cistern.setupToF(0x51))
-  {
-    int waterLevel = pump1.cistern.evaluateToF();
-    p0.addField("water level bucket 1", waterLevel);
-  }
-  else
-  {
-    Serial.println("Failed to measure ToF_1");
-  }
-  if(pump1.cistern.setupToF(0x51))
-  {
-    int waterLevel2 = pump1.cistern.evaluateToF();
-    p0.addField("water level bucket 2", waterLevel2);
-  }
-  else
-  {
-    Serial.println("Failed to measure ToF_2");
-  }
+  setupToFs();
 
+  int waterLevel1 = cistern1.evaluateToF();
+  p0.addField("water level bucket 1", waterLevel1);
+ 
+  int waterLevel2 = cistern2.evaluateToF();
+  p0.addField("water level bucket 2", waterLevel2);
+
+  // Read RSSI
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
 
@@ -376,11 +385,11 @@ void on_actionState()
     commonStateLogic();
   }
 
-  //digitalWrite(Relais[0], LOW);
-  digitalWrite(Relais[1], LOW);
+  // digitalWrite(Relais[0], LOW);
+  // digitalWrite(Relais[1], LOW);
 
   // run sub-StateMachines
-  if (wateringNeeded)
+  if (true) // wateringNeeded
   {
     pump1.loop();
   }
@@ -467,8 +476,8 @@ void setup()
   delay(100);
 
   // Immediately Shut down 2nd ToF to start with different i2C Address later
-  pinMode(shut_toF, OUTPUT);
-  digitalWrite(shut_toF, LOW);
+  pinMode(toF_shut, OUTPUT);
+  digitalWrite(toF_shut, LOW);
 
   // LOW-Trigger Relais
   for(int i = 0; i < sizeof(Relais); i++)
@@ -476,6 +485,7 @@ void setup()
     pinMode(Relais[i], OUTPUT);
     digitalWrite(Relais[i], HIGH);
   }
+
   //pinMode(RELAIS_1, OUTPUT);
   //pinMode(RELAIS_2, OUTPUT);
   //digitalWrite(RELAIS_1, HIGH);

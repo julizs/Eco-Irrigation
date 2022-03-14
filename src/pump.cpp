@@ -1,6 +1,6 @@
 #include "Pump.h"
 
-Pump::Pump(int pwmChannel, int pwmPin) : pumpModel(2048)
+Pump::Pump(int pwmChannel, int pwmPin, Cistern& c) : pumpModel(2048), cistern(c)
 {
     this->pwmChannel = pwmChannel;
     this->pwmPin = pwmPin;
@@ -138,7 +138,7 @@ void Pump::loop()
             Serial.println(stateNames[(byte)currentState]);
 
             // Check if ToF Sensor of Cistern (containing this Pump) is ready
-            cistern.toF_ready = cistern.setupToF(0x51);
+            // cistern.toF_ready = cistern.setupToF();
         }
 
         if (millis() - stateBeginMillis >= minStateDuration * 1000UL && wateringNeeded)
@@ -158,9 +158,9 @@ void Pump::loop()
             }
             else
             {
-                // Try to setup again
-                cistern.toF_ready = cistern.setupToF(0x51);
-                delay(100);
+                // Wait and try to setup again
+                delay(200);     
+                // cistern.toF_ready = cistern.setupToF();   
             }
         }
 
@@ -197,6 +197,7 @@ void Pump::loop()
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
 
+            /*
             INAdata inaData = readIna();
             p0.clearFields();
             p0.addField("voltage", inaData.voltage);
@@ -204,6 +205,7 @@ void Pump::loop()
             p0.addField("power", inaData.power);
             p0.addField("busVoltage", inaData.busVoltage);
             p0.addField("shuntVoltage", inaData.shuntVoltage);
+            */
 
             delay(100);
 
@@ -212,9 +214,9 @@ void Pump::loop()
             switchOff();
 
             // Do InfluxDB Updates AFTER turning off pump
-            cistern.updateWaterLevel();
+            // cistern.updateWaterLevel();
 
-            influxHelper.writeDataPoint(p0);  
+            // influxHelper.writeDataPoint(p0);  
         }
 
         lastState = PumpState::DONE;

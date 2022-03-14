@@ -11,7 +11,7 @@
 //#define button3Pin 19
 #define pump_PWM_1 4 // 23
 #define pump_PWM_2 2 // 19
-#define shut_toF 19 // 4
+#define toF_shut 19 // 4
 
 // I2C Busses
 #define SDA1 21

@@ -1,39 +1,38 @@
 #include "Cistern.h"
 
-/*
 Cistern::Cistern(int toF_address)
 {
-  this->toF_address = toF_address;
+    this->toF_address = toF_address;
+    minWaterDist = 50;
+    maxWaterDist = 300;
 }
-*/
 
-bool Cistern::setupToF(int toF_address)
+bool Cistern::setupToF()
 {
     /*
     Only rerun setup on first time or if sensor status suggests, see library
     Adafruit Library, on i2c bus with TSL2591, Error -5,
     works on same i2c bus with other VL530X with immediat shutPin LOW in main.setup()
     */
-
-    if(toF_address == 0x51)
-    {
-        digitalWrite(shut_toF, LOW);
-        delay(20);
-        digitalWrite(shut_toF, HIGH);
-        delay(20);
-    }
-
     if (toF_ready == false || (toF.Status != VL53L0X_ERROR_NONE))
     {
         if (!toF.begin(toF_address, &I2Cone)) // &I2Cone
         {
-            Serial.println(F("Failed to boot toF_2"));
+            Serial.println(F("Failed to boot toF at" + toF_address));
             toF_ready = false;
             return false;
         }
     }
     toF_ready = true;
     return true;
+}
+
+void Cistern::shutToF()
+{
+    digitalWrite(toF_shut, LOW);
+    delay(20);
+    digitalWrite(toF_shut, HIGH);
+    delay(20);
 }
 
 bool Cistern::checkWaterLevel()
@@ -51,6 +50,8 @@ bool Cistern::checkWaterLevel()
         Serial.println("WaterLevel is too low for Irrigation.");
         return false;
     }
+    
+    return true;
 }
 
 void Cistern::updateWaterLevel()
@@ -68,7 +69,7 @@ void Cistern::updateWaterLevel()
     influxHelper.writeDataPoint(p2);
 }
 
-void Cistern::readToF(Adafruit_VL53L0X toF, int distances[])
+void Cistern::readToF(int distances[])
 {
     toF.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY);
     // Serial.println(toF_1.getMeasurementTimingBudgetMicroSeconds());
@@ -80,6 +81,10 @@ void Cistern::readToF(Adafruit_VL53L0X toF, int distances[])
     int samples = 8;
     VL53L0X_RangingMeasurementData_t measure;
 
+    Serial.print("Measurements ");
+    Serial.print(toF_address);
+    Serial.print(": ");
+
     for (int i = 0; i < samples; i++)
     {
         int distance = 0;
@@ -89,9 +94,9 @@ void Cistern::readToF(Adafruit_VL53L0X toF, int distances[])
         while (j < 3 && !validReading)
         {
             // Water Container Physical Limits, maxPossibleWaterDist, ...
-            if ((measure.RangeStatus == 4 || distance < minWaterDist || distance > maxWaterDist)) 
+            if ((measure.RangeStatus == 4 || distance < minWaterDist || distance > maxWaterDist))
             {
-                // toF_1.rangingTest(&measure, false);
+                // toF.rangingTest(&measure, false);
                 // distance = measure.RangeMilliMeter;
                 distance = toF.readRange();
                 j++;
@@ -99,13 +104,14 @@ void Cistern::readToF(Adafruit_VL53L0X toF, int distances[])
             else
             {
                 validReading = true;
-                // Serial.print(distance);
-                // Serial.print(" ");
+                Serial.print(distance);
+                Serial.print(" ");
                 distances[i] = distance;
             }
             delay(200);
         }
     }
+    Serial.println();
 }
 
 float Cistern::evaluateToF() // Adafruit_VL53L0X toF
@@ -116,20 +122,20 @@ float Cistern::evaluateToF() // Adafruit_VL53L0X toF
     int validSamples = totalSamples;
     int distances[totalSamples];
 
-    readToF(toF, distances);
+    readToF(distances); // Manipulate Array
     delay(200);
 
-    for(int i = 0; i < totalSamples; i++)
+    for (int i = 0; i < totalSamples; i++)
     {
         median += distances[i];
     }
 
     median = median / totalSamples;
 
-    for(int i = 0; i < totalSamples; i++)
+    for (int i = 0; i < totalSamples; i++)
     {
         // e.g. avgDistance 80mm, two invalid Readings 74mm, 86mm
-        if(abs(median - distances[i]) > tolerance)
+        if (abs(median - distances[i]) > tolerance)
         {
             distances[i] = -1;
             validSamples -= 1;
@@ -138,8 +144,8 @@ float Cistern::evaluateToF() // Adafruit_VL53L0X toF
         {
             avgDistance += distances[i];
         }
-        Serial.print(distances[i]);
-        Serial.print(" ");
+        // Serial.print(distances[i]);
+        // Serial.print(" ");
     }
 
     avgDistance = avgDistance / validSamples;
