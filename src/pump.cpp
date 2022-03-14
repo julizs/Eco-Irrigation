@@ -1,18 +1,25 @@
 #include "Pump.h"
 
-Pump::Pump(PumpModel &p) : pumpModel(p)
+Pump::Pump(int pwmChannel, int pwmPin) : pumpModel(2048)
 {
+    this->pwmChannel = pwmChannel;
+    this->pwmPin = pwmPin;
+    frequency = 30000;
+    resolution = 8; // Bits
+    dutyCycle = 200;
     setup();
-    // Cistern cistern1(0x51);
 }
 
 void Pump::setup()
 {
-    // pinMode(enA, OUTPUT);
-    // pinMode(in1, OUTPUT);
-    // pinMode(in2, OUTPUT);
+    /*
+    H-Bridge Direction
+    pinMode(enA, OUTPUT);
+    pinMode(in1, OUTPUT);
+    pinMode(in2, OUTPUT);
+    */
 
-    minStateDuration = 4;
+    minStateDuration = 4; // Seconds
     currentState = PumpState::IDLE;
 
     setupPWM();
@@ -20,15 +27,10 @@ void Pump::setup()
 
 void Pump::setupPWM()
 {
-    // Setup 2 PWM Channels for Pumps
-    // https://randomnerdtutorials.com/esp32-pwm-arduino-ide/
-    // https://diyi0t.com/arduino-pwm-tutorial/
-    pinMode(pumpPWM_Pin_1, OUTPUT);
-    pinMode(pumpPWM_Pin_2, OUTPUT);
-    ledcSetup(pwmChannel1, freq, res); // Channel, Frequency, Resolution (8 Bit, 0-255)
-    ledcSetup(pwmChannel2, freq, res);
-    ledcAttachPin(pumpPWM_Pin_1, pwmChannel1);
-    ledcAttachPin(pumpPWM_Pin_2, pwmChannel2);
+    // Setup PWM Channel
+    pinMode(pwmPin, OUTPUT);
+    ledcSetup(pwmChannel, frequency, resolution);
+    ledcAttachPin(pwmPin, pwmChannel);
 }
 
 bool Pump::setupIna()
@@ -56,10 +58,8 @@ INAdata Pump::readIna()
 }
 
 /*
-IrrSystem Algo decides PumpTime according to Mililiters
-and Info from Pump Model (PWM, FlowRate etc.)
+Main StateMachine provides Subjects (plant or plantGroup) and PumpTime in Milliliters
 1 State Machine loop per Irrigation
-irrigationSubject can be a plant or plantGroup
 */
 void Pump::prepareIrrigation(const char *irrigationSubject, int irrigationAmount)
 {
@@ -138,14 +138,14 @@ void Pump::loop()
             Serial.println(stateNames[(byte)currentState]);
 
             // Check if ToF Sensor of Cistern (containing this Pump) is ready
-            cistern1.toF_ready = cistern1.setupToF(0x51);
+            cistern.toF_ready = cistern.setupToF(0x51);
         }
 
         if (millis() - stateBeginMillis >= minStateDuration * 1000UL && wateringNeeded)
         {
-            if (cistern1.toF_ready)
+            if (cistern.toF_ready)
             {
-                if (cistern1.checkWaterLevel()) // Update both currWaterDist and check if valid with same 1 Reading
+                if (cistern.checkWaterLevel()) // Update both currWaterDist and check if valid with same 1 Reading
                 {
                     currentState = PumpState::ON;
                     // toF_1_ready = false; // For next iteration
@@ -159,7 +159,7 @@ void Pump::loop()
             else
             {
                 // Try to setup again
-                cistern1.toF_ready = cistern1.setupToF(0x51);
+                cistern.toF_ready = cistern.setupToF(0x51);
                 delay(100);
             }
         }
@@ -176,12 +176,13 @@ void Pump::loop()
             Serial.println(stateNames[(byte)currentState]);
         }
 
-        // Execute each tick
         // 2 Checks for Safety: Water Distance and Max. Pump Time
         switchOn();
 
+        // minStateTime is up AND (Time is up OR Button pressed again (Stop now!))
+        // Pump shall be in ON State for max. 10 Seconds
         if (millis() - stateBeginMillis >= minStateDuration * 1000UL &&
-            ((millis() - stateBeginMillis >= pumpModel.maxPumpingDuration * 1000UL) || wateringNeeded == false)) // minStateTime is up AND (Time is up OR Button pressed again (Stop now!))
+            ((millis() - stateBeginMillis >= 10 * 1000UL) || wateringNeeded == false)) 
         {
             currentState = PumpState::DONE;
         }
@@ -211,7 +212,7 @@ void Pump::loop()
             switchOff();
 
             // Do InfluxDB Updates AFTER turning off pump
-            cistern1.updateWaterLevel();
+            cistern.updateWaterLevel();
 
             influxHelper.writeDataPoint(p0);  
         }
@@ -221,39 +222,10 @@ void Pump::loop()
     }
 }
 
-/*
-bool Pump::checkPumpPerformance(unsigned short lastPumped)
-{
-    // Correct: bestPumped struct per Model and Voltage or PWM value (e.g. Palermo, 100ml, 125)
-    if(bestPumped - lastPumped > 50) // 50 Milliliter Threashold
-    {
-        Serial.println("Pump Performance deteriorated, need to clean Pump Filter or Exchange Water.");
-        return true;
-    }
-    return false;
-}
-*/
-
-/*
-bool Pump::sufficientWaterLevel()
-{
-    //return toF_1.readRangeSingleMillimeters() > maxWaterDistance;
-}
-
-float Pump::currentwaterLevel()
-{
-    if(checkMinWaterDistance())
-    {
-        Serial.println("Water Level not sufficient. Please refill Tank.");
-    }
-    //return (distanceDeltaToMilliliters(toF.readRangeSingleMillimeters()));
-}
-*/
-
 void Pump::switchOn()
 {
     /*
-    // Set Rotation Direction (only if H-Bridge and Pump supports 2 Directions)
+    // H-Bridge, set Pump Direction
     digitalWrite(in1, LOW);
     digitalWrite(in2, HIGH);
     */
@@ -263,47 +235,25 @@ void Pump::switchOn()
 
     // Esp32
     // Run Pump1 with 5V (12V Input L298N, 10V Output at max. PWM Duty)
-    ledcWrite(pwmChannel1, 255); // Palermo
-    ledcWrite(pwmChannel2, 255); // QR50E
-
-    // digitalWrite(pumpPin, HIGH); // via Relais
+    ledcWrite(pwmChannel, 255);
 }
 
 void Pump::switchOff()
 {
-    // digitalWrite(pumpPin, LOW); // via Relais
-    ledcWrite(pwmChannel1, 0); // Palermo
-    ledcWrite(pwmChannel2, 0); // QR50E
+    ledcWrite(pwmChannel, 0);
 }
 
-const Pump::PumpModel &Pump::getPumpModel() const
+/*
+Pump::checkPumpPerformance(unsigned short lastPumped)
 {
-    return pumpModel;
+    // Correct: bestPumped struct per Model and Voltage or PWM value (e.g. Palermo, 100ml, 50% PWM)
+    if(lastPumped > bestPumped)
+    {
+        bestPumped = lastPumped;
+    }
+    if(bestPumped - lastPumped > 50) // 50 Milliliter Threashold
+    {
+        Serial.println("Pump Performance deteriorated, need to clean Pump Filter or Exchange Water.");
+    }
 }
-
-void Pump::setPumpModel(const Pump::PumpModel &pM)
-{
-    pumpModel = pM;
-}
-
-// Nested Class Definitions
-
-Pump::PumpModel::PumpModel(byte minVoltage, byte maxVoltage, byte maxPumpingDuration, int flowRate)
-{
-    this->minVoltage = minVoltage;
-    this->maxVoltage = maxVoltage;
-    this->maxPumpingDuration = maxPumpingDuration;
-    this->flowRate = flowRate;
-}
-
-byte Pump::PumpModel::getminVoltage()
-{
-    return this->minVoltage;
-}
-
-// Tankfüllstand
-// Pumpen Funktionstest
-// Durchlauftest (läuft Pumpe mit initialier/voller FlowRate?)
-// Kalibrierung (Wieviel Wasser je Sekunde?)
-// Wassertausch, Pumpenreinigung nach 1 Monat
-// PWM / Voltage Einstellungen, autom. Prüfung je nach Modell
+*/

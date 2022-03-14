@@ -9,8 +9,8 @@
 #define button1Pin 34
 //#define button2Pin 4
 //#define button3Pin 19
-#define pumpPWM_Pin_1 4 // 23
-#define pumpPWM_Pin_2 2 // 19
+#define pump_PWM_1 4 // 23
+#define pump_PWM_2 2 // 19
 #define shut_toF 19 // 4
 
 // I2C Busses

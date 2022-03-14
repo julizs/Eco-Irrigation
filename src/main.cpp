@@ -17,15 +17,11 @@ InfluxHelper influxHelper;
 TwoWire I2Cone = TwoWire(0);
 TwoWire I2Ctwo = TwoWire(1);
 
-//SoilMoisture soilMoisture1(1100, 0);
-//SoilMoisture soilMoisture2(1100, 1);
 //Fotoresistor fotoResistor1(10000, 3.3, 10, C15);
 AmbientClimate climate1(500, 2);
 AmbientLight lightSensor1(1);
 AmbientLight lightSensor2(2);
-Pump::PumpModel qr50e(12, 12, 4, 240);
-Pump::PumpModel palermo(6, 12, 6, 330);
-Pump pump1(qr50e);
+Pump pump1(0, pump_PWM_1);
 StatusDisplay displayController;
 
 //Plant plant1(lightSensor2, soilMoisture1);
@@ -103,18 +99,18 @@ void doMeasurements()
 
   p0.clearFields();
 
-  if (pump1.cistern1.setupToF(0x51))
+  if (pump1.cistern.setupToF(0x51))
   {
-    int waterLevel = pump1.cistern1.evaluateToF();
+    int waterLevel = pump1.cistern.evaluateToF();
     p0.addField("water level bucket 1", waterLevel);
   }
   else
   {
     Serial.println("Failed to measure ToF_1");
   }
-  if(pump1.cistern1.setupToF(0x51))
+  if(pump1.cistern.setupToF(0x51))
   {
-    int waterLevel2 = pump1.cistern1.evaluateToF();
+    int waterLevel2 = pump1.cistern.evaluateToF();
     p0.addField("water level bucket 2", waterLevel2);
   }
   else
