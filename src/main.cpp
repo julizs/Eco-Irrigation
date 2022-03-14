@@ -93,13 +93,11 @@ void setupToFs()
   if(!cistern2.toF_ready)
   {
     cistern2.setupToF();
-    // Serial.println("Did Re-setup " + cistern2.toF_address);
   }
   if(!cistern1.toF_ready)
   {
     cistern1.shutToF();
     cistern1.setupToF();
-    // Serial.println("Did Re-setup " + cistern1.toF_address);
   }
 }
 
@@ -120,12 +118,17 @@ void doMeasurements()
 
   setupToFs();
 
-  int waterLevel1 = cistern1.evaluateToF();
-  p0.addField("water level bucket 1", waterLevel1);
+  if(cistern1.toF.Status == 0)
+  {
+    int waterLevel1 = cistern1.evaluateToF();
+    p0.addField("water level bucket 1", waterLevel1);
+  }
+  if(cistern2.toF.Status == 0)
+  {
+    int waterLevel2 = cistern2.evaluateToF();
+    p0.addField("water level bucket 2", waterLevel2);
+  }
  
-  int waterLevel2 = cistern2.evaluateToF();
-  p0.addField("water level bucket 2", waterLevel2);
-
   // Read RSSI
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
@@ -389,7 +392,7 @@ void on_actionState()
   // digitalWrite(Relais[1], LOW);
 
   // run sub-StateMachines
-  if (true) // wateringNeeded
+  if (wateringNeeded)
   {
     pump1.loop();
   }

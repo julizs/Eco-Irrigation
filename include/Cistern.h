@@ -13,7 +13,7 @@ class Cistern
     public:
         //VL53L0X toF; // Polulu Library
         Adafruit_VL53L0X toF = Adafruit_VL53L0X();
-        unsigned short toF_address;
+        unsigned short toF_address, sampleSize;
         unsigned short currWaterDist, minWaterDist, maxWaterDist; // aka minWaterLevel
         bool toF_ready;
 

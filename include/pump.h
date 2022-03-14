@@ -27,7 +27,7 @@ public:
 
     PumpState currentState, lastState;
     const char *stateNames[3] = {"PUMP_IDLE", "PUMP_ON", "PUMP_DONE"};
-    unsigned long stateBeginMillis, minStateDuration;
+    unsigned long stateBeginMillis, minStateDuration, maxStateDuration;
 
     DynamicJsonDocument pumpModel;
     int pwmPin, pwmChannel, frequency, resolution, dutyCycle;

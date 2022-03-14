@@ -5,6 +5,7 @@ Cistern::Cistern(int toF_address)
     this->toF_address = toF_address;
     minWaterDist = 50;
     maxWaterDist = 300;
+    sampleSize = 8;
 }
 
 bool Cistern::setupToF()
@@ -14,7 +15,7 @@ bool Cistern::setupToF()
     Adafruit Library, on i2c bus with TSL2591, Error -5,
     works on same i2c bus with other VL530X with immediat shutPin LOW in main.setup()
     */
-    if (toF_ready == false || (toF.Status != VL53L0X_ERROR_NONE))
+    if (toF_ready == false || (toF.Status != 0)) // 0 = VL53L0X_ERROR_NONE
     {
         if (!toF.begin(toF_address, &I2Cone)) // &I2Cone
         {
@@ -78,14 +79,9 @@ void Cistern::readToF(int distances[])
     // Do n-valid Readings
     // 3 Attemps per single valid Reading (or e.g. time limit while in IDLE State), then stop
     // Out of Range: measure.RangeStatus == 4
-    int samples = 8;
     VL53L0X_RangingMeasurementData_t measure;
 
-    Serial.print("Measurements ");
-    Serial.print(toF_address);
-    Serial.print(": ");
-
-    for (int i = 0; i < samples; i++)
+    for (int i = 0; i < sampleSize; i++)
     {
         int distance = 0;
         bool validReading = false;
@@ -99,13 +95,17 @@ void Cistern::readToF(int distances[])
                 // toF.rangingTest(&measure, false);
                 // distance = measure.RangeMilliMeter;
                 distance = toF.readRange();
+                if(toF.timeoutOccurred()) 
+                { 
+                    Serial.print("VL530X Timeout");
+                    delay(50);
+                    continue;
+                }
                 j++;
             }
             else
             {
                 validReading = true;
-                Serial.print(distance);
-                Serial.print(" ");
                 distances[i] = distance;
             }
             delay(200);
@@ -118,21 +118,28 @@ float Cistern::evaluateToF() // Adafruit_VL53L0X toF
 {
     float median, avgDistance;
     float tolerance = 5.0f;
-    int totalSamples = 8;
-    int validSamples = totalSamples;
-    int distances[totalSamples];
+    int validSamples = sampleSize;
+    int distances[sampleSize];
 
     readToF(distances); // Manipulate Array
     delay(200);
 
-    for (int i = 0; i < totalSamples; i++)
+    Serial.print("Measurement VL530X at Address ");
+    Serial.print(toF_address == 0x51 ? "0x51" : "0x52");
+    Serial.print(": ");
+    Serial.println();
+
+    for (int i = 0; i < sampleSize; i++)
     {
         median += distances[i];
+        Serial.print(distances[i]);
+        Serial.print(" "); 
     }
+    Serial.println();
 
-    median = median / totalSamples;
+    median = median / sampleSize;
 
-    for (int i = 0; i < totalSamples; i++)
+    for (int i = 0; i < sampleSize; i++)
     {
         // e.g. avgDistance 80mm, two invalid Readings 74mm, 86mm
         if (abs(median - distances[i]) > tolerance)
@@ -144,11 +151,27 @@ float Cistern::evaluateToF() // Adafruit_VL53L0X toF
         {
             avgDistance += distances[i];
         }
-        // Serial.print(distances[i]);
-        // Serial.print(" ");
+        
+        Serial.print(distances[i]);
+        Serial.print(" ");       
     }
+    Serial.println();
+    Serial.print("Median: ");
+    Serial.print(median);
+    Serial.println();
 
-    avgDistance = avgDistance / validSamples;
+    if(validSamples > 0) // Avoid Divide by 0
+    {
+        avgDistance = avgDistance / validSamples;
+    }
+    else
+    {
+        avgDistance = -1;
+    }
+    
+    Serial.print("Avg: ");
+    Serial.print(avgDistance);
+    Serial.println();
 
     return avgDistance;
 }

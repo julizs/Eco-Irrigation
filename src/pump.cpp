@@ -19,7 +19,8 @@ void Pump::setup()
     pinMode(in2, OUTPUT);
     */
 
-    minStateDuration = 4; // Seconds
+    minStateDuration = 4;
+    maxStateDuration = 10;
     currentState = PumpState::IDLE;
 
     setupPWM();
@@ -143,7 +144,7 @@ void Pump::loop()
 
         if (millis() - stateBeginMillis >= minStateDuration * 1000UL && wateringNeeded)
         {
-            if (cistern.toF_ready)
+            if (cistern.toF.Status == 0) // cistern.toF_ready
             {
                 if (cistern.checkWaterLevel()) // Update both currWaterDist and check if valid with same 1 Reading
                 {
@@ -159,8 +160,8 @@ void Pump::loop()
             else
             {
                 // Wait and try to setup again
-                delay(200);     
-                // cistern.toF_ready = cistern.setupToF();   
+                delay(200);   
+                // cistern.toF_ready = cistern.setupToF();
             }
         }
 
@@ -197,7 +198,6 @@ void Pump::loop()
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
 
-            /*
             INAdata inaData = readIna();
             p0.clearFields();
             p0.addField("voltage", inaData.voltage);
@@ -205,7 +205,6 @@ void Pump::loop()
             p0.addField("power", inaData.power);
             p0.addField("busVoltage", inaData.busVoltage);
             p0.addField("shuntVoltage", inaData.shuntVoltage);
-            */
 
             delay(100);
 
@@ -214,9 +213,9 @@ void Pump::loop()
             switchOff();
 
             // Do InfluxDB Updates AFTER turning off pump
-            // cistern.updateWaterLevel();
+            cistern.updateWaterLevel();
 
-            // influxHelper.writeDataPoint(p0);  
+            influxHelper.writeDataPoint(p0);  
         }
 
         lastState = PumpState::DONE;
