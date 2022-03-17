@@ -56,10 +56,15 @@ void Services::doGetRequest(char url[])
     // Send HTTP GET request
     int httpResponseCode = http.GET();
 
+    Serial.print("Requesting ");
+    Serial.print(url);
+    Serial.print(" : ");
+
     if (httpResponseCode > 0)
     {
       Serial.print("HTTP Response code: ");
-      Serial.println(httpResponseCode);
+      Serial.print(httpResponseCode);
+      Serial.print(" ");
       String payload = http.getString();
       Serial.println(payload);
     }
@@ -80,15 +85,22 @@ void Services::doPostRequest(char url[])
   {
 
     http.begin(url);
-    http.addHeader("Content-Type", "text/plain");
+    http.addHeader("Content-Type", "application/json");
 
     // Send HTTP POST request
-    int httpResponseCode = http.POST("Huhu");
+    int httpResponseCode = http.POST("{}");
+
+    Serial.print("Requesting ");
+    Serial.print(url);
+    Serial.print(" : ");
 
     if (httpResponseCode > 0)
     {
       Serial.print("HTTP Response code: ");
-      Serial.println(httpResponseCode);
+      Serial.print(httpResponseCode);
+      Serial.print(" ");
+      String payload = http.getString();
+      Serial.println(payload);
     }
     else
     {
@@ -139,7 +151,7 @@ void Services::startRestServer()
   // webServer.on("/", testFunc);
   // webServer.begin();
 
-  /*
+  
   // https://randomnerdtutorials.com/esp32-web-server-arduino-ide/
   // Variable to store the HTTP request
   String header;
@@ -217,7 +229,6 @@ void Services::startRestServer()
     Serial.println("Client disconnected.");
     Serial.println("");
   }
-  */
 }
 
 /*
