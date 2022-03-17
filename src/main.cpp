@@ -8,8 +8,9 @@
 #include <StateMachine.h>
 #include <ArduinoJson.h>
 
-
 const char baseUrl[] = "https://juli.uber.space/node";
+
+TaskHandle_t Task1, Task2;
 
 Services services;
 InfluxHelper influxHelper;
@@ -17,7 +18,7 @@ InfluxHelper influxHelper;
 TwoWire I2Cone = TwoWire(0);
 TwoWire I2Ctwo = TwoWire(1);
 
-//Fotoresistor fotoResistor1(10000, 3.3, 10, C15);
+// Fotoresistor fotoResistor1(10000, 3.3, 10, C15);
 AmbientClimate climate1(500, 2);
 AmbientLight lightSensor1(1);
 AmbientLight lightSensor2(2);
@@ -27,9 +28,9 @@ Pump pump1(0, pump_PWM_1, cistern1);
 Pump pump2(1, pump_PWM_2, cistern2);
 StatusDisplay displayController;
 
-//Plant plant1(lightSensor2, soilMoisture1);
-//Plant plant2(lightSensor2, soilMoisture2);
-//std::vector<Plant> plants{plant1, plant2};
+// Plant plant1(lightSensor2, soilMoisture1);
+// Plant plant2(lightSensor2, soilMoisture2);
+// std::vector<Plant> plants{plant1, plant2};
 
 StateMachine fsm = StateMachine();
 State *initState, *sleepState, *measureState, *evaluateState, *actionState;
@@ -45,6 +46,32 @@ unsigned long lastDebounceTime = 0; // Last time Output Pin was toggled
 unsigned long debounceDelay = 50;   // Increase if Output flickers
 int buttonState;
 int lastButtonState = HIGH; // Initial State is Off
+
+
+// 2nd Core
+void testFunc()
+{
+  Serial.println("SERVER CONTACTED");
+}
+
+void startRestServer(void *pvParameters)
+{
+  Serial.println("Server runs on Core: ");
+  Serial.println(xPortGetCoreID());
+
+  /*
+  // https://www.survivingwithandroid.com/esp32-rest-api-esp32-api-server/
+  WebServer webServer(80);
+  webServer.on("/", HTTP_GET, testFunc);
+  webServer.begin();
+  */
+
+  for (;;)
+  {
+    Serial.print(".");
+    delay(500);
+  }
+}
 
 void scanI2CBus(TwoWire *wire)
 {
@@ -75,11 +102,11 @@ void scanI2CBus(TwoWire *wire)
 void setupToFs()
 {
   // Setup ToF in correct Order
-  if(!cistern2.toF_ready)
+  if (!cistern2.toF_ready)
   {
     cistern2.setupToF();
   }
-  if(!cistern1.toF_ready)
+  if (!cistern1.toF_ready)
   {
     cistern1.shutToF();
     cistern1.setupToF();
@@ -103,17 +130,17 @@ void doMeasurements()
 
   setupToFs();
 
-  if(cistern1.toF.Status == 0)
+  if (cistern1.toF.Status == 0)
   {
     int waterLevel1 = cistern1.evaluateToF();
     p0.addField("water level bucket 1", waterLevel1);
   }
-  if(cistern2.toF.Status == 0)
+  if (cistern2.toF.Status == 0)
   {
     int waterLevel2 = cistern2.evaluateToF();
     p0.addField("water level bucket 2", waterLevel2);
   }
- 
+
   // Read RSSI
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
@@ -165,7 +192,7 @@ void doMeasurements()
         int pinNum = moistureSensor - 1;
         char key[25];
         sprintf(key, "Soil Moisture Sensor %d", moistureSensor);
-        
+
         int moistureSmoothed = SoilMoisture::measureSoilMoistureSmoothed(pinNum);
         int moisturePercentage = SoilMoisture::voltageToPercentage(pinNum, moistureSmoothed);
         p.addField(key, moisturePercentage);
@@ -174,8 +201,8 @@ void doMeasurements()
 
     // Avoid remeasuring same lightSensor
     int lightSensor = doc[i]["lightSensor"].as<int>();
-    
-    if(lightSensor != lastMeasuredLightSensor)
+
+    if (lightSensor != lastMeasuredLightSensor)
     {
       data = lightSensor2.measureLight();
       lastMeasuredLightSensor = lightSensor;
@@ -207,11 +234,10 @@ void doMeasurements()
 void doEvaluate()
 {
   // wateringNeeded = true;
-  
+
   // pump1.prepareIrrigation("succulents", 350);
   // pump1.prepareIrrigation("vegetables", 550);
   // pump1.prepareIrrigation("Tomate", 150);
- 
 }
 
 void checkButtons()
@@ -272,11 +298,11 @@ void checkUserCommands()
   bool relaisState = commands[0]["SolenoidValve"][1];
 
   // Irrigation (Plant or Pump)
-  const char* irrSubject = commands[0]["Irrigation"][0];
+  const char *irrSubject = commands[0]["Irrigation"][0];
   int irrAmount = commands[0]["Irrigation"][1];
 
   // Status Light
-  const char* display = commands[0]["StatusLight"][0];
+  const char *display = commands[0]["StatusLight"][0];
   int displayContent = commands[0]["StatusLight"][1];
 
   // Reset all Commands...
@@ -284,7 +310,7 @@ void checkUserCommands()
 
 void updateIP()
 {
-  // Send current IP Address
+  // Send current IP Address, no Tunneling necessary
   char url[50] = "";
   strcat(url, baseUrl);
   strcat(url, "/commands/ip");
@@ -302,7 +328,7 @@ void checkConnections()
 void commonStateLogic()
 {
   Serial.println(stateNames[fsm.currentState]);
-  //checkConnections();
+  // checkConnections();
   stateBeginMillis = millis();
 
   // checkWebButtons();
@@ -330,7 +356,7 @@ void on_initState()
 
     if (!influxHelper.checkInfluxConnection())
     {
-      //influxHelper.setupInflux();
+      // influxHelper.setupInflux();
       Serial.println("Couldnt connect to InfluxDB");
     }
   }
@@ -342,9 +368,9 @@ void on_sleepState()
   {
     didSleep = false;
     commonStateLogic();
-    //ESP.deepSleep(30e6); // Connect Sleep Cable AFTER Uploading Code
-    //checkConnections();
-    //didSleep = true;
+    // ESP.deepSleep(30e6); // Connect Sleep Cable AFTER Uploading Code
+    // checkConnections();
+    // didSleep = true;
   }
   // Simulate Sleep
   // Serial.print(".");
@@ -391,7 +417,7 @@ void on_actionState()
   {
     // pump1.loop();
   }
-  //if(coolingNeeded) {...}
+  // if(coolingNeeded) {...}
 }
 
 // TRANSITION LOGIC
@@ -455,9 +481,9 @@ bool transitionS3S4()
 bool transitionS4S1()
 {
   // min State Duration must be over AND Pump done, Fan done, ...
-  if(wateringNeeded)
+  if (wateringNeeded)
   {
-    if(!(pump1.lastState == PumpState::DONE))
+    if (!(pump1.lastState == PumpState::DONE))
     {
       return false;
     }
@@ -466,7 +492,7 @@ bool transitionS4S1()
   // else if fanNeeded {...}
   else
   {
-    if(!countTime(MIN_STATE_DURATION))
+    if (!countTime(MIN_STATE_DURATION))
     {
       return false;
     }
@@ -479,9 +505,26 @@ void setup()
   // while (!Serial){}
   Serial.begin(115200);
 
-  //Wire.begin();
+  // Wire.begin();
   I2Cone.begin(SDA1, SCL1, 200000);
   I2Ctwo.begin(SDA2, SCL2, 100000);
+
+  Serial.println();
+  Serial.println("Main loop runs on Core: ");
+  Serial.println(xPortGetCoreID());
+
+  // https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
+
+  xTaskCreatePinnedToCore(
+      startRestServer, /* Function to implement the task */
+      "Task2",
+      10000,
+      NULL,
+      0,
+      &Task2, // Task handle.
+      0       // Core where task runs
+  );
+
   delay(100);
 
   // Immediately Shut down 2nd ToF, start with different i2C Address later
@@ -489,7 +532,7 @@ void setup()
   digitalWrite(toF_shut, LOW);
 
   // Init (LOW-Trigger) Relais
-  for(int i = 0; i < sizeof(Relais); i++)
+  for (int i = 0; i < sizeof(Relais); i++)
   {
     pinMode(Relais[i], OUTPUT);
     digitalWrite(Relais[i], HIGH);
@@ -524,8 +567,8 @@ void setup()
 void loop()
 {
   fsm.run();
-  //delay(LOOP_DELAY);
-  
+  // delay(LOOP_DELAY);
+
   displayController.displayPlantStatus();
 
   // Check constantly in all States and Sub StateMachines:
