@@ -22,10 +22,13 @@ extern ESP8266WiFiMulti wifiMulti;
 class Services
 {
     public:
+    HTTPClient http;
+
     Services();
     void setupWifi();
     void setupWifiMulti();
-    void doGetRequest();
+    void doGetRequest(char url[]);
+    void doPostRequest(char url[]);
     DynamicJsonDocument doJSONGetRequest(char url[]);
     bool getWifiStatus();
     bool getWifiMultiStatus();

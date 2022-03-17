@@ -46,21 +46,6 @@ unsigned long debounceDelay = 50;   // Increase if Output flickers
 int buttonState;
 int lastButtonState = HIGH; // Initial State is Off
 
-/* HTTP-Server
-  Run Server that handles HTTP Calls from Buttons
-  Send Params in Body instead of Lookup mongoDB Table
-  Server runs parallel on 2nd Core
-  Wake up from Sleep every 1 Minute and check "WakeUp" in MongoDB table,
-  if false go back to Sleep (30 Minutes)
-  Esp posts its current IP Address into commands/settings mongoDb table (?)
-  User has to Wake up Esp32 with Button first, then Web Buttons 
-  work / get handled immediately on Press
-  */
-void startServer()
-{
-  
-}
-
 void scanI2CBus(TwoWire *wire)
 {
   Serial.println("Scanning I2C Addresses Channel: ");
@@ -142,24 +127,23 @@ void doMeasurements()
   p0.addField("shuntVoltage", inaData.shuntVoltage);
 
   pump1.setupIna();
-  //INAdata data = pump1.readIna_1();
 
   influxHelper.writeDataPoint(p0);
 
   // PLANT-SPECIFIC MEASUREMENTS
-  // 1. Get Plant-Sensor Assignments/Configs
-  char url[] = "https://juli.uber.space/node/plants";
+  // 1. Get User-assigned Plant-Sensor Assignments
+  char url[50] = "";
+  strcat(url, baseUrl);
+  strcat(url, "/plants/json");
   DynamicJsonDocument doc = services.doJSONGetRequest(url);
 
   // 2. Setup Sensors only once
   lightSensor1.setupTSL2591(I2Cone);
   lightSensor2.setupTSL2591(I2Ctwo);
 
-  // 3. Measure the assigned Sensors from each plant
-  // (First check assignments in each measure iteration since user could have changed them
-  // and only measure the assigned ones)
+  // 3. Measure (only) assigned Sensors from each plant
   Point p("Plant Data"); // Write new data point/row into this table, reuse datapoint
-  int lastLightSensorNum;
+  int lastMeasuredLightSensor = -1;
   TSL2591data data;
 
   // For each plant
@@ -170,42 +154,36 @@ void doMeasurements()
     p.clearFields();
     p.addTag("Plant", plantName);
 
-    //Serial.println(doc[i]["_id"].as<String>());
     Serial.print("Plant: ");
     Serial.println(doc[i]["name"].as<String>());
 
-    // Remove any r["_field"] Filter in InfluxDB Cell Script Editor so all added
-    // or removed Sensorvalues are shown
     for (int j = 0; j < sizeof(doc[i]["moistureSensors"]); j++)
     {
       int moistureSensor = doc[i]["moistureSensors"][j].as<int>();
       if (moistureSensor != 0) // ignore 0s, e.g. 67000 (=channels 6,7)
       {
-        // Serial.print("Measure Moisture: ");
-        // Serial.print(moistureSensor);
         int pinNum = moistureSensor - 1;
         char key[25];
         sprintf(key, "Soil Moisture Sensor %d", moistureSensor);
-        // Measure moistureSensor-1 (User enters 1-16, Multiplexer reads 0-15)
+        
         int moistureSmoothed = SoilMoisture::measureSoilMoistureSmoothed(pinNum);
         int moisturePercentage = SoilMoisture::voltageToPercentage(pinNum, moistureSmoothed);
         p.addField(key, moisturePercentage);
       }
     }
 
-    // TODO Multiple lightSensors, select the assigned one
-    // Only remeasure lightSensor of plant if sensor wasnt already measured
-    int currentLightSensorNum = doc[i]["lightSensor"].as<int>();
-    //if(i != 0 && lastLightSensorNum != currentLightSensorNum)
-    //{
-    data = lightSensor2.measureLight();
-    //}
+    // Avoid remeasuring same lightSensor
+    int lightSensor = doc[i]["lightSensor"].as<int>();
+    
+    if(lightSensor != lastMeasuredLightSensor)
+    {
+      data = lightSensor2.measureLight();
+      lastMeasuredLightSensor = lightSensor;
+    }
     p.addField("Infrared Light", data.infraRed);
     p.addField("Visible Light", data.visibleLight);
 
     influxHelper.writeDataPoint(p);
-
-    Serial.println();
   }
 
   /*
@@ -228,7 +206,7 @@ void doMeasurements()
   */
 void doEvaluate()
 {
-  wateringNeeded = true;
+  // wateringNeeded = true;
   
   // pump1.prepareIrrigation("succulents", 350);
   // pump1.prepareIrrigation("vegetables", 550);
@@ -277,25 +255,40 @@ void checkButtons()
   lastButtonState = reading;
 }
 
-void checkWebButtons()
+/*
+Read User Commands and Settings, but take Actions later in Action State
+(e.g. Water Level needs to be checked first before Pump)
+Better Solution: Buttons Requests are directed to Esp32 hosted Server
+*/
+void checkUserCommands()
 {
   char url[50] = "";
   strcat(url, baseUrl);
   strcat(url, "/commands");
   DynamicJsonDocument commands = services.doJSONGetRequest(url);
 
-  // 1. Switch Relais
-  bool relaisOpen = commands["Solenoid"];
-  // TODO Drive Relais
+  // Solenoid
+  int relaisChannel = commands[0]["SolenoidValve"][0];
+  bool relaisState = commands[0]["SolenoidValve"][1];
 
-  // 2. Check Manual Pump
-  const char* pumpName = commands["Pump"][0];
-  int irrigationAmount = commands["Pump"][1];
-  pump1.doIrrigation(pumpName, irrigationAmount);
+  // Irrigation (Plant or Pump)
+  const char* irrSubject = commands[0]["Irrigation"][0];
+  int irrAmount = commands[0]["Irrigation"][1];
 
-  // 3. Check Manual Irrigation of Plant
+  // Status Light
+  const char* display = commands[0]["StatusLight"][0];
+  int displayContent = commands[0]["StatusLight"][1];
 
-  // 4. Reset Command Table
+  // Reset all Commands...
+}
+
+void updateIP()
+{
+  // Send current IP Address
+  char url[50] = "";
+  strcat(url, baseUrl);
+  strcat(url, "/commands/ip");
+  services.doPostRequest(url);
 }
 
 void checkConnections()
@@ -386,6 +379,8 @@ void on_actionState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
+    updateIP();
+    // checkUserCommands();
   }
 
   // digitalWrite(Relais[0], LOW);
@@ -394,7 +389,7 @@ void on_actionState()
   // run sub-StateMachines
   if (wateringNeeded)
   {
-    pump1.loop();
+    // pump1.loop();
   }
   //if(coolingNeeded) {...}
 }
@@ -441,7 +436,7 @@ bool transitionS2S3()
 
 bool transitionS3S1()
 {
-  if (countTime(MIN_STATE_DURATION && !wateringNeeded)) // && !coolingNeeded && ...
+  if (countTime(MIN_STATE_DURATION && !wateringNeeded)) // && !fanNeeded && ...
   {
     return true;
   }
@@ -450,7 +445,7 @@ bool transitionS3S1()
 
 bool transitionS3S4()
 {
-  if (countTime(MIN_STATE_DURATION && wateringNeeded)) // || coolingNeeded || ...
+  if (countTime(MIN_STATE_DURATION && wateringNeeded)) // || fanNeeded || ...
   {
     return true;
   }
@@ -460,12 +455,23 @@ bool transitionS3S4()
 bool transitionS4S1()
 {
   // min State Duration must be over AND Pump done, Fan done, ...
-  if (countTime(MIN_STATE_DURATION) && pump1.lastState == PumpState::DONE)
+  if(wateringNeeded)
   {
+    if(!(pump1.lastState == PumpState::DONE))
+    {
+      return false;
+    }
     pump1.currentState = PumpState::IDLE; // Reset Sub StateMachine
-    return true;
   }
-  return false;
+  // else if fanNeeded {...}
+  else
+  {
+    if(!countTime(MIN_STATE_DURATION))
+    {
+      return false;
+    }
+  }
+  return true;
 }
 
 void setup()
@@ -478,21 +484,16 @@ void setup()
   I2Ctwo.begin(SDA2, SCL2, 100000);
   delay(100);
 
-  // Immediately Shut down 2nd ToF to start with different i2C Address later
+  // Immediately Shut down 2nd ToF, start with different i2C Address later
   pinMode(toF_shut, OUTPUT);
   digitalWrite(toF_shut, LOW);
 
-  // LOW-Trigger Relais
+  // Init (LOW-Trigger) Relais
   for(int i = 0; i < sizeof(Relais); i++)
   {
     pinMode(Relais[i], OUTPUT);
     digitalWrite(Relais[i], HIGH);
   }
-
-  //pinMode(RELAIS_1, OUTPUT);
-  //pinMode(RELAIS_2, OUTPUT);
-  //digitalWrite(RELAIS_1, HIGH);
-  //digitalWrite(RELAIS_2, HIGH);
 
   /*
   pinMode(button1Pin, INPUT);
@@ -505,9 +506,6 @@ void setup()
   displayController.setupLEDMatrix();
 
   Multiplexer::setup();
-
-  //plants[0].setName("Thymian");
-  //plants[1].setName("Orchidee");
 
   initState = fsm.addState(&on_initState);
   sleepState = fsm.addState(&on_sleepState);
@@ -533,30 +531,3 @@ void loop()
   // Check constantly in all States and Sub StateMachines:
   checkButtons();
 }
-
-/* 
-  const Pump::PumpModel pumpModel = pump1.getPumpModel();
-  Serial.println(pumpModel.minVoltage);
-  pump1.setPumpModel(palermo);
-  const Pump::PumpModel pumpModelNew = pump1.getPumpModel();
-  Serial.println(pumpModelNew.minVoltage); 
-*/
-
-/*
-  Execution interval of logic in any transition func 
-  or logic in any state is dependant on delay(LOOP_DELAY)
-  Put in any TransitionLogic Func:
-  if(millis() - stateBeginMillis >= SLEEP_INTERVAL)
-*/
-
-/*
-  //*
-  Vorteile: 
-  Alle bool Flags sind je in Klasse, verstopfen main.cpp nicht
-  maxPollTime und maxPumpTime je einzeln in Klassen festlegbar/prüfbar
-  statt einzelne festes Zeitlimit für alle
-  Nachteile:
-  Prüfung aller bools in jedem cycle, extrem oft, besser wenn Prüfung
-  aller bools nur je, wenn eine der Funktionen zurückkehrt / Event
-  Dazu müssen Funktionen von main.cpp von anderen Klassen aufrufbar sein
-  */

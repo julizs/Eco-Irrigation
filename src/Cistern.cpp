@@ -11,9 +11,8 @@ Cistern::Cistern(int toF_address)
 bool Cistern::setupToF()
 {
     /*
-    Only rerun setup on first time or if sensor status suggests, see library
-    Adafruit Library, on i2c bus with TSL2591, Error -5,
-    works on same i2c bus with other VL530X with immediat shutPin LOW in main.setup()
+    Error Codes see Strg + Click toF.Status, VL53L0X_ERROR_NONE
+    Two VL530X on same i2C bus possible with immediate shut LOW in main.setup()
     */
     if (toF_ready == false || (toF.Status != 0)) // 0 = VL53L0X_ERROR_NONE
     {

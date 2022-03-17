@@ -1,5 +1,4 @@
 #include <Services.h>
-#include <WiFiMulti.h>
 
 WiFiMulti wifiMulti;
 //ESP8266WiFiMulti wifiMulti;
@@ -45,13 +44,12 @@ bool Services::getWifiStatus()
   return WiFi.status() == WL_CONNECTED;
 }
 
-void Services::doGetRequest()
+void Services::doGetRequest(char url[])
 {
  if(WiFi.status()== WL_CONNECTED){
 
-      HTTPClient http;
       http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS); // Needed, otherwise 301 Code
-      http.begin("https://juli.uber.space/node/plants");
+      http.begin(url);
       
       // Send HTTP GET request
       int httpResponseCode = http.GET();
@@ -71,6 +69,30 @@ void Services::doGetRequest()
  }
 }
 
+// https://randomnerdtutorials.com/esp32-http-get-post-arduino/
+void Services::doPostRequest(char url[])
+{
+ if(WiFi.status()== WL_CONNECTED){
+
+      http.begin(url);
+      http.addHeader("Content-Type", "text/plain");
+      
+      // Send HTTP POST request
+      int httpResponseCode = http.POST("Huhu");
+      
+      if (httpResponseCode>0) {
+        Serial.print("HTTP Response code: ");
+        Serial.println(httpResponseCode);
+      }
+      else {
+        Serial.print("Error code: ");
+        Serial.println(httpResponseCode);
+      }
+      // Free resources
+      http.end();
+ }
+}
+
 // https://arduinojson.org/v6/how-to/use-arduinojson-with-httpclient/
 DynamicJsonDocument Services::doJSONGetRequest(char url[])
 {
@@ -78,9 +100,6 @@ DynamicJsonDocument Services::doJSONGetRequest(char url[])
 
   if(WiFi.status()== WL_CONNECTED)
     {
-      HTTPClient http;
-
-      // Send request
       // http.useHTTP10(true); // Error
       http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
       http.begin(url);
@@ -92,17 +111,6 @@ DynamicJsonDocument Services::doJSONGetRequest(char url[])
         deserializeJson(doc, http.getStream());
         //ReadLoggingStream loggingStream(http.getStream(), Serial); // StreamUtils.h
         //deserializeJson(doc, loggingStream);
-
-        /*
-        // Read values
-        Serial.println(doc[0].as<String>());
-        Serial.println(doc[0]["plantName"].as<String>());
-
-        for(int i = 0; i < doc.size(); i++)
-        {
-          Serial.println(doc[i]["plantName"].as<String>());
-        }
-        */
       }
       else {
         Serial.print("Error code: ");
