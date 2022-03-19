@@ -49,24 +49,27 @@ int lastButtonState = HIGH; // Initial State is Off
 
 
 // 2nd Core
-WebServer webServer(80);
+WebServer webServer(443);
+
 void testFunc()
 {
-  Serial.println("SERVER CONTACTED");
-  digitalWrite(Relais[0], LOW);
-  digitalWrite(Relais[1], LOW);
-  webServer.send(200, "text/plain", "buffer");
+  Serial.println("Web Server Clients handled on Core: ");
+  Serial.println(xPortGetCoreID());
+  // digitalWrite(Relais[0], LOW);
+  // digitalWrite(Relais[1], LOW);
+  webServer.send(200, "text/plain", "200 All is Ok.");
 }
 
 void startRestServer()
 {
   // https://www.survivingwithandroid.com/esp32-rest-api-esp32-api-server/
-  
-  // services.setupWifi();
   webServer.on("/", testFunc);
-  webServer.begin();
-  
-  Serial.println(WiFi.localIP());
+  if(!didCycle)
+  {
+    Serial.println("Web Server started on Core: ");
+    Serial.println(xPortGetCoreID());
+    webServer.begin();
+  }
 }
 
 void scanI2CBus(TwoWire *wire)
@@ -341,6 +344,9 @@ bool countTime(int duration)
 // STATE LOGIC
 void on_initState()
 {
+  Serial.println("Main State Machine runs on Core: ");
+  Serial.println(xPortGetCoreID());
+
   if (fsm.executeOnce)
   {
     commonStateLogic();
@@ -357,6 +363,7 @@ void on_initState()
       Serial.println("Couldnt connect to InfluxDB");
     }
 
+    // WiFi.begin() must run before this, or exception
     startRestServer();
   }
 }
@@ -405,6 +412,7 @@ void on_actionState()
   {
     commonStateLogic();
     updateIP();
+    didCycle = true;
     // checkUserCommands();
   }
 
@@ -501,9 +509,6 @@ bool transitionS4S1()
 
 void runStateMachine(void *pvParameters)
 {
-  Serial.println("Main State Machine on Core: ");
-  Serial.println(xPortGetCoreID());
-
   for(;;) 
   {
     fsm.run();
@@ -519,10 +524,6 @@ void setup()
   // Wire.begin();
   I2Cone.begin(SDA1, SCL1, 200000);
   I2Ctwo.begin(SDA2, SCL2, 100000);
-
-  Serial.println();
-  Serial.println("Main loop runs on Core: ");
-  Serial.println(xPortGetCoreID());
 
   // Immediately Shut down 2nd ToF, start with different i2C Address later
   pinMode(toF_shut, OUTPUT);
@@ -560,7 +561,6 @@ void setup()
   evaluateState->addTransition(&transitionS3S4, actionState);
   actionState->addTransition(&transitionS4S1, sleepState);
 
-  /*
   // https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
   xTaskCreatePinnedToCore(
       runStateMachine, // Function to implement the task
@@ -571,19 +571,18 @@ void setup()
       &Task2, // Task handle.
       0       // Core where task runs
   );
-  */
 }
 
 void loop()
 {
-  fsm.run();
-  // Serial.println("Main Loop on Core: ");
-  // Serial.println(xPortGetCoreID());
+  // fsm.run();
+
+  webServer.handleClient();
   
   displayController.displayPlantStatus();
 
   // Check constantly in all States and Sub StateMachines:
   checkButtons();
 
-  // delay(1000);
+  // delay(100);
 }
