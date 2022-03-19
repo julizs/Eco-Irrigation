@@ -7,12 +7,14 @@
 #include <LinkedList.h>
 #include <StateMachine.h>
 #include <ArduinoJson.h>
+#include <ButtonHandler.h>
 
 const char baseUrl[] = "https://juli.uber.space/node";
 
 TaskHandle_t Task1, Task2;
 
 Services services;
+ButtonHandler buttonHandler;
 InfluxHelper influxHelper;
 
 TwoWire I2Cone = TwoWire(0);
@@ -46,31 +48,6 @@ unsigned long lastDebounceTime = 0; // Last time Output Pin was toggled
 unsigned long debounceDelay = 50;   // Increase if Output flickers
 int buttonState;
 int lastButtonState = HIGH; // Initial State is Off
-
-
-// 2nd Core
-WebServer webServer(443);
-
-void testFunc()
-{
-  Serial.println("Web Server Clients handled on Core: ");
-  Serial.println(xPortGetCoreID());
-  // digitalWrite(Relais[0], LOW);
-  // digitalWrite(Relais[1], LOW);
-  webServer.send(200, "text/plain", "200 All is Ok.");
-}
-
-void startRestServer()
-{
-  // https://www.survivingwithandroid.com/esp32-rest-api-esp32-api-server/
-  webServer.on("/", testFunc);
-  if(!didCycle)
-  {
-    Serial.println("Web Server started on Core: ");
-    Serial.println(xPortGetCoreID());
-    webServer.begin();
-  }
-}
 
 void scanI2CBus(TwoWire *wire)
 {
@@ -239,7 +216,7 @@ void doEvaluate()
   // pump1.prepareIrrigation("Tomate", 150);
 }
 
-void checkButtons()
+void handleHardwareButtons()
 {
   int reading = digitalRead(button1Pin);
 
@@ -354,7 +331,6 @@ void on_initState()
     if (!services.getWifiStatus())
     {
       services.setupWifi();
-      
     }
 
     if (!influxHelper.checkInfluxConnection())
@@ -363,8 +339,8 @@ void on_initState()
       Serial.println("Couldnt connect to InfluxDB");
     }
 
-    // WiFi.begin() must run before this, or exception
-    startRestServer();
+    // Run WiFi.begin() before this, or exception
+    ButtonHandler::startRestServer();
   }
 }
 
@@ -415,9 +391,6 @@ void on_actionState()
     didCycle = true;
     // checkUserCommands();
   }
-
-  // digitalWrite(Relais[0], LOW);
-  // digitalWrite(Relais[1], LOW);
 
   // run sub-StateMachines
   if (wateringNeeded)
@@ -577,12 +550,12 @@ void loop()
 {
   // fsm.run();
 
-  webServer.handleClient();
+  ButtonHandler::webServer.handleClient();
   
   displayController.displayPlantStatus();
 
   // Check constantly in all States and Sub StateMachines:
-  checkButtons();
+  handleHardwareButtons();
 
   // delay(100);
 }

@@ -14,7 +14,6 @@ extern ESP8266WiFiMulti wifiMulti;
 #include <ArduinoJson.h>
 #include <StreamUtils.h>
 // #include <ESPAsyncWebServer.h>
-#include <WebServer.h>
 // #include <main.h>
 
 #define WIFI_SSID "FRITZ!Box 7430 ED"
@@ -26,8 +25,6 @@ class Services
 {
     public:
     HTTPClient http;
-
-    WebServer webServer;
 
     WiFiServer wifiServer;
     WiFiClient client;
