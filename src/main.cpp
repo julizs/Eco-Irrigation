@@ -77,15 +77,21 @@ void scanI2CBus(TwoWire *wire)
 
 void setupToFs()
 {
+  int attempt = 0;
   // Setup ToF in correct Order
-  if (!cistern2.toF_ready)
+  while (!cistern2.toF_ready && attempt < 4)
   {
     cistern2.setupToF();
+    attempt++;
+    delay(1000);
   }
-  if (!cistern1.toF_ready)
-  {
+  while (!cistern1.toF_ready && attempt < 4)
+  { // 0x51
     cistern1.shutToF();
+    delay(100);
     cistern1.setupToF();
+    attempt++;
+    delay(1000);
   }
 }
 
@@ -104,6 +110,7 @@ void doMeasurements()
 
   p0.clearFields();
 
+  // Redo setup after Wakeup if necessary
   setupToFs();
 
   if (cistern1.toF.Status == 0)
@@ -368,7 +375,7 @@ void on_measureState()
   {
     commonStateLogic();
     // WiFi.disconnect();
-    // doMeasurements();
+    doMeasurements();
   }
 }
 

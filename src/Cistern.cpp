@@ -30,9 +30,9 @@ bool Cistern::setupToF()
 void Cistern::shutToF()
 {
     digitalWrite(toF_shut, LOW);
-    delay(20);
+    delay(50);
     digitalWrite(toF_shut, HIGH);
-    delay(20);
+    delay(50);
 }
 
 bool Cistern::checkWaterLevel()
