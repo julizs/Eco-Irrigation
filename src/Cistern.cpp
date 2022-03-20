@@ -1,8 +1,10 @@
 #include "Cistern.h"
 
-Cistern::Cistern(int toF_address)
+Cistern::Cistern(unsigned short toF_address, unsigned short cisternHeight, float mmToMl)
 {
     this->toF_address = toF_address;
+    this->cisternHeight = cisternHeight;
+    this->mmToMl = mmToMl;
     minWaterDist = 50;
     maxWaterDist = 300;
     sampleSize = 8;
@@ -14,8 +16,49 @@ bool Cistern::setupToF()
     Error Codes see Strg + Click toF.Status, VL53L0X_ERROR_NONE
     Two VL530X on same i2C bus possible with immediate shut LOW in main.setup()
     */
-    if (toF_ready == false || (toF.Status != 0)) // 0 = VL53L0X_ERROR_NONE
+    int attempts = 0;
+    if(toF_ready == false || toF.Status != 0)
     {
+        while (attempts < 4) // 0 = VL53L0X_ERROR_NONE
+        {
+            if(toF_address == 0x51)
+            {
+                shutToF();
+                delay(100);
+            }
+            if (!toF.begin(toF_address, &I2Cone)) // &I2Cone
+            {
+                Serial.println(F("Failed to boot toF at" + toF_address));
+                toF_ready = false;
+                attempts++;
+                // return toF_ready;
+            }
+            else
+            {
+                toF_ready = true;
+                return toF_ready;
+            }
+            delay(1000);
+        }
+        return toF_ready; // false after 4 attempts
+    }
+   return toF_ready; // true
+}
+
+/*
+bool Cistern::setupToF()
+{
+    
+    Error Codes see Strg + Click toF.Status, VL53L0X_ERROR_NONE
+    Two VL530X on same i2C bus possible with immediate shut LOW in main.setup()
+    
+    if (toF_ready == false || toF.Status != 0) // 0 = VL53L0X_ERROR_NONE
+    {
+        if(toF_address == 0x51)
+        {
+            shutToF();
+            delay(100);
+        }
         if (!toF.begin(toF_address, &I2Cone)) // &I2Cone
         {
             Serial.println(F("Failed to boot toF at" + toF_address));
@@ -26,6 +69,7 @@ bool Cistern::setupToF()
     toF_ready = true;
     return true;
 }
+*/
 
 void Cistern::shutToF()
 {
@@ -35,36 +79,25 @@ void Cistern::shutToF()
     delay(50);
 }
 
-bool Cistern::checkWaterLevel()
+// Before Pumping
+bool Cistern::validWaterLevel()
 {
-    float waterLevel = evaluateToF();
-    currWaterDist = waterLevel;
-
-    if (waterLevel < maxWaterDist) // Limits set by User, minWaterDist doesnt matter
-    {
-        Serial.print("WaterLevel is sufficient for Irrigation: ");
-        return true;
-    }
-    else
-    {
-        Serial.println("WaterLevel is too low for Irrigation.");
-        return false;
-    }
-    
-    return true;
+    currWaterDist = evaluateToF();
+    return currWaterDist < maxWaterDist;
 }
 
+// After Pumping
 void Cistern::updateWaterLevel()
 {
     int oldWaterDistance = currWaterDist;
     currWaterDist = evaluateToF();
+
     int pumpedWaterMM = oldWaterDistance - currWaterDist;
-    int pumpedWaterML = pumpedWaterMM * 100;
+    int pumpedWaterML = pumpedWaterMM * mmToMl;
 
     p2.clearTags();
     p2.clearFields();
     // p2.addTag("Plant Group", plantGroup);
-    p2.addField("pumpedWaterMM", pumpedWaterMM);
     p2.addField("pumpedWaterML", pumpedWaterML);
     influxHelper.writeDataPoint(p2);
 }
@@ -76,41 +109,45 @@ void Cistern::readToF(int distances[])
     // toF_1.setMeasurementTimingBudgetMicroSeconds(300000);
 
     // Do n-valid Readings
-    // 3 Attemps per single valid Reading (or e.g. time limit while in IDLE State), then stop
-    // Out of Range: measure.RangeStatus == 4
+    // 3 Attemps per Reading (or > IDLE State time limit)
     VL53L0X_RangingMeasurementData_t measure;
 
     for (int i = 0; i < sampleSize; i++)
     {
         int distance = 0;
         bool validReading = false;
-        int j = 0; // 3 Attemps per single Reading
+        int j = 0; // 3 Attemps per Reading
 
-        while (j < 3 && !validReading)
+        while (!validReading && j < 3)
         {
-            // Water Container Physical Limits, maxPossibleWaterDist, ...
-            if ((measure.RangeStatus == 4 || distance < minWaterDist || distance > maxWaterDist))
-            {
-                // toF.rangingTest(&measure, false);
-                // distance = measure.RangeMilliMeter;
-                distance = toF.readRange();
+            // toF.rangingTest(&measure, false);
+            // distance = measure.RangeMilliMeter;
+            distance = toF.readRange();
+
+            // Out of Range or Water Tank Physical Limits
+            if (measure.RangeStatus == 4 || distance > cisternHeight || distance < 0)
+            {         
+                validReading = false;
+                j++;
+                
+                /*
                 if(toF.timeoutOccurred()) 
                 { 
                     Serial.print("VL530X Timeout");
                     delay(50);
                     continue;
                 }
-                j++;
+                */         
             }
             else
             {
                 validReading = true;
                 distances[i] = distance;
             }
-            delay(200);
+
+            delay(100);
         }
     }
-    Serial.println();
 }
 
 float Cistern::evaluateToF() // Adafruit_VL53L0X toF
@@ -159,7 +196,9 @@ float Cistern::evaluateToF() // Adafruit_VL53L0X toF
     Serial.print(median);
     Serial.println();
 
-    if(validSamples > 0) // Avoid Divide by 0
+    // > 0 Avoid Divide by 0
+    // > 4 Minimum No. of valid Samples
+    if(validSamples > 4) 
     {
         avgDistance = avgDistance / validSamples;
     }

@@ -24,8 +24,8 @@ TwoWire I2Ctwo = TwoWire(1);
 AmbientClimate climate1(500, 2);
 AmbientLight lightSensor1(1);
 AmbientLight lightSensor2(2);
-Cistern cistern1(0x51); // shut
-Cistern cistern2(0x52);
+Cistern cistern1(0x51, 300, 53.0f); // shut
+Cistern cistern2(0x52, 350, 42.0f);
 Pump pump1(0, pump_PWM_1, cistern1);
 Pump pump2(1, pump_PWM_2, cistern2);
 StatusDisplay displayController;
@@ -75,6 +75,7 @@ void scanI2CBus(TwoWire *wire)
   Serial.println(" I2C Devices found.");
 }
 
+/*
 void setupToFs()
 {
   int attempt = 0;
@@ -87,20 +88,21 @@ void setupToFs()
   }
   while (!cistern1.toF_ready && attempt < 4)
   { // 0x51
-    cistern1.shutToF();
-    delay(100);
+    // cistern1.shutToF();
+    // delay(100);
     cistern1.setupToF();
     attempt++;
     delay(1000);
   }
 }
+*/
 
 void doMeasurements()
 {
   scanI2CBus(&I2Cone);
   scanI2CBus(&I2Ctwo);
 
-  // ESP32-SPECIFIC (GLOBAL) MEASUREMENTS
+  // ESP32 (Global/Per Device) Measurements
   // Reuse datapoint, add tags and clear fields
   if (!p0.hasTags())
   {
@@ -111,8 +113,11 @@ void doMeasurements()
   p0.clearFields();
 
   // Redo setup after Wakeup if necessary
-  setupToFs();
+  while(!cistern2.setupToF()) {}
+  while(!cistern1.setupToF()) {}
+  // setupToFs();
 
+  // Skip? WaterLevel only changes if Pump was active
   if (cistern1.toF.Status == 0)
   {
     int waterLevel1 = cistern1.evaluateToF();
@@ -182,7 +187,7 @@ void doMeasurements()
       }
     }
 
-    // Avoid remeasuring same lightSensor
+    // MongoDb Cursor gets sorted by lightSensor, same Sensor measures less often
     int lightSensor = doc[i]["lightSensor"].as<int>();
 
     if (lightSensor != lastMeasuredLightSensor)
@@ -216,7 +221,7 @@ void doMeasurements()
   */
 void doEvaluate()
 {
-  // wateringNeeded = true;
+  wateringNeeded = true;
 
   // pump1.prepareIrrigation("succulents", 350);
   // pump1.prepareIrrigation("vegetables", 550);
@@ -396,13 +401,14 @@ void on_actionState()
     commonStateLogic();
     updateIP();
     didCycle = true;
-    // checkUserCommands();
   }
 
-  // run sub-StateMachines
+  // Run (multiple) sub-StateMachines (Pump, Fan, ...) and wait
+
+  // Check Irrigation Events and run them one after another
   if (wateringNeeded)
   {
-    // pump1.loop();
+    pump1.loop();
   }
   // if(coolingNeeded) {...}
 }

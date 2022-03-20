@@ -97,7 +97,7 @@ void Pump::prepareIrrigation(const char *irrigationSubject, int irrigationAmount
         // Per Plant Group:
         // 1. TODO Drive Relais
         int relaisChannel = solenoids[i]["relais"].as<int>() - 1;
-        Serial.println(relaisChannel); Serial.println(relaisOpen);
+        Serial.print(relaisChannel); Serial.println(relaisOpen);
 
         // 2. Drive Pump
         doIrrigation(pumpName, irrigationAmount);
@@ -138,30 +138,28 @@ void Pump::loop()
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
 
-            // Check if ToF Sensor of Cistern (containing this Pump) is ready
-            // cistern.toF_ready = cistern.setupToF();
+            // If Sensor not ready, retry to Setup
+            while(!cistern.setupToF()) {}
         }
 
         if (millis() - stateBeginMillis >= minStateDuration * 1000UL && wateringNeeded)
         {
-            if (cistern.toF.Status == 0) // cistern.toF_ready
+            if (cistern.toF.Status == 0)
             {
-                if (cistern.checkWaterLevel()) // Update both currWaterDist and check if valid with same 1 Reading
+                if (cistern.validWaterLevel())
                 {
                     currentState = PumpState::ON;
-                    // toF_1_ready = false; // For next iteration
                 }
                 else
                 {
-                    Serial.println("Not enough Water, skipping Irrigation.");
+                    Serial.println("Not enough Water, Irrigation falied.");
                     currentState = PumpState::DONE;
                 }
             }
             else
             {
-                // Wait and try to setup again
-                delay(200);   
-                // cistern.toF_ready = cistern.setupToF();
+                Serial.println("ToF Sensor can't be Setup, Irrigation failed.");
+                currentState = PumpState::DONE;
             }
         }
 
@@ -175,13 +173,14 @@ void Pump::loop()
         {
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
+
+            // Drive Relais
         }
 
-        // 2 Checks for Safety: Water Distance and Max. Pump Time
         switchOn();
 
         // minStateTime is up AND (Time is up OR Button pressed again (Stop now!))
-        // Pump shall be in ON State for max. 10 Seconds
+        // Pump shall be in ON State for max. 10s (maxStateTime)
         if (millis() - stateBeginMillis >= minStateDuration * 1000UL &&
             ((millis() - stateBeginMillis >= 10 * 1000UL) || wateringNeeded == false)) 
         {
