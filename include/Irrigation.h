@@ -7,9 +7,9 @@
 class Irrigation
 {
     public:
-        void decideIrrigation();
-        void getSolenoidInfo(const char *irrigationSubject, int irrigationAmount);
-        void getPumpInfo(const char* pumpName, int irrigationAmount);
+        static void decideIrrigation();
+        static void getSolenoidInfo(const char *irrigationSubject, int irrigationAmount);
+        static void getPumpInfo(const char* pumpName, int irrigationAmount);
         
 };
 

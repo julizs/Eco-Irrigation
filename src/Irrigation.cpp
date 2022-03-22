@@ -14,7 +14,10 @@ Creates Actions that are executed sequential (one Pump State Machine Loop after 
 */
 void Irrigation::decideIrrigation()
 {
-
+  wateringNeeded = true;
+  // pump1.prepareIrrigation("succulents", 350);
+  // pump1.prepareIrrigation("vegetables", 550);
+  // pump1.prepareIrrigation("Tomate", 150);
 }
 
 

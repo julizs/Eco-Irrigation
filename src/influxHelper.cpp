@@ -63,17 +63,20 @@ bool InfluxHelper::checkInfluxConnection()
 
 void InfluxHelper::writeDataPoint(Point &p)
 {
+  /*
   // If no Wifi signal, try to reconnect
   if ((WiFi.RSSI() == 0) && (Services::wifiMulti.run() != WL_CONNECTED)) {
     Serial.println("Wifi connection lost");
   }
+  */
 
   // Write data point into measurement/table or into buffer
-  
   if (!client.writePoint(p)) {
     Serial.print("InfluxDB write failed: ");
     Serial.println(client.getLastErrorMessage());
   }
+
+  Serial.println("Wrote InfluxDB Datapoint.");
 
   /*
   //Check Buffer
@@ -86,6 +89,8 @@ void InfluxHelper::writeDataPoint(Point &p)
     Serial.println("Wrote data point into buffer.");
   };
   */
+
+  
 }
 
 void InfluxHelper::doQuery()

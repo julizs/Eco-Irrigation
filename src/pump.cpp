@@ -50,12 +50,24 @@ INAdata Pump::readIna()
     data.busVoltage = ina219.getBusVoltage_V();
     data.shuntVoltage = abs(ina219.getShuntVoltage_mV() / 1000.0f);
     data.voltage = data.busVoltage + data.shuntVoltage;
-    // Constrain to 0 - 10 Ampere, otherwise infinity bug when on USB, InfluxDB fail to write
+    // Constrain to 0 - 10 Ampere, otherwise infinity bug when on USB, InfluxDB fail to write inf
     data.current = abs(constrain(ina219.getCurrent_mA(), 0, 10000) / 1000.0f);
     // power_mW = ina219.getPower_mW();
-    data.power = data.current * data.busVoltage;
+    data.power = data.busVoltage * data.current; // P = U * I
 
     return data;
+}
+
+void Pump::writeIna(Point &p)
+{
+    // Tags?
+    // p.clearFields();
+    INAdata inaData = readIna();
+    p.addField("voltage", inaData.voltage);
+    p.addField("current", inaData.current);
+    p.addField("power", inaData.power);
+    p.addField("busVoltage", inaData.busVoltage);
+    p.addField("shuntVoltage", inaData.shuntVoltage);
 }
 
 void Pump::loop()
@@ -87,6 +99,8 @@ void Pump::loop()
                     Serial.println("Not enough Water, Irrigation falied.");
                     currentState = PumpState::DONE;
                 }
+                // In both Cases
+                // cistern.updateWaterLevel();
             }
             else
             {
@@ -129,13 +143,8 @@ void Pump::loop()
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
 
-            INAdata inaData = readIna();
-            p0.clearFields();
-            p0.addField("voltage", inaData.voltage);
-            p0.addField("current", inaData.current);
-            p0.addField("power", inaData.power);
-            p0.addField("busVoltage", inaData.busVoltage);
-            p0.addField("shuntVoltage", inaData.shuntVoltage);
+            // Measure Power before stopping Pump
+            writeIna(p0);
 
             delay(100);
 
@@ -144,9 +153,12 @@ void Pump::loop()
             switchOff();
 
             // Do InfluxDB Updates AFTER turning off pump
-            cistern.updateWaterLevel();
+            cistern.updateWaterLevel(p0);
 
-            influxHelper.writeDataPoint(p0);  
+            // Finally, Write only once
+            influxHelper.writeDataPoint(p0);
+            
+            cistern.updateIrrigations(); // Different Datapoint, p2
         }
 
         lastState = PumpState::DONE;

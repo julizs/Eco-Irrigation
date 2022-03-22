@@ -8,6 +8,7 @@
 #include <StateMachine.h>
 #include <ArduinoJson.h>
 #include <ButtonHandler.h>
+#include <Irrigation.h>
 
 const char baseUrl[] = "https://juli.uber.space/node";
 
@@ -77,11 +78,7 @@ void scanI2CBus(TwoWire *wire)
 
 void doMeasurements()
 {
-  scanI2CBus(&I2Cone);
-  scanI2CBus(&I2Ctwo);
-
   // ESP32 GLOBAL MEASUREMENTS
-
   // 1. Prepare to reuse datapoint
   if (!p0.hasTags())
   {
@@ -99,33 +96,25 @@ void doMeasurements()
   while(!cistern2.setupToF()) {}
   while(!cistern1.setupToF()) {}
 
-  // 3. Read Global Sensors
-  // WaterLevel only changes if Pump was active...Skip?
+  // 3. READ GLOBAL MEASUREMENTS
+  // Read Waterlevels
   if (cistern1.toF.Status == 0)
   {
-    int waterLevel1 = cistern1.evaluateToF();
-    p0.addField("water level bucket 1", waterLevel1);
+    cistern1.updateWaterLevel(p0);
   }
   if (cistern2.toF.Status == 0)
   {
-    int waterLevel2 = cistern2.evaluateToF();
-    p0.addField("water level bucket 2", waterLevel2);
+    cistern2.updateWaterLevel(p0);
   }
 
-  // Read RSSI
+  // Read Rssi
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
 
-  // Read Idle Power Consumption of L298N
-  INAdata inaData = pump1.readIna();
-  p0.addField("voltage", inaData.voltage);
-  p0.addField("current", inaData.current);
-  p0.addField("power", inaData.power);
-  p0.addField("busVoltage", inaData.busVoltage);
-  p0.addField("shuntVoltage", inaData.shuntVoltage);
-
-  // 4. Write global Measurements
+  // 4. WRITE GLOBAL MEASUREMENTS
   influxHelper.writeDataPoint(p0);
+
+
 
   // PLANT-SPECIFIC MEASUREMENTS
   // 1. Get User-assigned Plant-Sensor Assignments and voltageRanges of moistureSensors
@@ -179,15 +168,6 @@ void doMeasurements()
 
     influxHelper.writeDataPoint(p);
   }
-}
-
-// See Irrigation Class
-void doEvaluate()
-{
-  wateringNeeded = true;
-  // pump1.prepareIrrigation("succulents", 350);
-  // pump1.prepareIrrigation("vegetables", 550);
-  // pump1.prepareIrrigation("Tomate", 150);
 }
 
 void handleHardwareButtons()
@@ -289,12 +269,12 @@ bool countTime(int duration)
 // STATE LOGIC
 void on_initState()
 {
-  Serial.println("Main State Machine runs on Core: ");
-  Serial.println(xPortGetCoreID());
-
   if (fsm.executeOnce)
   {
     commonStateLogic();
+
+    Serial.println("Main State Machine runs on Core: ");
+    Serial.println(xPortGetCoreID());
 
     if (!Services::getWifiStatus())
     {
@@ -309,6 +289,9 @@ void on_initState()
 
     // Run WiFi.begin() before this, or exception
     ButtonHandler::startRestServer();
+
+    scanI2CBus(&I2Cone);
+    scanI2CBus(&I2Ctwo);
   }
 }
 
@@ -345,7 +328,7 @@ void on_evaluateState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    doEvaluate();
+    Irrigation::decideIrrigation();
   }
 }
 

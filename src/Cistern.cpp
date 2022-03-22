@@ -84,17 +84,30 @@ Update WaterLevel before (?) and after Pumping
 Create Irrigation Datapoint for this Irrigation
 */
 
-// Before Pumping
+// Do before Pumping
 bool Cistern::validWaterLevel()
 {
-    return evaluateToF() < maxWaterDist;
+    this->currWaterDist = evaluateToF();
+    return currWaterDist < maxWaterDist;
 }
 
-float Cistern::updateWaterLevel()
-{
-    currWaterDist = evaluateToF();
-    return currWaterDist;
+
+void Cistern::updateWaterLevel(Point &p)
+{ 
+    char key[25];
+    sprintf(key, "WaterDistance %d", this->toF_address);
+    p.addField(key, currWaterDist);
+    sprintf(key, "WaterAmount %d", this->toF_address);
+    p.addField(key, calcMl(currWaterDist));
 }
+
+int Cistern::calcMl(float waterDistance)
+{
+    // Consider Tank getting thinner
+    int waterAmount = waterDistance * mmToMl;
+    return waterAmount;
+}
+
 
 // After Pumping
 void Cistern::updateIrrigations()
@@ -103,7 +116,7 @@ void Cistern::updateIrrigations()
     currWaterDist = evaluateToF();
 
     int deltaMM = oldWaterDistance - currWaterDist;
-    int pumpedWaterML = deltaMM * mmToMl;
+    int pumpedWaterML = calcMl(deltaMM);
 
     // Create new Row in InfluxDB Irrigations Measurement
     p2.clearTags();
@@ -244,6 +257,7 @@ float Cistern::readToF_cont()
         distances.push_back(distance);
         Serial.print(distance);
         Serial.print(" ");
+
         if (toF.timeoutOccurred())
         {
             Serial.print(" TIMEOUT");
