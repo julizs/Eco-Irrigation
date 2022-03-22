@@ -79,25 +79,38 @@ void Cistern::shutToF()
     delay(50);
 }
 
+/*
+Update WaterLevel before (?) and after Pumping
+Create Irrigation Datapoint for this Irrigation
+*/
+
 // Before Pumping
 bool Cistern::validWaterLevel()
 {
+    return evaluateToF() < maxWaterDist;
+}
+
+float Cistern::updateWaterLevel()
+{
     currWaterDist = evaluateToF();
-    return currWaterDist < maxWaterDist;
+    return currWaterDist;
 }
 
 // After Pumping
-void Cistern::updateWaterLevel()
+void Cistern::updateIrrigations()
 {
     int oldWaterDistance = currWaterDist;
     currWaterDist = evaluateToF();
 
-    int pumpedWaterMM = oldWaterDistance - currWaterDist;
-    int pumpedWaterML = pumpedWaterMM * mmToMl;
+    int deltaMM = oldWaterDistance - currWaterDist;
+    int pumpedWaterML = deltaMM * mmToMl;
 
+    // Create new Row in InfluxDB Irrigations Measurement
     p2.clearTags();
     p2.clearFields();
     // p2.addTag("Plant Group", plantGroup);
+    // Reason ? Pump ? Pump Time ? MongoDb instead of InfluxDB ?
+    p2.addField("pumpedWaterMM", deltaMM);
     p2.addField("pumpedWaterML", pumpedWaterML);
     influxHelper.writeDataPoint(p2);
 }

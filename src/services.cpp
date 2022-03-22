@@ -115,6 +115,12 @@ void Services::doPostRequest(char url[])
 // https://arduinojson.org/v6/how-to/use-arduinojson-with-httpclient/
 DynamicJsonDocument Services::doJSONGetRequest(char url[])
 {
+  /*
+  char url[50] = "";
+  strcat(url, baseUrl);
+  strcat(url, endpoint);
+  */
+
   DynamicJsonDocument doc(2048);
 
   if (WiFi.status() == WL_CONNECTED)
