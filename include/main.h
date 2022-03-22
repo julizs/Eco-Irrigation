@@ -12,7 +12,7 @@
 extern TwoWire I2Cone;
 extern TwoWire I2Ctwo;
 extern InfluxHelper influxHelper;
-extern Services services;
+// extern Services services;
 extern bool wateringNeeded;
 extern const char baseUrl[];
 

@@ -14,7 +14,7 @@ extern ESP8266WiFiMulti wifiMulti;
 #include <ArduinoJson.h>
 #include <StreamUtils.h>
 // #include <ESPAsyncWebServer.h>
-// #include <main.h>
+#include <main.h>
 
 #define WIFI_SSID "FRITZ!Box 7430 ED"
 #define WIFI_PASSWORD "49391909776212256241"
@@ -24,22 +24,18 @@ extern ESP8266WiFiMulti wifiMulti;
 class Services
 {
     public:
-    HTTPClient http;
+    static HTTPClient http;
+    static WiFiServer wifiServer;
+    static WiFiClient client;
+    static WiFiMulti wifiMulti;
 
-    WiFiServer wifiServer;
-    WiFiClient client;
-
-    Services();
-    void setupWifi();
-    void setupWifiMulti();
-    void doGetRequest(char url[]);
-    void doPostRequest(char url[]);
-    void startRestServer();
-    DynamicJsonDocument doJSONGetRequest(char url[]);
-    bool getWifiStatus();
-    bool getWifiMultiStatus();
-    
-    void runPump();
+    static void setupWifi();
+    static void setupWifiMulti();
+    static void doGetRequest(char url[]);
+    static void doPostRequest(char url[]);
+    static DynamicJsonDocument doJSONGetRequest(char url[]);
+    static bool getWifiStatus();
+    static bool getWifiMultiStatus();
 };
 
 #endif // Services_h

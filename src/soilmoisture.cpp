@@ -40,13 +40,16 @@ int SoilMoisture::measureSoilMoisture(int pinNum)
   return moistureRaw;
 }
 
-int SoilMoisture::voltageToPercentage(int pinNum, int smoothedValue)
+int SoilMoisture::voltageToPercentage(int pinNum, int smoothedValue, DynamicJsonDocument &moistureSensors)
 {
-  // Constrain measured Values to SensorRange before Map
+  // Get invidudual SensorRanges, 1 GET Request only
   int range[2];
-  getSensorRange(pinNum, range);
-  int moistureConstrained = constrain(smoothedValue, range[0], range[1]);
+  range[0] = moistureSensors[pinNum]["minVoltage"].as<int>();
+  range[1] = moistureSensors[pinNum]["maxVoltage"].as<int>();
+  // getSensorRange(pinNum, range); // Too many Requests
 
+  // Constrain measured Values to SensorRange before Map
+  int moistureConstrained = constrain(smoothedValue, range[0], range[1]);
   // Serial.print("Min: "); Serial.print(range[0]);
   // Serial.print(" Max: "); Serial.println(range[1]);
 
@@ -66,8 +69,7 @@ void SoilMoisture::getSensorRange(int pinNum, int range[])
   // from Sensor to Sensor (pinNum is Sensor ID, from 0 - 15)
   // C++ passes Arrays to Funcs with Call by Reference, Original Array gets changed
 
-  char url[] = "https://juli.uber.space/node/moistureSensors";
-  DynamicJsonDocument doc = services.doJSONGetRequest(url);
+  DynamicJsonDocument doc = Services::doJSONGetRequest("/moistureSensors");
   range[0] = doc[pinNum]["minVoltage"].as<int>();
   range[1] = doc[pinNum]["maxVoltage"].as<int>();
 }

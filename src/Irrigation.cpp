@@ -4,6 +4,14 @@
 Decides Subjects (plant or plantGroup) and PumpTime in Milliliters
 Creates Actions that are executed sequential (one Pump State Machine Loop after another)
 */
+/* Irrigation Algorithm
+  Consider recent Irrigations of PlantGroup and needs of each Plants inside PlantGroup (e.g. Moisture Need, Size of Plant, ...)
+  (all Plants that are affected of this Irrigation need to be considered)
+  1.1 (Quick) Get PlantGroup Table, check recent Irrigations (InfluxDB) of this Group (e.g. less than 1l today, less than 0.5l in past 4 hours)
+  1.2 (Long) Get every single Plant from the PlantGroup and check soilMoisture (do this in State 1 already, with 2nd Core ?)
+  3. Check Waterlevel in Tank, if not enough then create failed Irrigation InfluxDB datapoint
+  (Reason for Irrigation: ... , Irrigation Amount: ..., Reason for Failure: ...)
+*/
 void Irrigation::decideIrrigation()
 {
 
@@ -13,10 +21,7 @@ void Irrigation::decideIrrigation()
 void Irrigation::getSolenoidInfo(const char *irrigationSubject, int irrigationAmount)
 {
     // 2. Get Solenoid (Relais Channel), SolenoidState (Relais State) and Pump Name
-    char url[50] = "";
-    strcat(url, baseUrl);
-    strcat(url, "/solenoidValves");
-    DynamicJsonDocument solenoids = services.doJSONGetRequest(url);
+    DynamicJsonDocument solenoids = Services::doJSONGetRequest("/solenoidValves");
 
     bool relaisOpen;
 
@@ -53,14 +58,13 @@ void Irrigation::getSolenoidInfo(const char *irrigationSubject, int irrigationAm
 
 void Irrigation::getPumpInfo(const char* pumpName, int irrigationAmount)
 {
-    char url[50] = "";
-    strcat(url, baseUrl);
-    strcat(url, "/pumps/");
-    strcat(url, pumpName);
-    DynamicJsonDocument pump = services.doJSONGetRequest(url);
+    char endpoint[50] = "/pumps";
+    strcat(endpoint, pumpName);
+    DynamicJsonDocument pump = Services::doJSONGetRequest(endpoint);
 
     int litersPerHour = pump["flowRate"][1].as<int>();
     int pwmChannel = pump["pwmChannel"].as<int>();
+
     if (litersPerHour == 0) // avoid DivideByZero
     {
         litersPerHour = 300;

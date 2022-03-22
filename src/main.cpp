@@ -13,7 +13,7 @@ const char baseUrl[] = "https://juli.uber.space/node";
 
 TaskHandle_t Task1, Task2;
 
-Services services;
+// Services services;
 ButtonHandler buttonHandler;
 InfluxHelper influxHelper;
 
@@ -75,49 +75,32 @@ void scanI2CBus(TwoWire *wire)
   Serial.println(" I2C Devices found.");
 }
 
-/*
-void setupToFs()
-{
-  int attempt = 0;
-  // Setup ToF in correct Order
-  while (!cistern2.toF_ready && attempt < 4)
-  {
-    cistern2.setupToF();
-    attempt++;
-    delay(1000);
-  }
-  while (!cistern1.toF_ready && attempt < 4)
-  { // 0x51
-    // cistern1.shutToF();
-    // delay(100);
-    cistern1.setupToF();
-    attempt++;
-    delay(1000);
-  }
-}
-*/
-
 void doMeasurements()
 {
   scanI2CBus(&I2Cone);
   scanI2CBus(&I2Ctwo);
 
-  // ESP32 (Global/Per Device) Measurements
-  // Reuse datapoint, add tags and clear fields
+  // ESP32 GLOBAL MEASUREMENTS
+
+  // 1. Prepare to reuse datapoint
   if (!p0.hasTags())
   {
     p0.addTag("device", DEVICE);
     p0.addTag("SSID", WiFi.SSID());
   }
-
   p0.clearFields();
 
-  // Redo setup after Wakeup if necessary
+  // 2. Setup Sensors
+  pump1.setupIna();
+  lightSensor1.setupTSL2591(I2Cone);
+  lightSensor2.setupTSL2591(I2Ctwo);
+
+  // Redo setup after Wakeup only if necessary
   while(!cistern2.setupToF()) {}
   while(!cistern1.setupToF()) {}
-  // setupToFs();
 
-  // Skip? WaterLevel only changes if Pump was active
+  // 3. Read Global Sensors
+  // WaterLevel only changes if Pump was active...Skip?
   if (cistern1.toF.Status == 0)
   {
     int waterLevel1 = cistern1.evaluateToF();
@@ -133,7 +116,7 @@ void doMeasurements()
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
 
-  // Idle Power Consumption of L298N
+  // Read Idle Power Consumption of L298N
   INAdata inaData = pump1.readIna();
   p0.addField("voltage", inaData.voltage);
   p0.addField("current", inaData.current);
@@ -141,40 +124,35 @@ void doMeasurements()
   p0.addField("busVoltage", inaData.busVoltage);
   p0.addField("shuntVoltage", inaData.shuntVoltage);
 
-  pump1.setupIna();
-
+  // 4. Write global Measurements
   influxHelper.writeDataPoint(p0);
 
   // PLANT-SPECIFIC MEASUREMENTS
-  // 1. Get User-assigned Plant-Sensor Assignments
-  char url[50] = "";
-  strcat(url, baseUrl);
-  strcat(url, "/plants/json");
-  DynamicJsonDocument doc = services.doJSONGetRequest(url);
-
-  // 2. Setup Sensors only once
-  lightSensor1.setupTSL2591(I2Cone);
-  lightSensor2.setupTSL2591(I2Ctwo);
+  // 1. Get User-assigned Plant-Sensor Assignments and voltageRanges of moistureSensors
+  DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/json");
+  DynamicJsonDocument moistureSensors = Services::doJSONGetRequest("/moistureSensors");
 
   // 3. Measure (only) assigned Sensors from each plant
-  Point p("Plant Data"); // Write new data point/row into this table, reuse datapoint
+  Point p("Plant Data");
   int lastMeasuredLightSensor = -1;
   TSL2591data data;
 
   // For each plant
-  for (int i = 0; i < doc.size(); i++)
+  for (int i = 0; i < plants.size(); i++)
   {
-    String plantName = doc[i]["name"].as<String>();
+    String plantName = plants[i]["name"].as<String>();
+    Serial.print("Plant: ");
+    Serial.println(plantName);
+
+    // Reuse Datapoint, write new data point/row into this table
     p.clearTags();
     p.clearFields();
     p.addTag("Plant", plantName);
 
-    Serial.print("Plant: ");
-    Serial.println(doc[i]["name"].as<String>());
-
-    for (int j = 0; j < sizeof(doc[i]["moistureSensors"]); j++)
+    // For each moistureSensor pinNum assigned to this Plant
+    for (int j = 0; j < sizeof(plants[i]["moistureSensors"]); j++)
     {
-      int moistureSensor = doc[i]["moistureSensors"][j].as<int>();
+      int moistureSensor = plants[i]["moistureSensors"][j].as<int>();
       if (moistureSensor != 0) // ignore 0s, e.g. 67000 (=channels 6,7)
       {
         int pinNum = moistureSensor - 1;
@@ -182,13 +160,14 @@ void doMeasurements()
         sprintf(key, "Soil Moisture Sensor %d", moistureSensor);
 
         int moistureSmoothed = SoilMoisture::measureSoilMoistureSmoothed(pinNum);
-        int moisturePercentage = SoilMoisture::voltageToPercentage(pinNum, moistureSmoothed);
+        // Pass Reference of moistureSensors Table, so only 1 GET Request instead of per Plant, per Sensor
+        int moisturePercentage = SoilMoisture::voltageToPercentage(pinNum, moistureSmoothed, moistureSensors);
         p.addField(key, moisturePercentage);
       }
     }
 
     // MongoDb Cursor gets sorted by lightSensor, same Sensor measures less often
-    int lightSensor = doc[i]["lightSensor"].as<int>();
+    int lightSensor = plants[i]["lightSensor"].as<int>();
 
     if (lightSensor != lastMeasuredLightSensor)
     {
@@ -200,29 +179,12 @@ void doMeasurements()
 
     influxHelper.writeDataPoint(p);
   }
-
-  /*
-  // Plant-specific Measurements
-  for (auto &plant : plants)
-  {
-    // plant.measureSensors();
-    // Serial.println(plant.lightSensor.measureLight());
-  }
-  */
 }
 
-/* Irrigation Algorithm
-  Consider recent Irrigations of PlantGroup and needs of each Plants inside PlantGroup (e.g. Moisture Need, Size of Plant, ...)
-  (all Plants that are affected of this Irrigation need to be considered)
-  1.1 (Quick) Get PlantGroup Table, check recent Irrigations (InfluxDB) of this Group (e.g. less than 1l today, less than 0.5l in past 4 hours)
-  1.2 (Long) Get every single Plant from the PlantGroup and check soilMoisture (do this in State 1 already, with 2nd Core ?)
-  3. Check Waterlevel in Tank, if not enough then create failed Irrigation InfluxDB datapoint
-  (Reason for Irrigation: ... , Irrigation Amount: ..., Reason for Failure: ...)
-  */
+// See Irrigation Class
 void doEvaluate()
 {
   wateringNeeded = true;
-
   // pump1.prepareIrrigation("succulents", 350);
   // pump1.prepareIrrigation("vegetables", 550);
   // pump1.prepareIrrigation("Tomate", 150);
@@ -276,10 +238,7 @@ Better Solution: Buttons Requests are directed to Esp32 hosted Server
 */
 void checkUserCommands()
 {
-  char url[50] = "";
-  strcat(url, baseUrl);
-  strcat(url, "/commands");
-  DynamicJsonDocument commands = services.doJSONGetRequest(url);
+  DynamicJsonDocument commands = Services::doJSONGetRequest("/commands");
 
   // Solenoid
   int relaisChannel = commands[0]["SolenoidValve"][0];
@@ -299,15 +258,12 @@ void checkUserCommands()
 void updateIP()
 {
   // Send current IP Address, no Tunneling necessary
-  char url[50] = "";
-  strcat(url, baseUrl);
-  strcat(url, "/commands/ip");
-  services.doPostRequest(url);
+  Services::doPostRequest("/commands/ip");
 }
 
 void checkConnections()
 {
-  if (!influxHelper.checkInfluxConnection() || !services.getWifiStatus())
+  if (!influxHelper.checkInfluxConnection() || !Services::getWifiStatus())
   {
     fsm.transitionTo(initState);
   }
@@ -340,9 +296,9 @@ void on_initState()
   {
     commonStateLogic();
 
-    if (!services.getWifiStatus())
+    if (!Services::getWifiStatus())
     {
-      services.setupWifi();
+      Services::setupWifi();
     }
 
     if (!influxHelper.checkInfluxConnection())
