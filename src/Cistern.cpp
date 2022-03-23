@@ -63,11 +63,11 @@ bool Cistern::validWaterLevel()
 void Cistern::updateWaterLevel()
 { 
     this->currWaterDist = evaluateToF();
-    char key[25];
-    sprintf(key, "WaterDistance %d", this->toF_address);
-    p0.addField(key, currWaterDist);
-    sprintf(key, "WaterAmount %d", this->toF_address);
-    p0.addField(key, calcMl(currWaterDist));
+    char key1[25], key2[25];
+    sprintf(key1, "waterDistance %d", this->toF_address);
+    p0.addField(key1, currWaterDist);
+    sprintf(key2, "waterAmount %d", this->toF_address);
+    p0.addField(key2, calcMl(currWaterDist));
 }
 
 int Cistern::calcMl(float waterDistance)
