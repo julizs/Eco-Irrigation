@@ -10,16 +10,18 @@ Cistern::Cistern(unsigned short toF_address, unsigned short cisternHeight, float
     sampleSize = 8;
 }
 
-bool Cistern::setupToF()
+void Cistern::setupToF()
 {
     /*
     Error Codes see Strg + Click toF.Status, VL53L0X_ERROR_NONE
     Two VL530X on same i2C bus possible with immediate shut LOW in main.setup()
+    toF_ready needed for first Setup
     */
     int attempts = 0;
-    if(toF_ready == false || toF.Status != 0)
+
+    if(toF_ready == false || toF.Status != 0) // 0 = VL53L0X_ERROR_NONE
     {
-        while (attempts < 4) // 0 = VL53L0X_ERROR_NONE
+        while (attempts < 4) 
         {
             if(toF_address == 0x51)
             {
@@ -28,48 +30,20 @@ bool Cistern::setupToF()
             }
             if (!toF.begin(toF_address, &I2Cone)) // &I2Cone
             {
-                Serial.println(F("Failed to boot toF at" + toF_address));
+                Serial.println("Failed to boot toF at" + toF_address);
                 toF_ready = false;
                 attempts++;
-                // return toF_ready;
             }
             else
             {
+                // ToF is ready
                 toF_ready = true;
-                return toF_ready;
+                return;
             }
             delay(1000);
         }
-        return toF_ready; // false after 4 attempts
     }
-   return toF_ready; // true
 }
-
-/*
-bool Cistern::setupToF()
-{
-    
-    Error Codes see Strg + Click toF.Status, VL53L0X_ERROR_NONE
-    Two VL530X on same i2C bus possible with immediate shut LOW in main.setup()
-    
-    if (toF_ready == false || toF.Status != 0) // 0 = VL53L0X_ERROR_NONE
-    {
-        if(toF_address == 0x51)
-        {
-            shutToF();
-            delay(100);
-        }
-        if (!toF.begin(toF_address, &I2Cone)) // &I2Cone
-        {
-            Serial.println(F("Failed to boot toF at" + toF_address));
-            toF_ready = false;
-            return false;
-        }
-    }
-    toF_ready = true;
-    return true;
-}
-*/
 
 void Cistern::shutToF()
 {
@@ -79,37 +53,32 @@ void Cistern::shutToF()
     delay(50);
 }
 
-/*
-Update WaterLevel before (?) and after Pumping
-Create Irrigation Datapoint for this Irrigation
-*/
-
 // Do before Pumping
 bool Cistern::validWaterLevel()
-{
-    this->currWaterDist = evaluateToF();
+{  
     return currWaterDist < maxWaterDist;
 }
 
-
-void Cistern::updateWaterLevel(Point &p)
+// Point p0
+void Cistern::updateWaterLevel()
 { 
+    this->currWaterDist = evaluateToF();
     char key[25];
     sprintf(key, "WaterDistance %d", this->toF_address);
-    p.addField(key, currWaterDist);
+    p0.addField(key, currWaterDist);
     sprintf(key, "WaterAmount %d", this->toF_address);
-    p.addField(key, calcMl(currWaterDist));
+    p0.addField(key, calcMl(currWaterDist));
 }
 
 int Cistern::calcMl(float waterDistance)
 {
-    // Consider Tank getting thinner
+    // Consider Tank getting thinner/thicker
     int waterAmount = waterDistance * mmToMl;
     return waterAmount;
 }
 
 
-// After Pumping
+// Point p2
 void Cistern::updateIrrigations()
 {
     int oldWaterDistance = currWaterDist;

@@ -1,23 +1,28 @@
 #include "Irrigation.h"
 
+
 /* Irrigation Algorithm
-Decides Subjects (plant or plantGroup) and PumpTime in Milliliters
-Creates Actions that are executed sequential (one Pump State Machine Loop after another)
-*/
-/* Irrigation Algorithm
-  Consider recent Irrigations of PlantGroup and needs of each Plants inside PlantGroup (e.g. Moisture Need, Size of Plant, ...)
-  (all Plants that are affected of this Irrigation need to be considered)
-  1.1 (Quick) Get PlantGroup Table, check recent Irrigations (InfluxDB) of this Group (e.g. less than 1l today, less than 0.5l in past 4 hours)
-  1.2 (Long) Get every single Plant from the PlantGroup and check soilMoisture (do this in State 1 already, with 2nd Core ?)
-  3. Check Waterlevel in Tank, if not enough then create failed Irrigation InfluxDB datapoint
+  1.0 Consider Properties of each Plant in PlantGroup (Size, Dry Roots, ...)
+  1.1 Consider recent Irrigations (InfluxDB) of this PlantGroup (e.g. less than 1l today, less than 0.5l in past 4 hours)
+  1.2 Consider soilMoisture of every Plant from the PlantGroup
+  2. Decide Subject (Plant/PlantGroup at Solenoid) and Milliliters
+  3. Create (Irrigation) Action Obj that are executed sequential (one after another)
+  4. Get necessary Info for Action (PumpModel, PumpTime, RelaisChannel, ...)
+  5. Run Pump State Machine Loop(s)
+  5. Create Irrigation Datapoint for InfluxDB (also if Irrigation failed)
   (Reason for Irrigation: ... , Irrigation Amount: ..., Reason for Failure: ...)
 */
 void Irrigation::decideIrrigation()
 {
-  wateringNeeded = true;
-  // pump1.prepareIrrigation("succulents", 350);
-  // pump1.prepareIrrigation("vegetables", 550);
-  // pump1.prepareIrrigation("Tomate", 150);
+    // Access Tables from EEPROM or do Requests if needed
+    // DynamicJsonDocument recentIrrigations = Services::doJSONGetRequest("/irrigations");
+    // DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/json");
+
+    wateringNeeded = true;
+
+    // pump1.prepareIrrigation("succulents", 350);
+    // pump1.prepareIrrigation("vegetables", 550);
+    // pump1.prepareIrrigation("Tomate", 150);
 }
 
 

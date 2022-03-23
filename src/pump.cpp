@@ -58,16 +58,16 @@ INAdata Pump::readIna()
     return data;
 }
 
-void Pump::writeIna(Point &p)
+void Pump::writeIna()
 {
     // Tags?
     // p.clearFields();
     INAdata inaData = readIna();
-    p.addField("voltage", inaData.voltage);
-    p.addField("current", inaData.current);
-    p.addField("power", inaData.power);
-    p.addField("busVoltage", inaData.busVoltage);
-    p.addField("shuntVoltage", inaData.shuntVoltage);
+    p0.addField("voltage", inaData.voltage);
+    p0.addField("current", inaData.current);
+    p0.addField("power", inaData.power);
+    p0.addField("busVoltage", inaData.busVoltage);
+    p0.addField("shuntVoltage", inaData.shuntVoltage);
 }
 
 void Pump::loop()
@@ -82,8 +82,10 @@ void Pump::loop()
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
 
-            // If Sensor not ready, retry to Setup
-            while(!cistern.setupToF()) {}
+            if(cistern.toF.Status != 0)
+            {
+                cistern.setupToF();
+            }
         }
 
         if (millis() - stateBeginMillis >= minStateDuration * 1000UL && wateringNeeded)
@@ -144,7 +146,7 @@ void Pump::loop()
             Serial.println(stateNames[(byte)currentState]);
 
             // Measure Power before stopping Pump
-            writeIna(p0);
+            writeIna();
 
             delay(100);
 
@@ -153,12 +155,12 @@ void Pump::loop()
             switchOff();
 
             // Do InfluxDB Updates AFTER turning off pump
-            cistern.updateWaterLevel(p0);
+            cistern.updateWaterLevel();
 
             // Finally, Write only once
             influxHelper.writeDataPoint(p0);
             
-            cistern.updateIrrigations(); // Different Datapoint, p2
+            cistern.updateIrrigations(); // Datapoint p2
         }
 
         lastState = PumpState::DONE;

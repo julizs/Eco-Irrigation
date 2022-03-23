@@ -9,6 +9,7 @@
 #include <ArduinoJson.h>
 #include <ButtonHandler.h>
 #include <Irrigation.h>
+#include <EEPROM.h>
 
 const char baseUrl[] = "https://juli.uber.space/node";
 
@@ -78,6 +79,9 @@ void scanI2CBus(TwoWire *wire)
 
 void doMeasurements()
 {
+  scanI2CBus(&I2Cone);
+  scanI2CBus(&I2Ctwo);
+
   // ESP32 GLOBAL MEASUREMENTS
   // 1. Prepare to reuse datapoint
   if (!p0.hasTags())
@@ -93,18 +97,18 @@ void doMeasurements()
   lightSensor2.setupTSL2591(I2Ctwo);
 
   // Redo setup after Wakeup only if necessary
-  while(!cistern2.setupToF()) {}
-  while(!cistern1.setupToF()) {}
+  cistern2.setupToF();
+  cistern1.setupToF();
 
   // 3. READ GLOBAL MEASUREMENTS
   // Read Waterlevels
   if (cistern1.toF.Status == 0)
   {
-    cistern1.updateWaterLevel(p0);
+    cistern1.updateWaterLevel();
   }
   if (cistern2.toF.Status == 0)
   {
-    cistern2.updateWaterLevel(p0);
+    cistern2.updateWaterLevel();
   }
 
   // Read Rssi
@@ -120,6 +124,17 @@ void doMeasurements()
   // 1. Get User-assigned Plant-Sensor Assignments and voltageRanges of moistureSensors
   DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/json");
   DynamicJsonDocument moistureSensors = Services::doJSONGetRequest("/moistureSensors");
+
+  /*
+  https://arduinojson.org/v6/how-to/store-a-json-document-in-eeprom/
+  https://arduinojson.org/v6/how-to/determine-the-capacity-of-the-jsondocument/
+  https://arduinojson.org/v6/assistant/
+
+  EEPROM library on the ESP32 allows using at most 1 sector (4kB, 4096 Bytes) of Flash
+  */
+  EepromStream eepromStream(0, 1024); // Address 0, 1024 Bytes
+  serializeJson(plants, eepromStream);
+  EEPROM.commit();
 
   // 3. Measure (only) assigned Sensors from each plant
   Point p("Plant Data");
@@ -281,17 +296,14 @@ void on_initState()
       Services::setupWifi();
     }
 
+    influxHelper.setupInflux();
     if (!influxHelper.checkInfluxConnection())
     {
-      // influxHelper.setupInflux();
       Serial.println("Couldnt connect to InfluxDB");
     }
 
     // Run WiFi.begin() before this, or exception
     ButtonHandler::startRestServer();
-
-    scanI2CBus(&I2Cone);
-    scanI2CBus(&I2Ctwo);
   }
 }
 
@@ -304,6 +316,16 @@ void on_sleepState()
     // ESP.deepSleep(30e6); // Connect Sleep Cable AFTER Uploading Code
     // checkConnections();
     // didSleep = true;
+
+    DynamicJsonDocument plants(1024);
+    EepromStream eepromStream(0, 1024);
+    deserializeJson(plants, eepromStream);
+    for (int i = 0; i < plants.size(); i++)
+    {
+      String plantName = plants[i]["name"].as<String>();
+      Serial.print("Plant: ");
+      Serial.println(plantName);
+    }
   }
   // Simulate Sleep
   // Serial.print(".");
@@ -419,7 +441,7 @@ bool transitionS4S1()
     {
       return false;
     }
-    pump1.currentState = PumpState::IDLE; // Reset Sub StateMachine
+    pump1.currentState = PumpState::IDLE; // Reset
   }
   // else if fanNeeded {...}
   else
@@ -445,6 +467,11 @@ void setup()
 {
   // while (!Serial){}
   Serial.begin(115200);
+
+  if (!EEPROM.begin(4096)) // Bytes
+  {
+    Serial.println("failed to initialise EEPROM");
+  }
 
   // Wire.begin();
   I2Cone.begin(SDA1, SCL1, 200000);

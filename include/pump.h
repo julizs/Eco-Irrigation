@@ -45,7 +45,7 @@ public:
 
     bool setupIna();
     INAdata readIna();
-    void writeIna(Point &p);
+    void writeIna();
 
 private:
     void switchOn();

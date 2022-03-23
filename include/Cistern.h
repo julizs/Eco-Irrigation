@@ -15,18 +15,18 @@ class Cistern
         Adafruit_VL53L0X toF = Adafruit_VL53L0X();
         unsigned short toF_address, sampleSize, cisternHeight;
         unsigned short currWaterDist, minWaterDist, maxWaterDist; // aka minWaterLevel
-        bool toF_ready;
         float mmToMl;
+        bool toF_ready;
 
         // Cistern();
         Cistern(unsigned short toF_address, unsigned short cisternHeight, float mmToMl);
-        bool setupToF();
+        void setupToF();
         void shutToF();
 
         float evaluateToF();
         void readToF(int distances[]);
         float readToF_cont();
-        void updateWaterLevel(Point &p);
+        void updateWaterLevel();
         void updateIrrigations();
         bool validWaterLevel();
         int calcMl(float waterLevel);
