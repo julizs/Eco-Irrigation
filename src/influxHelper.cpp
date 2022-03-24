@@ -1,27 +1,15 @@
 #include <influxHelper.h>
 #include <services.h>
 
-/* secure connection
-InfluxDB client instance
-use full param constructor to set the certificate or fingerprint to trust a server
-https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#secure-connection
-*/
+// Use full param constructor to set the certificate or fingerprint to trust a server
+// https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#secure-connection
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
 
-// create data point (= row) in a measurement (= table)
-// measurement name is string in point constructor?
-// point obj gets reused for entering a row into the measurement
-// 1 measurement/point per sensor or 1 for env data and 1 per plant data?
 Point p0("Environment Data");
 Point p1("Plant Data");
-Point p2("Irrigations"); // "Plant Groups" ?
+Point p2("Irrigations");
 
-InfluxHelper::InfluxHelper()
-{
-  
-}
-
-void InfluxHelper::setupInflux()
+void InfluxHelper::setParameters()
 {
   /* Timestamp
   timestamp (set from client) necessary to write data in batches
@@ -31,29 +19,22 @@ void InfluxHelper::setupInflux()
   timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
   client.setWriteOptions(WriteOptions().writePrecision(WritePrecision::MS));
 
-  /* Write Data as Batch
-  https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#batch-size
-  https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#buffer-handling-and-retrying
-  Write Datapoints into Buffer (batchSize), only send when Buffer overflows
-  Configure BatchSize dependant on number of expected Datapoints
-  Or: flushBuffer() manually in last State Machine State, if unclear how many Datapoints
-  */
-  client.setWriteOptions(WriteOptions().batchSize(10));
-  // client.setWriteOptions(WriteOptions().bufferSize(2));
+  client.setWriteOptions(WriteOptions().batchSize(100));
+  // client.setWriteOptions(WriteOptions().bufferSize(2)); // Don't use
   // client.setWriteOptions(WriteOptions().flushInterval(30));
 
   Serial.println("Did Setup Influx Options.");
 }
 
-bool InfluxHelper::checkInfluxConnection()
+bool InfluxHelper::checkConnection()
 {
-  if (client.validateConnection()) 
+  if (client.validateConnection())
   {
     Serial.print("Connected to InfluxDB: ");
     Serial.println(client.getServerUrl());
     return true;
-  } 
-  else 
+  }
+  else
   {
     Serial.print("InfluxDB connection failed: ");
     Serial.println(client.getLastErrorMessage());
@@ -63,89 +44,66 @@ bool InfluxHelper::checkInfluxConnection()
 
 void InfluxHelper::writeDataPoint(Point &p)
 {
-  /*
-  // If no Wifi signal, try to reconnect
-  if ((WiFi.RSSI() == 0) && (Services::wifiMulti.run() != WL_CONNECTED)) {
-    Serial.println("Wifi connection lost");
-  }
-  */
-
-  //Check Buffer
-  if(client.isBufferEmpty())
+  if (client.isBufferEmpty())
   {
     Serial.println("Buffer is empty.");
   }
-  else 
+  else
   {
     Serial.println("Buffer is not empty.");
   }
 
-  // Write data point into measurement/table or into buffer
-  if (!client.writePoint(p)) {
+  // Write Datapoint into Buffer (or to Database if Buffer Overflow)
+  if (!client.writePoint(p))
+  {
     Serial.print("InfluxDB write failed: ");
     Serial.println(client.getLastErrorMessage());
   }
 }
 
-void InfluxHelper::doQuery()
+/*
+Write all Datapoints from Buffer to InfluxDB, Critical
+Try to reconnect incase of write Fail or Datapoints in Buffer lost after Sleep
+*/
+void InfluxHelper::writeBuffer()
 {
-  /* Construct Query
-  https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#querying
-  Bei Bucketname Anfürungszeichen nötig (sonst als Identifier interpr.), 
-  escapen des Anführungszeichen nötig sonst String Ende
-  r.measurement ist value in measurement spalte, also data point name (z.B. wifi_status)
-  https://docs.influxdata.com/influxdb/v1.8/concepts/key_concepts/
-  */
-  String query = "from (bucket: \"messdaten\")";
-  query += "|> range(start: -1h)";
-  query += "|> filter(fn: (r) => r._measurement == \"wifi_status\" and r._field == \"rssi\"";
-  query += " and r.device == \"ESP8266\")";
-  query += "|> min()";
+  int attempts = 0;
 
+  while (!Services::getWifiStatus() && attempts < 3)
+  {
+    Services::setupWifi();
+    delay(500);
+    attempts++;
+  }
+
+  attempts = 0;
+
+  while (!influxHelper.checkConnection() && attempts < 3)
+  {
+    delay(500);
+    attempts++;
+  }
+
+  client.flushBuffer();
+  Serial.println("Successfully Wrote Buffer to InfluxDB.");
+}
+
+void InfluxHelper::doQuery(const char query[])
+{
   FluxQueryResult result = client.query(query);
 
   // Iterate Result Cursor
-  while (result.next()) {
-    // Get converted value for flux result column 'SSID'
-    String ssid = result.getValueByName("SSID").getString();
-    Serial.println();
-    Serial.print("SSID: ");
-    Serial.print(ssid);
+  while (result.next())
+  {
+    long rssi = result.getValueByName("_value").getLong();
+    Serial.println(rssi);
   }
 
-  if(result.getError() != "") {
+  if (result.getError() != "")
+  {
     Serial.print("Query result error: ");
     Serial.println(result.getError());
   }
 
   result.close();
 }
-
-
-/*
-// Before: no sensor assignments, all sensors insert data into
-// measurements but no plant tags yet
-// User creates a new plant, no sensor assignments yet
-void InfluxHelper::addPlant(char plantName[])
-{
-  p2.addTag("plantName", plantName);
-}
-
-// All old data should keep recent sensor/plant assignments before change
-void InfluxHelper::removePlant(char plantName[])
-{
-  p2.clearFields();
-  p2.clearTags();
-  writeDataPoint(p2);
-}
-
-// First assign or reassign a SoilMoisture Sensor to a plant
-void InfluxHelper::assignSoilMoistSensor(char plantName[], unsigned short multiplexerChannel)
-{
-  p2.clearFields();
-  p2.clearTags();
-  p2.addTag("plantName", plantName);
-  p2.addField("soilMoistureSensor", multiplexerChannel);
-  writeDataPoint(p2);
-}
-*/

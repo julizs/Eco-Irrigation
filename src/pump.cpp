@@ -145,6 +145,12 @@ void Pump::loop()
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
 
+            if (cistern.toF.Status != 0)
+            {
+                // Or Crash if ToF not correctly Setup
+                return;
+            }
+
             // Measure Power before stopping Pump
             writeIna();
 

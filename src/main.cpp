@@ -34,11 +34,11 @@ StatusDisplay displayController;
 
 // Plant plant1(lightSensor2, soilMoisture1);
 // Plant plant2(lightSensor2, soilMoisture2);
-// std::vector<Plant> plants{plant1, plant2};
+// std::vector<Plant> plants{plant1, plant2};   
 
 StateMachine fsm = StateMachine();
-State *initState, *sleepState, *measureState, *evaluateState, *actionState;
-const char *stateNames[] = {"INIT", "SLEEP", "MEASURE", "EVALUATE", "ACTION"};
+State *initState, *sleepState, *measureState, *evaluateState, *actionState, *finishState;
+const char *stateNames[] = {"INIT", "SLEEP", "MEASURE", "EVALUATE", "ACTION", "FINISH"};
 bool wateringNeeded, didSleep, didCycle;
 unsigned long stateBeginMillis = 0;
 const int SLEEP_INTERVAL = 4;
@@ -48,8 +48,7 @@ const int MIN_STATE_DURATION = 2;
 // Debouncing
 unsigned long lastDebounceTime = 0; // Last time Output Pin was toggled
 unsigned long debounceDelay = 50;   // Increase if Output flickers
-int buttonState;
-int lastButtonState = HIGH; // Initial State is Off
+int buttonState, lastButtonState = HIGH; // Initial State is Off
 
 void scanI2CBus(TwoWire *wire)
 {
@@ -233,7 +232,6 @@ void handleHardwareButtons()
 /*
 Read User Commands and Settings, but take Actions later in Action State
 (e.g. Water Level needs to be checked first before Pump)
-Better Solution: Buttons Requests are directed to Esp32 hosted Server
 */
 void checkUserCommands()
 {
@@ -262,7 +260,7 @@ void updateIP()
 
 void checkConnections()
 {
-  if (!influxHelper.checkInfluxConnection() || !Services::getWifiStatus())
+  if (!influxHelper.checkConnection() || !Services::getWifiStatus())
   {
     fsm.transitionTo(initState);
   }
@@ -300,13 +298,14 @@ void on_initState()
       Services::setupWifi();
     }
 
-    influxHelper.setupInflux();
-    if (!influxHelper.checkInfluxConnection())
+    influxHelper.setParameters();
+    if (!influxHelper.checkConnection())
     {
       Serial.println("Couldnt connect to InfluxDB");
     }
 
     // Run WiFi.begin() before this, or exception
+    // Start necessary after every Sleep? Modem Sleep?
     ButtonHandler::startRestServer();
   }
 }
@@ -364,8 +363,6 @@ void on_actionState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    updateIP();
-    didCycle = true;
   }
 
   // Run (multiple) sub-StateMachines (Pump, Fan, ...) and wait
@@ -376,6 +373,27 @@ void on_actionState()
     pump1.loop();
   }
   // if(coolingNeeded) {...}
+}
+
+void on_finishState()
+{
+  if (fsm.executeOnce)
+  {
+    commonStateLogic();
+    updateIP();
+
+    influxHelper.writeBuffer();
+
+    didCycle = true;
+
+    const char query[] = "from (bucket: \"messdaten\")"
+    "|> range(start: -1h)"
+    "|> filter(fn: (r) => r._measurement == \"Environment Data\" and r._field == \"rssi\""
+    " and r.device == \"ESP32\")"
+    "|> min()";
+
+    influxHelper.doQuery(query);
+  }
 }
 
 // TRANSITION LOGIC
@@ -436,7 +454,7 @@ bool transitionS3S4()
   return false;
 }
 
-bool transitionS4S1()
+bool transitionS4S5()
 {
   // min State Duration must be over AND Pump done, Fan done, ...
   if (wateringNeeded)
@@ -456,6 +474,15 @@ bool transitionS4S1()
     }
   }
   return true;
+}
+
+bool transitionS5S2()
+{
+  if (countTime(MIN_STATE_DURATION))
+  {
+    return true;
+  }
+  return false;
 }
 
 void runStateMachine(void *pvParameters)
@@ -509,13 +536,15 @@ void setup()
   measureState = fsm.addState(&on_measureState);
   evaluateState = fsm.addState(&on_evaluateState);
   actionState = fsm.addState(&on_actionState);
+  finishState = fsm.addState(&on_finishState);
 
   initState->addTransition(&transitionS0S1, sleepState);
   initState->addTransition(&transitionS0S2, measureState);
   sleepState->addTransition(&transitionS1S2, measureState);
   measureState->addTransition(&transitionS2S3, evaluateState);
   evaluateState->addTransition(&transitionS3S4, actionState);
-  actionState->addTransition(&transitionS4S1, sleepState);
+  actionState->addTransition(&transitionS4S5, finishState);
+  finishState->addTransition(&transitionS5S2, sleepState);
 
   // https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
   xTaskCreatePinnedToCore(

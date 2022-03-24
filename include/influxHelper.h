@@ -14,15 +14,13 @@
 class InfluxHelper
 {
     public:
-    InfluxHelper();
-    void setupInflux();
-    bool checkInfluxConnection();
-    void writeDataPoint(Point &p);
-    void doQuery();
+    // InfluxDBClient client;
 
-    void addPlant(char plantName[]);
-    void removePlant(char plantName[]);
-    void assignSoilMoistSensor(char plantName[], unsigned short);
+    void setParameters();
+    bool checkConnection();
+    void writeDataPoint(Point &p);
+    void writeBuffer();
+    void doQuery(const char query[]);
 };
 
 extern InfluxDBClient client;
