@@ -160,10 +160,8 @@ void Pump::loop()
 
             switchOff();
 
-            // Do InfluxDB Updates AFTER turning off pump
-            cistern.updateWaterLevel();
+            // Write to InfluxDB (Ina and ToF to p0) AFTER turning off pump
 
-            // Finally, Write only once
             influxHelper.writeDataPoint(p0);
             
             cistern.updateIrrigations(); // Datapoint p2

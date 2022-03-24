@@ -19,6 +19,8 @@ void InfluxHelper::setParameters()
   timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
   client.setWriteOptions(WriteOptions().writePrecision(WritePrecision::MS));
 
+  // Use high batchSize and do manual flushBuffer, because
+  // Number of DataPoints varies, since User can add Plants
   client.setWriteOptions(WriteOptions().batchSize(100));
   // client.setWriteOptions(WriteOptions().bufferSize(2)); // Don't use
   // client.setWriteOptions(WriteOptions().flushInterval(30));

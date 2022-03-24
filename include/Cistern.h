@@ -26,7 +26,7 @@ class Cistern
         float evaluateToF();
         void readToF(int distances[]);
         float readToF_cont();
-        void updateWaterLevel();
+        int updateWaterLevel();
         void updateIrrigations();
         bool validWaterLevel();
         int calcMl(float waterLevel);

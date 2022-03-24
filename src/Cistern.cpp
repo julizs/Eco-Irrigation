@@ -53,21 +53,29 @@ void Cistern::shutToF()
     delay(50);
 }
 
-// Do before Pumping
 bool Cistern::validWaterLevel()
 {  
     return currWaterDist < maxWaterDist;
 }
 
 // Point p0
-void Cistern::updateWaterLevel()
+int Cistern::updateWaterLevel()
 { 
-    this->currWaterDist = evaluateToF();
-    char key1[25], key2[25];
-    sprintf(key1, "waterDistance %d", this->toF_address);
-    p0.addField(key1, currWaterDist);
-    sprintf(key2, "waterAmount %d", this->toF_address);
-    p0.addField(key2, calcMl(currWaterDist));
+    int measurement = evaluateToF();
+
+    // Only create new Datapoint if Measurement is valid,
+    // else keep old Datapoint as current
+    if(measurement != 0)
+    {
+        currWaterDist = evaluateToF();
+        char key1[25], key2[25];
+        sprintf(key1, "waterDistance %d", this->toF_address);
+        p0.addField(key1, currWaterDist);
+        sprintf(key2, "waterAmount %d", this->toF_address);
+        p0.addField(key2, calcMl(currWaterDist));
+    }
+
+    return currWaterDist;
 }
 
 int Cistern::calcMl(float waterDistance)
@@ -81,16 +89,21 @@ int Cistern::calcMl(float waterDistance)
 // Point p2
 void Cistern::updateIrrigations()
 {
-    int oldWaterDistance = currWaterDist;
-    currWaterDist = evaluateToF();
+    int oldWaterDist = currWaterDist;
+    int newWaterDist = updateWaterLevel();
+    int deltaMM = 0;
 
-    int deltaMM = oldWaterDistance - currWaterDist;
+    if(newWaterDist != 0) 
+    {
+        deltaMM = oldWaterDist - currWaterDist;
+    }
+ 
     int pumpedWaterML = calcMl(deltaMM);
 
-    // Create new Row in InfluxDB Irrigations Measurement
+    // Reuse Datapoint, create new Row in InfluxDB Irrigations Measurement
     p2.clearTags();
     p2.clearFields();
-    // p2.addTag("Plant Group", plantGroup);
+    p2.addTag("Plant", "Magnolie");
     // Reason ? Pump ? Pump Time ? MongoDb instead of InfluxDB ?
     p2.addField("pumpedWaterMM", deltaMM);
     p2.addField("pumpedWaterML", pumpedWaterML);
@@ -147,8 +160,8 @@ void Cistern::readToF(int distances[])
 
 float Cistern::evaluateToF() // Adafruit_VL53L0X toF
 {
-    float median, avgDistance;
-    float tolerance = 5.0f;
+    float tempAvg, finalAvg;
+    int tolerance = 5; // mm
     int validSamples = sampleSize;
     int distances[sampleSize];
 
@@ -162,51 +175,52 @@ float Cistern::evaluateToF() // Adafruit_VL53L0X toF
 
     for (int i = 0; i < sampleSize; i++)
     {
-        median += distances[i];
+        tempAvg += distances[i];
         Serial.print(distances[i]);
         Serial.print(" "); 
     }
     Serial.println();
 
-    median = median / sampleSize;
+    tempAvg = tempAvg / sampleSize;  
 
     for (int i = 0; i < sampleSize; i++)
     {
         // e.g. avgDistance 80mm, two invalid Readings 74mm, 86mm
-        if (abs(median - distances[i]) > tolerance)
+        if (abs(tempAvg - distances[i]) > tolerance)
         {
             distances[i] = -1;
             validSamples -= 1;
         }
         else
         {
-            avgDistance += distances[i];
+            finalAvg += distances[i];
         }
         
         Serial.print(distances[i]);
         Serial.print(" ");       
     }
+
     Serial.println();
-    Serial.print("Median: ");
-    Serial.print(median);
+    Serial.print("TempAvg: ");
+    Serial.print(tempAvg);
     Serial.println();
 
     // > 0 Avoid Divide by 0
     // > 4 Minimum No. of valid Samples
     if(validSamples > 4) 
     {
-        avgDistance = avgDistance / validSamples;
+        finalAvg = finalAvg / validSamples;
     }
     else
     {
-        avgDistance = -1;
+        finalAvg = 0;
     }
     
-    Serial.print("Avg: ");
-    Serial.print(avgDistance);
+    Serial.print("FinalAvg: ");
+    Serial.print(finalAvg);
     Serial.println();
 
-    return avgDistance;
+    return finalAvg;
 }
 
 float Cistern::readToF_cont()
