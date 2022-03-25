@@ -5,6 +5,7 @@ Cistern::Cistern(unsigned short toF_address, unsigned short cisternHeight, float
     this->toF_address = toF_address;
     this->cisternHeight = cisternHeight;
     this->mmToMl = mmToMl;
+    currWaterDist = 0;
     minWaterDist = 50;
     maxWaterDist = 300;
     sampleSize = 8;
@@ -19,11 +20,11 @@ void Cistern::setupToF()
     */
     int attempts = 0;
 
-    if(toF_ready == false || toF.Status != 0) // 0 = VL53L0X_ERROR_NONE
+    if (toF_ready == false || toF.Status != 0) // 0 = VL53L0X_ERROR_NONE
     {
-        while (attempts < 4) 
+        while (attempts < 4)
         {
-            if(toF_address == 0x51)
+            if (toF_address == 0x51)
             {
                 shutToF();
                 delay(100);
@@ -54,24 +55,25 @@ void Cistern::shutToF()
 }
 
 bool Cistern::validWaterLevel()
-{  
+{
     return currWaterDist < maxWaterDist;
 }
 
 // Point p0
 int Cistern::updateWaterLevel()
-{ 
+{
     int measurement = evaluateToF();
 
     // Only create new Datapoint if Measurement is valid,
     // else keep old Datapoint as current
-    if(measurement != 0)
+    if (measurement != 0)
     {
         currWaterDist = evaluateToF();
+
         char key1[25], key2[25];
-        sprintf(key1, "waterDistance %d", this->toF_address);
+        sprintf(key1, "waterDistance 0x%x", this->toF_address);
         p0.addField(key1, currWaterDist);
-        sprintf(key2, "waterAmount %d", this->toF_address);
+        sprintf(key2, "waterAmount 0x%x", this->toF_address);
         p0.addField(key2, calcMl(currWaterDist));
     }
 
@@ -85,27 +87,21 @@ int Cistern::calcMl(float waterDistance)
     return waterAmount;
 }
 
-
 // Point p2
 void Cistern::updateIrrigations()
 {
     int oldWaterDist = currWaterDist;
+    int oldWaterAmount = calcMl(oldWaterDist);
     int newWaterDist = updateWaterLevel();
     int deltaMM = 0;
 
-    if(newWaterDist != 0) 
-    {
-        deltaMM = oldWaterDist - currWaterDist;
-    }
- 
-    int pumpedWaterML = calcMl(deltaMM);
-
+    int newWaterAmount = calcMl(newWaterDist);
+    int pumpedWaterML = oldWaterAmount - newWaterAmount;
     // Reuse Datapoint, create new Row in InfluxDB Irrigations Measurement
+    // Reason ? Pump ? Pump Time ? MongoDb instead of InfluxDB ?
     p2.clearTags();
     p2.clearFields();
     p2.addTag("Plant", "Magnolie");
-    // Reason ? Pump ? Pump Time ? MongoDb instead of InfluxDB ?
-    p2.addField("pumpedWaterMM", deltaMM);
     p2.addField("pumpedWaterML", pumpedWaterML);
     influxHelper.writeDataPoint(p2);
 }
@@ -134,18 +130,18 @@ void Cistern::readToF(int distances[])
 
             // Out of Range or Water Tank Physical Limits
             if (measure.RangeStatus == 4 || distance > cisternHeight || distance < 0)
-            {         
+            {
                 validReading = false;
                 j++;
-                
+
                 /*
-                if(toF.timeoutOccurred()) 
-                { 
+                if(toF.timeoutOccurred())
+                {
                     Serial.print("VL530X Timeout");
                     delay(50);
                     continue;
                 }
-                */         
+                */
             }
             else
             {
@@ -158,67 +154,59 @@ void Cistern::readToF(int distances[])
     }
 }
 
+/*
+Sort out the worst Readings
+e.g. avgDistance 80mm, two invalid Readings 77mm, 83mm
+*/
 float Cistern::evaluateToF() // Adafruit_VL53L0X toF
 {
-    float tempAvg, finalAvg;
-    int tolerance = 5; // mm
+    float distancesSum = 0.0f;
+    int tolerance = 2; // mm
     int validSamples = sampleSize;
     int distances[sampleSize];
+    char message[50];
 
     readToF(distances); // Manipulate Array
-    delay(200);
 
-    Serial.print("Measurement VL530X at Address ");
-    Serial.print(toF_address == 0x51 ? "0x51" : "0x52");
-    Serial.print(": ");
-    Serial.println();
+    sprintf(message, "Measure VL530X at: 0x%x", toF_address);
+    Serial.println(message);
 
     for (int i = 0; i < sampleSize; i++)
     {
-        tempAvg += distances[i];
+        distancesSum += distances[i];
         Serial.print(distances[i]);
-        Serial.print(" "); 
+        Serial.print(" ");
     }
     Serial.println();
 
-    tempAvg = tempAvg / sampleSize;  
+    float tempAvg = distancesSum / (sampleSize * 1.0f);
 
     for (int i = 0; i < sampleSize; i++)
     {
-        // e.g. avgDistance 80mm, two invalid Readings 74mm, 86mm
         if (abs(tempAvg - distances[i]) > tolerance)
         {
+            distancesSum -= distances[i];
             distances[i] = -1;
             validSamples -= 1;
         }
-        else
-        {
-            finalAvg += distances[i];
-        }
-        
+
         Serial.print(distances[i]);
-        Serial.print(" ");       
+        Serial.print(" ");
     }
-
-    Serial.println();
-    Serial.print("TempAvg: ");
-    Serial.print(tempAvg);
     Serial.println();
 
-    // > 0 Avoid Divide by 0
-    // > 4 Minimum No. of valid Samples
-    if(validSamples > 4) 
+    float finalAvg;
+    if (validSamples > 4)
     {
-        finalAvg = finalAvg / validSamples;
+        finalAvg = distancesSum / (validSamples * 1.0f);
     }
     else
     {
         finalAvg = 0;
     }
-    
-    Serial.print("FinalAvg: ");
-    Serial.print(finalAvg);
-    Serial.println();
+
+    sprintf(message, "TempAvg: %0.2f, FinalAvg: %0.2f", tempAvg, finalAvg);
+    Serial.println(message);
 
     return finalAvg;
 }

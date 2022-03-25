@@ -30,6 +30,7 @@ Cistern cistern1(0x51, 300, 53.0f); // shut
 Cistern cistern2(0x52, 350, 42.0f);
 Pump pump1(0, pump_PWM_1, cistern1);
 Pump pump2(1, pump_PWM_2, cistern2);
+// Pump pumps[] = {pump1, pump2};
 StatusDisplay displayController;
 
 // Plant plant1(lightSensor2, soilMoisture1);
@@ -100,12 +101,12 @@ void doMeasurements()
   cistern1.setupToF();
 
   // 3. READ GLOBAL MEASUREMENTS
-  // Read Waterlevels
-  if (cistern1.toF.Status == 0)
+  // Only read Waterlevels if Irrigation occured in last FSM Loop?
+  if (cistern1.toF_ready && cistern1.toF.Status == 0)
   {
     cistern1.updateWaterLevel();
   }
-  if (cistern2.toF.Status == 0)
+  if (cistern2.toF_ready && cistern2.toF.Status == 0)
   {
     cistern2.updateWaterLevel();
   }
@@ -463,7 +464,7 @@ bool transitionS4S5()
     {
       return false;
     }
-    pump1.currentState = PumpState::IDLE; // Reset
+    pump1.switchOff(); // Safety
   }
   // else if fanNeeded {...}
   else

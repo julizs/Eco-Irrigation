@@ -20,7 +20,7 @@ class InfluxHelper
     bool checkConnection();
     void writeDataPoint(Point &p);
     void writeBuffer();
-    void doQuery(const char query[]);
+    FluxQueryResult doQuery(const char query[]);
 };
 
 extern InfluxDBClient client;

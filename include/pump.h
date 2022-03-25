@@ -29,7 +29,8 @@ public:
     const char *stateNames[3] = {"PUMP_IDLE", "PUMP_ON", "PUMP_DONE"};
     unsigned long stateBeginMillis, minStateDuration, maxStateDuration;
 
-    DynamicJsonDocument pumpModel;
+    DynamicJsonDocument pumpModel, recentIrrigations;
+    FluxQueryResult cursor;
     int pwmPin, pwmChannel, frequency, resolution, dutyCycle;
 
     Cistern cistern;
@@ -46,10 +47,10 @@ public:
     bool setupIna();
     INAdata readIna();
     void writeIna();
+    void switchOff();
 
 private:
-    void switchOn();
-    void switchOff(); 
+    void switchOn(); 
     void setupPWM();
     bool checkPumpPerformance(unsigned short);
 };

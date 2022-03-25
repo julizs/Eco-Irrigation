@@ -90,7 +90,7 @@ void InfluxHelper::writeBuffer()
   Serial.println("Successfully Wrote Buffer to InfluxDB.");
 }
 
-void InfluxHelper::doQuery(const char query[])
+FluxQueryResult InfluxHelper::doQuery(const char query[])
 {
   FluxQueryResult result = client.query(query);
 
@@ -108,4 +108,6 @@ void InfluxHelper::doQuery(const char query[])
   }
 
   result.close();
+
+  return result;
 }

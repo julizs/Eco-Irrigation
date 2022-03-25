@@ -1,5 +1,11 @@
 #include "Pump.h"
 
+const char query[] = "from (bucket: \"messdaten\")"
+    "|> range(start: -1h)"
+    "|> filter(fn: (r) => r._measurement == \"Environment Data\" and r._field == \"rssi\""
+    " and r.device == \"ESP32\")"
+    "|> min()"; 
+
 Pump::Pump(int pwmChannel, int pwmPin, Cistern& c) : pumpModel(2048), cistern(c)
 {
     this->pwmChannel = pwmChannel;
@@ -51,7 +57,7 @@ INAdata Pump::readIna()
     data.shuntVoltage = abs(ina219.getShuntVoltage_mV() / 1000.0f);
     data.voltage = data.busVoltage + data.shuntVoltage;
     // Constrain to 0 - 10 Ampere, otherwise infinity bug when on USB, InfluxDB fail to write inf
-    data.current = abs(constrain(ina219.getCurrent_mA(), 0, 10000) / 1000.0f);
+    data.current = abs(ina219.getCurrent_mA() / 1000.0f);
     // power_mW = ina219.getPower_mW();
     data.power = data.busVoltage * data.current; // P = U * I
 
@@ -68,6 +74,7 @@ void Pump::writeIna()
     p0.addField("power", inaData.power);
     p0.addField("busVoltage", inaData.busVoltage);
     p0.addField("shuntVoltage", inaData.shuntVoltage);
+    delay(200);
 }
 
 void Pump::loop()
@@ -86,11 +93,28 @@ void Pump::loop()
             {
                 cistern.setupToF();
             }
+
+            // Check recent Irrigations, waterAmount Limit
+            recentIrrigations = Services::doJSONGetRequest("/irrigations");
+            cursor = influxHelper.doQuery(query);
         }
 
         if (millis() - stateBeginMillis >= minStateDuration * 1000UL && wateringNeeded)
         {
-            if (cistern.toF.Status == 0)
+            if (cistern.toF_ready && cistern.toF.Status == 0)
+            {
+                // In both Cases
+                // cistern.updateWaterLevel();
+                // Or stay in IDLE?
+                Serial.println("ToF Sensor could not be Setup.");
+                currentState = PumpState::DONE;
+            }
+            else if(recentIrrigations.isNull())
+            {   
+                Serial.println("Too many recent Irrigations.");
+                currentState = PumpState::DONE;
+            }
+            else
             {
                 if (cistern.validWaterLevel())
                 {
@@ -101,13 +125,7 @@ void Pump::loop()
                     Serial.println("Not enough Water, Irrigation falied.");
                     currentState = PumpState::DONE;
                 }
-                // In both Cases
-                // cistern.updateWaterLevel();
-            }
-            else
-            {
-                Serial.println("ToF Sensor can't be Setup, Irrigation failed.");
-                currentState = PumpState::DONE;
+                
             }
         }
 
@@ -144,17 +162,9 @@ void Pump::loop()
         {
             stateBeginMillis = millis();
             Serial.println(stateNames[(byte)currentState]);
-
-            if (cistern.toF.Status != 0)
-            {
-                // Or Crash if ToF not correctly Setup
-                return;
-            }
-
+    
             // Measure Power before stopping Pump
             writeIna();
-
-            delay(100);
 
             wateringNeeded = false;
 
