@@ -211,21 +211,19 @@ float Cistern::evaluateToF() // Adafruit_VL53L0X toF
     return finalAvg;
 }
 
-float Cistern::readToF_cont()
+void Cistern::readToF_cont(int distances[])
 {
     toF.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_DEFAULT);
 
-    std::vector<int> distances;
+    // std::vector<int> distances;
     int i = 0;
-    float sum = 0.0f;
-    int sampleNum = 8;
 
     toF.startRangeContinuous(100);
-    while (i < sampleNum)
+    while (i < sampleSize)
     {
         int distance = toF.readRange();
-        sum += distance;
-        distances.push_back(distance);
+        //distances.push_back(distance);
+        distances[i] = distance;
         Serial.print(distance);
         Serial.print(" ");
 
@@ -237,9 +235,5 @@ float Cistern::readToF_cont()
     }
 
     toF.stopRangeContinuous();
-
-    float avgDistance = sum / (distances.size() * 1.0f);
-    Serial.print("Avg: ");
-    Serial.println(avgDistance);
-    return avgDistance;
+    // float avgDistance = sum / (distances.size() * 1.0f);
 }

@@ -1,18 +1,16 @@
 #include "Pump.h"
 
+// and r.Plant
 const char query[] = "from (bucket: \"messdaten\")"
     "|> range(start: -1h)"
-    "|> filter(fn: (r) => r._measurement == \"Environment Data\" and r._field == \"rssi\""
+    "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r.Plant == "" and r._field == \"pumpedWaterML\""
     " and r.device == \"ESP32\")"
-    "|> min()"; 
+    "|> min()";
 
-Pump::Pump(int pwmChannel, int pwmPin, Cistern& c) : pumpModel(2048), cistern(c)
+Pump::Pump(int pwmChannel, int pwmPin, Cistern& c) : pumpModel(1024), cistern(c)
 {
     this->pwmChannel = pwmChannel;
     this->pwmPin = pwmPin;
-    frequency = 30000;
-    resolution = 8; // Bits
-    dutyCycle = 200;
     setup();
 }
 
@@ -26,7 +24,9 @@ void Pump::setup()
     */
 
     minStateDuration = 4;
-    maxStateDuration = 10;
+    frequency = 30000;
+    resolution = 8; // Bits
+    dutyCycle = 200;
     currentState = PumpState::IDLE;
 
     setupPWM();
@@ -79,6 +79,10 @@ void Pump::writeIna()
 
 void Pump::loop()
 {
+    DynamicJsonDocument recentIrrigations(1024);
+    // FluxQueryResult cursor;
+    pumpTime = constrain(pumpTime, 2.0f, 15.0f);
+
     switch (currentState)
     {
 
@@ -86,44 +90,41 @@ void Pump::loop()
 
         if (lastState != currentState)
         {
-            stateBeginMillis = millis();
-            Serial.println(stateNames[(byte)currentState]);
+            commonStateLogic();
 
             if(cistern.toF.Status != 0)
             {
                 cistern.setupToF();
             }
 
-            // Check recent Irrigations, waterAmount Limit
+            // Check recent Irrigations for hourly Limits
             recentIrrigations = Services::doJSONGetRequest("/irrigations");
-            cursor = influxHelper.doQuery(query);
+            // cursor = influxHelper.doQuery(query);
         }
 
-        if (millis() - stateBeginMillis >= minStateDuration * 1000UL && wateringNeeded)
+        if (countTime(minStateDuration))
         {
             if (cistern.toF_ready && cistern.toF.Status == 0)
             {
-                // In both Cases
-                // cistern.updateWaterLevel();
-                // Or stay in IDLE?
-                Serial.println("ToF Sensor could not be Setup.");
-                currentState = PumpState::DONE;
+                errorCode = 1;
+                currentState = PumpState::ABORT;
             }
             else if(recentIrrigations.isNull())
             {   
-                Serial.println("Too many recent Irrigations.");
-                currentState = PumpState::DONE;
+                errorCode = 2;
+                currentState = PumpState::ABORT;
             }
             else
             {
                 if (cistern.validWaterLevel())
                 {
+                    errorCode = 0; // None
                     currentState = PumpState::ON;
                 }
                 else
                 {
-                    Serial.println("Not enough Water, Irrigation falied.");
-                    currentState = PumpState::DONE;
+                    errorCode = 3;
+                    currentState = PumpState::ABORT;
                 }
                 
             }
@@ -137,18 +138,22 @@ void Pump::loop()
         // Execute once
         if (lastState != currentState)
         {
-            stateBeginMillis = millis();
-            Serial.println(stateNames[(byte)currentState]);
-
-            // Drive Relais
+            commonStateLogic();
         }
 
         switchOn();
 
-        // minStateTime is up AND (Time is up OR Button pressed again (Stop now!))
-        // Pump shall be in ON State for max. 10s (maxStateTime)
-        if (millis() - stateBeginMillis >= minStateDuration * 1000UL &&
-            ((millis() - stateBeginMillis >= 10 * 1000UL) || wateringNeeded == false)) 
+        // cistern.readToF_cont();
+
+        // Button pressed
+        if(wateringNeeded == false)
+        {
+            errorCode = 4;
+            currentState = PumpState::ABORT;
+        }
+
+        // Check constantly
+        if (countTime(minStateDuration) && countTime(pumpTime))
         {
             currentState = PumpState::DONE;
         }
@@ -160,8 +165,7 @@ void Pump::loop()
 
         if (lastState != currentState)
         {
-            stateBeginMillis = millis();
-            Serial.println(stateNames[(byte)currentState]);
+            commonStateLogic();
     
             // Measure Power before stopping Pump
             writeIna();
@@ -178,6 +182,16 @@ void Pump::loop()
         }
 
         lastState = PumpState::DONE;
+        break;
+
+    case PumpState::ABORT:
+        if (lastState != currentState)
+        {
+            commonStateLogic();
+            Serial.println(errors[errorCode]);
+        }
+
+        lastState = PumpState::ABORT;
         break;
     }
 }
@@ -217,3 +231,14 @@ Pump::checkPumpPerformance(unsigned short lastPumped)
     }
 }
 */
+
+bool Pump::countTime(int durationSec)
+{
+  return (millis() - stateBeginMillis >= durationSec * 1000UL);
+}
+
+void Pump::commonStateLogic()
+{
+    stateBeginMillis = millis();
+    Serial.println(stateNames[(byte)currentState]);
+}

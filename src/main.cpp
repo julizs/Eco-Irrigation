@@ -10,6 +10,7 @@
 #include <ButtonHandler.h>
 #include <Irrigation.h>
 #include <EEPROM.h>
+#include <Utilities.h>
 
 const char baseUrl[] = "https://juli.uber.space/node";
 
@@ -51,37 +52,10 @@ unsigned long lastDebounceTime = 0; // Last time Output Pin was toggled
 unsigned long debounceDelay = 50;   // Increase if Output flickers
 int buttonState, lastButtonState = HIGH; // Initial State is Off
 
-void scanI2CBus(TwoWire *wire)
-{
-  Serial.println("Scanning I2C Addresses Channel: ");
-  uint8_t cnt = 0;
-  for (uint8_t i = 0; i < 128; i++)
-  {
-    wire->beginTransmission(i);
-    uint8_t ec = wire->endTransmission(true);
-    if (ec == 0)
-    {
-      if (i < 16)
-        Serial.print('0');
-      Serial.print(i, HEX);
-      cnt++;
-    }
-    else
-      Serial.print("..");
-    Serial.print(' ');
-    if ((i & 0x0f) == 0x0f)
-      Serial.println();
-  }
-  Serial.print("Scan Completed, ");
-  Serial.print(cnt);
-  Serial.println(" I2C Devices found.");
-}
-
 void doMeasurements()
 {
-  scanI2CBus(&I2Cone);
-  scanI2CBus(&I2Ctwo);
-
+  Utilities::scanI2CBus(&I2Cone);
+  Utilities::scanI2CBus(&I2Ctwo);
   // ESP32 GLOBAL MEASUREMENTS
   // 1. Prepare to reuse datapoint
   if (!p0.hasTags())
@@ -270,18 +244,19 @@ void checkConnections()
 void commonStateLogic()
 {
   Serial.println(stateNames[fsm.currentState]);
-  // checkConnections();
   stateBeginMillis = millis();
 
   // checkWebButtons();
 
+  // Safety
+  pump1.switchOff();
   digitalWrite(Relais[0], HIGH);
   digitalWrite(Relais[1], HIGH);
 }
 
-bool countTime(int duration)
+bool countTime(int durationSec)
 {
-  return (millis() - stateBeginMillis >= duration * 1000UL);
+  return (millis() - stateBeginMillis >= durationSec * 1000UL);
 }
 
 // STATE LOGIC
@@ -439,7 +414,7 @@ bool transitionS2S3()
 
 bool transitionS3S1()
 {
-  if (countTime(MIN_STATE_DURATION && !wateringNeeded)) // && !fanNeeded && ...
+  if (countTime(MIN_STATE_DURATION) && !wateringNeeded) // && !fanNeeded && ...
   {
     return true;
   }
@@ -448,7 +423,7 @@ bool transitionS3S1()
 
 bool transitionS3S4()
 {
-  if (countTime(MIN_STATE_DURATION && wateringNeeded)) // || fanNeeded || ...
+  if (countTime(MIN_STATE_DURATION) && wateringNeeded) // || fanNeeded || ...
   {
     return true;
   }
@@ -460,11 +435,10 @@ bool transitionS4S5()
   // min State Duration must be over AND Pump done, Fan done, ...
   if (wateringNeeded)
   {
-    if (!(pump1.lastState == PumpState::DONE))
+    if (!(pump1.lastState == PumpState::DONE) || !(pump1.lastState == PumpState::ABORT))
     {
       return false;
-    }
-    pump1.switchOff(); // Safety
+    } 
   }
   // else if fanNeeded {...}
   else

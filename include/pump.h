@@ -8,7 +8,8 @@ enum class PumpState
 {
     IDLE,
     ON,
-    DONE
+    DONE,
+    ABORT
 };
 
 struct INAdata
@@ -26,12 +27,15 @@ class Pump
 public:
 
     PumpState currentState, lastState;
-    const char *stateNames[3] = {"PUMP_IDLE", "PUMP_ON", "PUMP_DONE"};
-    unsigned long stateBeginMillis, minStateDuration, maxStateDuration;
+    const char *stateNames[4] = {"PUMP_IDLE", "PUMP_ON", "PUMP_DONE", "PUMP_ABORT"};
+    char *errors[5] = {"None","ToF Setup failed.","Network Request failed.", 
+    "Water not sufficient.", "Irrigation aborted by User."};
+    unsigned short errorCode, minStateDuration;
+    unsigned long stateBeginMillis;
 
-    DynamicJsonDocument pumpModel, recentIrrigations;
-    FluxQueryResult cursor;
+    DynamicJsonDocument pumpModel;
     int pwmPin, pwmChannel, frequency, resolution, dutyCycle;
+    float pumpTime;
 
     Cistern cistern;
     Adafruit_INA219 ina219;
@@ -53,6 +57,8 @@ private:
     void switchOn(); 
     void setupPWM();
     bool checkPumpPerformance(unsigned short);
+    bool countTime(int durationSec);
+    void commonStateLogic();
 };
 
 #endif // Pump_h
