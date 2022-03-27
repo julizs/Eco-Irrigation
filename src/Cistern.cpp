@@ -20,7 +20,7 @@ void Cistern::setupToF()
     */
     int attempts = 0;
 
-    if (toF_ready == false || toF.Status != 0) // 0 = VL53L0X_ERROR_NONE
+    if (toF_ready == false || toF.Status != VL53L0X_ERROR_NONE)
     {
         while (attempts < 4)
         {
@@ -68,7 +68,7 @@ int Cistern::updateWaterLevel()
     // else keep old Datapoint as current
     if (measurement != 0)
     {
-        currWaterDist = evaluateToF();
+        currWaterDist = measurement;
 
         char key1[25], key2[25];
         sprintf(key1, "waterDistance 0x%x", this->toF_address);
@@ -93,7 +93,6 @@ void Cistern::updateIrrigations()
     int oldWaterDist = currWaterDist;
     int oldWaterAmount = calcMl(oldWaterDist);
     int newWaterDist = updateWaterLevel();
-    int deltaMM = 0;
 
     int newWaterAmount = calcMl(newWaterDist);
     int pumpedWaterML = oldWaterAmount - newWaterAmount;
@@ -229,8 +228,10 @@ void Cistern::readToF_cont(int distances[])
 
         if (toF.timeoutOccurred())
         {
-            Serial.print(" TIMEOUT");
+            Serial.print("ToF Timeout");
         }
+
+        // isRangeComplete, waitRangeComplete ?
         i++;
     }
 

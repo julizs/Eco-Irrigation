@@ -33,7 +33,8 @@ void AmbientLight::setupTSL2591(TwoWire &bus)
       Serial.print(tsl.getGain());
       Serial.println();
       Serial.print("Timing: ");
-      Serial.print(((tsl.getTiming() + 1) * 100, DEC));
+      long timing = (tsl.getTiming() + 1) * 100;
+      Serial.print(timing);
       Serial.println();
 
       Serial.print("did Setup tsl2591 with ID: ");

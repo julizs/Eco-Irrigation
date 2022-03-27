@@ -57,7 +57,7 @@ void doMeasurements()
   Utilities::scanI2CBus(&I2Cone);
   Utilities::scanI2CBus(&I2Ctwo);
   // ESP32 GLOBAL MEASUREMENTS
-  // 1. Prepare to reuse datapoint
+  // 1. Reuse datapoint
   if (!p0.hasTags())
   {
     p0.addTag("device", DEVICE);
@@ -70,22 +70,20 @@ void doMeasurements()
   lightSensor1.setupTSL2591(I2Cone);
   lightSensor2.setupTSL2591(I2Ctwo);
 
-  // Redo setup after Wakeup only if necessary
+  // Redo Setup after Wakeup only if necessary
   cistern2.setupToF();
   cistern1.setupToF();
 
   // 3. READ GLOBAL MEASUREMENTS
-  // Only read Waterlevels if Irrigation occured in last FSM Loop?
-  if (cistern1.toF_ready && cistern1.toF.Status == 0)
+  if (cistern1.toF.Status == VL53L0X_ERROR_NONE)
   {
     cistern1.updateWaterLevel();
   }
-  if (cistern2.toF_ready && cistern2.toF.Status == 0)
+  if (cistern2.toF.Status == VL53L0X_ERROR_NONE)
   {
     cistern2.updateWaterLevel();
   }
 
-  // Read Rssi
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
 
@@ -98,21 +96,7 @@ void doMeasurements()
   // 1. Get User-assigned Plant-Sensor Assignments and voltageRanges of moistureSensors
   DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/json");
   DynamicJsonDocument moistureSensors = Services::doJSONGetRequest("/moistureSensors");
-
-  /*
-  https://arduinojson.org/v6/api/staticjsondocument/
-  https://arduinojson.org/v6/how-to/store-a-json-document-in-eeprom/
-  https://arduinojson.org/v6/how-to/determine-the-capacity-of-the-jsondocument/
-  https://arduinojson.org/v6/assistant/
-  EEPROM library on the ESP32 allows using at most 1 sector (4kB, 4096 Bytes) of Flash
-  https://juli.uber.space/node/plants/json , Rohdaten
-  Copy Paste into ArduinoJson Assistant to see recommended Size (Bytes)
-  StaticJsonDocument<1024> doc
-  DynamicJsonDocument(2048);
-  */
-  EepromStream eepromStream(0, 1024); // Address 0, 1024 Bytes
-  serializeJson(plants, eepromStream);
-  EEPROM.commit();
+  Utilities::writeFlash(plants);
 
   // 3. Measure (only) assigned Sensors from each plant
   Point p("Plant Data");
@@ -210,6 +194,7 @@ Read User Commands and Settings, but take Actions later in Action State
 */
 void checkUserCommands()
 {
+  /*
   DynamicJsonDocument commands = Services::doJSONGetRequest("/commands");
 
   // Solenoid
@@ -225,6 +210,7 @@ void checkUserCommands()
   int displayContent = commands[0]["StatusLight"][1];
 
   // Reset all Commands...
+  */
 }
 
 void updateIP()
@@ -295,20 +281,10 @@ void on_sleepState()
     // ESP.deepSleep(30e6); // Connect Sleep Cable AFTER Uploading Code
     // checkConnections();
     // didSleep = true;
-
-    DynamicJsonDocument plants(1024);
-    EepromStream eepromStream(0, 1024);
-    deserializeJson(plants, eepromStream);
-    for (int i = 0; i < plants.size(); i++)
-    {
-      String plantName = plants[i]["name"].as<String>();
-      Serial.print("Plant: ");
-      Serial.println(plantName);
-    }
   }
+
   // Simulate Sleep
-  // Serial.print(".");
-  if (millis() - stateBeginMillis >= SLEEP_INTERVAL * 1000UL)
+  if (countTime(SLEEP_INTERVAL))
   {
     didSleep = true;
   }
@@ -339,10 +315,14 @@ void on_actionState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
+    if(wateringNeeded) 
+    {
+      // Reset State (so that first Execute Once gets called)
+      pump1.currentState = PumpState::IDLE;
+    }
   }
 
-  // Run (multiple) sub-StateMachines (Pump, Fan, ...) and wait
-
+  // Run Sub-StateMachines (Pump, Fan, ...)
   // Check Irrigation Events and run them one after another
   if (wateringNeeded)
   {
@@ -435,20 +415,21 @@ bool transitionS4S5()
   // min State Duration must be over AND Pump done, Fan done, ...
   if (wateringNeeded)
   {
-    if (!(pump1.lastState == PumpState::DONE) || !(pump1.lastState == PumpState::ABORT))
+    if (pump1.lastState == PumpState::DONE || pump1.lastState == PumpState::ABORT)
     {
-      return false;
-    } 
+      return true;
+    }
+    return false;
   }
   // else if fanNeeded {...}
   else
   {
-    if (!countTime(MIN_STATE_DURATION))
+    if (countTime(MIN_STATE_DURATION))
     {
-      return false;
+      return true;
     }
+    return false;
   }
-  return true;
 }
 
 bool transitionS5S2()
@@ -488,7 +469,7 @@ void setup()
   digitalWrite(toF_shut, LOW);
 
   // Init (LOW-Trigger) Relais
-  for (int i = 0; i < sizeof(Relais); i++)
+  for (int i = 0; i < 2; i++)
   {
     pinMode(Relais[i], OUTPUT);
     digitalWrite(Relais[i], HIGH);

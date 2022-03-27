@@ -25,3 +25,35 @@ void Utilities::scanI2CBus(TwoWire *wire)
   Serial.print(cnt);
   Serial.println(" I2C Devices found.");
 }
+
+void Utilities::writeFlash(DynamicJsonDocument &doc)
+{
+  /*
+  https://arduinojson.org/v6/api/staticjsondocument/
+  https://arduinojson.org/v6/how-to/store-a-json-document-in-eeprom/
+  https://arduinojson.org/v6/how-to/determine-the-capacity-of-the-jsondocument/
+  https://arduinojson.org/v6/assistant/
+  EEPROM library on the ESP32 allows using at most 1 sector (4kB, 4096 Bytes) of Flash
+  Copy Paste Json into ArduinoJson Assistant to see recommended Size (Bytes)
+  StaticJsonDocument<1024> doc
+  DynamicJsonDocument(2048);
+  */
+  EepromStream eepromStream(0, 1024); // Address 0, Size 1024 Bytes
+  serializeJson(doc, eepromStream);
+  EEPROM.commit();
+}
+
+DynamicJsonDocument Utilities::readFlash(int address)
+{
+  DynamicJsonDocument doc(1024);
+  EepromStream eepromStream(address, 1024);
+  deserializeJson(doc, eepromStream);
+
+  for (int i = 0; i < doc.size(); i++)
+  {
+    String itemName = doc[i]["name"].as<String>();
+    Serial.println(itemName);
+  }
+
+  return doc;
+}

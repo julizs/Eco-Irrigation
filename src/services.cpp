@@ -42,7 +42,7 @@ bool Services::getWifiStatus()
   return WiFi.status() == WL_CONNECTED;
 }
 
-void Services::doGetRequest(char url[])
+void Services::doGetRequest(char const url[])
 {
   if (WiFi.status() == WL_CONNECTED)
   {
@@ -76,7 +76,7 @@ void Services::doGetRequest(char url[])
 }
 
 // https://randomnerdtutorials.com/esp32-http-get-post-arduino/
-void Services::doPostRequest(char endpoint[])
+void Services::doPostRequest(char const endpoint[])
 {
   char requestUrl[50] = "";
   strcat(requestUrl, baseUrl);
@@ -116,7 +116,7 @@ void Services::doPostRequest(char endpoint[])
 }
 
 // https://arduinojson.org/v6/how-to/use-arduinojson-with-httpclient/
-DynamicJsonDocument Services::doJSONGetRequest(char endpoint[])
+DynamicJsonDocument Services::doJSONGetRequest(char const endpoint[]) // char endpoint[]
 {
   char requestUrl[50] = "";
   strcat(requestUrl, baseUrl);

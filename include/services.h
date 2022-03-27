@@ -31,9 +31,9 @@ class Services
 
     static void setupWifi();
     static void setupWifiMulti();
-    static void doGetRequest(char url[]);
-    static void doPostRequest(char url[]);
-    static DynamicJsonDocument doJSONGetRequest(char url[]);
+    static void doGetRequest(char const url[]);
+    static void doPostRequest(char const url[]);
+    static DynamicJsonDocument doJSONGetRequest(char const url[]);
     static bool getWifiStatus();
     static bool getWifiMultiStatus();
 };

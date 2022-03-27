@@ -27,7 +27,8 @@ void Pump::setup()
     frequency = 30000;
     resolution = 8; // Bits
     dutyCycle = 200;
-    currentState = PumpState::IDLE;
+    lastState = (PumpState)-1;
+    pumpTime = constrain(pumpTime, 2.0f, 15.0f);
 
     setupPWM();
 }
@@ -56,7 +57,6 @@ INAdata Pump::readIna()
     data.busVoltage = ina219.getBusVoltage_V();
     data.shuntVoltage = abs(ina219.getShuntVoltage_mV() / 1000.0f);
     data.voltage = data.busVoltage + data.shuntVoltage;
-    // Constrain to 0 - 10 Ampere, otherwise infinity bug when on USB, InfluxDB fail to write inf
     data.current = abs(ina219.getCurrent_mA() / 1000.0f);
     // power_mW = ina219.getPower_mW();
     data.power = data.busVoltage * data.current; // P = U * I
@@ -66,7 +66,6 @@ INAdata Pump::readIna()
 
 void Pump::writeIna()
 {
-    // Tags?
     // p.clearFields();
     INAdata inaData = readIna();
     p0.addField("voltage", inaData.voltage);
@@ -79,10 +78,6 @@ void Pump::writeIna()
 
 void Pump::loop()
 {
-    DynamicJsonDocument recentIrrigations(1024);
-    // FluxQueryResult cursor;
-    pumpTime = constrain(pumpTime, 2.0f, 15.0f);
-
     switch (currentState)
     {
 
@@ -92,28 +87,33 @@ void Pump::loop()
         {
             commonStateLogic();
 
-            if(cistern.toF.Status != 0)
+            if(cistern.toF.Status != VL53L0X_ERROR_NONE)
             {
+                // Resetup if toF already works -> Crash
                 cistern.setupToF();
             }
 
             // Check recent Irrigations for hourly Limits
-            recentIrrigations = Services::doJSONGetRequest("/irrigations");
+            // DynamicJsonDocument recentIrrigations(1024);
+            // recentIrrigations = Services::doJSONGetRequest("/irrigations");
+            // FluxQueryResult cursor;
             // cursor = influxHelper.doQuery(query);
         }
 
         if (countTime(minStateDuration))
         {
-            if (cistern.toF_ready && cistern.toF.Status == 0)
+            if (cistern.toF.Status != VL53L0X_ERROR_NONE)
             {
                 errorCode = 1;
                 currentState = PumpState::ABORT;
             }
+            /*
             else if(recentIrrigations.isNull())
             {   
                 errorCode = 2;
                 currentState = PumpState::ABORT;
             }
+            */
             else
             {
                 if (cistern.validWaterLevel())
@@ -125,8 +125,7 @@ void Pump::loop()
                 {
                     errorCode = 3;
                     currentState = PumpState::ABORT;
-                }
-                
+                }  
             }
         }
 
@@ -135,15 +134,16 @@ void Pump::loop()
 
     case PumpState::ON:
 
-        // Execute once
         if (lastState != currentState)
         {
             commonStateLogic();
+            // Call only once
+            // cistern.readToF_cont();
         }
 
         switchOn();
-
-        // cistern.readToF_cont();
+       
+        // cistern.measureWaterFlow();
 
         // Button pressed
         if(wateringNeeded == false)
@@ -175,10 +175,10 @@ void Pump::loop()
             switchOff();
 
             // Write to InfluxDB (Ina and ToF to p0) AFTER turning off pump
-
             influxHelper.writeDataPoint(p0);
-            
-            cistern.updateIrrigations(); // Datapoint p2
+
+            // If ToF not correctly Setup (but Status == ERROR_NONE) -> Crash
+            cistern.updateIrrigations();
         }
 
         lastState = PumpState::DONE;
@@ -242,3 +242,14 @@ void Pump::commonStateLogic()
     stateBeginMillis = millis();
     Serial.println(stateNames[(byte)currentState]);
 }
+
+/*
+NO other Instructions inside loop(), gets called every Instruction
+
+lastState = (PumpState)-1;
+Enums cannot be set to null, initial Value is always 0 (so PumpState.IDLE)
+Set to -1 so that lastState != currentState gets triggered after Bootup
+
+Problem: toF.Status == 0, even if not Setup -> Crash when Measuring
+if not also toF.ready checked
+*/

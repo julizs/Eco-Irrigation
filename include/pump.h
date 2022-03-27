@@ -6,7 +6,7 @@
 
 enum class PumpState
 {
-    IDLE,
+    IDLE = 0,
     ON,
     DONE,
     ABORT
@@ -27,8 +27,8 @@ class Pump
 public:
 
     PumpState currentState, lastState;
-    const char *stateNames[4] = {"PUMP_IDLE", "PUMP_ON", "PUMP_DONE", "PUMP_ABORT"};
-    char *errors[5] = {"None","ToF Setup failed.","Network Request failed.", 
+    char const *stateNames[4] = {"PUMP_IDLE", "PUMP_ON", "PUMP_DONE", "PUMP_ABORT"};
+    char const *errors[5] = {"None","ToF Setup failed.","Network Request failed.",
     "Water not sufficient.", "Irrigation aborted by User."};
     unsigned short errorCode, minStateDuration;
     unsigned long stateBeginMillis;
