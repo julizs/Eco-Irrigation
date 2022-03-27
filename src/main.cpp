@@ -1,11 +1,11 @@
 #include <main.h>
+#include <StateMachine.h>
 #include <AmbientClimate.h>
 #include <SoilMoisture.h>
 #include <AmbientLight.h>
 #include <Pump.h>
 #include <StatusDisplay.h>
 #include <LinkedList.h>
-#include <StateMachine.h>
 #include <ArduinoJson.h>
 #include <ButtonHandler.h>
 #include <Irrigation.h>
@@ -49,11 +49,6 @@ State *initState, *sleepState, *measureState, *evaluateState, *actionState, *fin
 const char *stateNames[] = {"INIT", "SLEEP", "MEASURE", "EVALUATE", "ACTION", "FINISH"};
 bool wateringNeeded, didSleep, didCycle;
 unsigned long stateBeginMillis = 0;
-
-// Debouncing
-unsigned long lastDebounceTime = 0;      // Last time Output Pin was toggled
-unsigned long debounceDelay = 50;        // Increase if Output flickers
-int buttonState, lastButtonState = HIGH; // Initial State is Off
 
 void doMeasurements()
 {
@@ -146,72 +141,6 @@ void doMeasurements()
 
     influxHelper.writeDataPoint(p);
   }
-}
-
-void handleHardwareButtons()
-{
-  int reading = digitalRead(button1Pin);
-
-  // If Switch changed, due to Noise or Pressing:
-  if (reading != lastButtonState)
-  {
-    // Reset Debouncing Timer
-    lastDebounceTime = millis();
-  }
-
-  // Debouncing
-  if ((millis() - lastDebounceTime) > debounceDelay)
-  {
-    if (reading != buttonState)
-    {
-      buttonState = reading;
-
-      if (buttonState == LOW)
-      {
-        Serial.println("Pump Button pressed!");
-
-        if (!wateringNeeded)
-        {
-          wateringNeeded = true;
-        }
-        else
-        {
-          wateringNeeded = false;
-        }
-
-        if (fsm.currentState != 4) // otherwise ACTION state before PUMP_IDLE when pressed while Pumping
-        {
-          fsm.transitionTo(actionState);
-        }
-      }
-    }
-  }
-  lastButtonState = reading;
-}
-
-/*
-Read User Commands and Settings, but take Actions later in Action State
-(e.g. Water Level needs to be checked first before Pump)
-*/
-void checkUserCommands()
-{
-  /*
-  DynamicJsonDocument commands = Services::doJSONGetRequest("/commands");
-
-  // Solenoid
-  int relaisChannel = commands[0]["SolenoidValve"][0];
-  bool relaisState = commands[0]["SolenoidValve"][1];
-
-  // Irrigation (Plant or Pump)
-  const char *irrSubject = commands[0]["Irrigation"][0];
-  int irrAmount = commands[0]["Irrigation"][1];
-
-  // Status Light
-  const char *display = commands[0]["StatusLight"][0];
-  int displayContent = commands[0]["StatusLight"][1];
-
-  // Reset all Commands...
-  */
 }
 
 void updateIP()
@@ -541,7 +470,7 @@ void loop()
   displayController.displayPlantStatus();
 
   // Check constantly in all States and Sub StateMachines:
-  handleHardwareButtons();
+  ButtonHandler::handleHardwareButtons();
 
   // delay(100);
 }
