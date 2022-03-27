@@ -12,6 +12,12 @@
 #include <EEPROM.h>
 #include <Utilities.h>
 
+#define SLEEPTYPE 1 // Light Sleep or Modem Sleep
+#define LOCALSAVE 1 // Save ArduinoJson Files on Flash
+const int SLEEP_DURATION = 16;
+const int MEASURE_INTERVAL = 2;
+const int MIN_STATE_DURATION = 2;
+
 const char baseUrl[] = "https://juli.uber.space/node";
 
 TaskHandle_t Task1, Task2;
@@ -36,20 +42,17 @@ StatusDisplay displayController;
 
 // Plant plant1(lightSensor2, soilMoisture1);
 // Plant plant2(lightSensor2, soilMoisture2);
-// std::vector<Plant> plants{plant1, plant2};   
+// std::vector<Plant> plants{plant1, plant2};
 
 StateMachine fsm = StateMachine();
 State *initState, *sleepState, *measureState, *evaluateState, *actionState, *finishState;
 const char *stateNames[] = {"INIT", "SLEEP", "MEASURE", "EVALUATE", "ACTION", "FINISH"};
 bool wateringNeeded, didSleep, didCycle;
 unsigned long stateBeginMillis = 0;
-const int SLEEP_INTERVAL = 4;
-const int MEASURE_INTERVAL = 2;
-const int MIN_STATE_DURATION = 2;
 
 // Debouncing
-unsigned long lastDebounceTime = 0; // Last time Output Pin was toggled
-unsigned long debounceDelay = 50;   // Increase if Output flickers
+unsigned long lastDebounceTime = 0;      // Last time Output Pin was toggled
+unsigned long debounceDelay = 50;        // Increase if Output flickers
 int buttonState, lastButtonState = HIGH; // Initial State is Off
 
 void doMeasurements()
@@ -89,8 +92,6 @@ void doMeasurements()
 
   // 4. WRITE GLOBAL MEASUREMENTS
   influxHelper.writeDataPoint(p0);
-
-
 
   // PLANT-SPECIFIC MEASUREMENTS
   // 1. Get User-assigned Plant-Sensor Assignments and voltageRanges of moistureSensors
@@ -272,22 +273,39 @@ void on_initState()
   }
 }
 
+/*
+https://lastminuteengineers.com/esp32-sleep-modes-power-consumption/
+https://m1cr0lab-esp32.github.io/sleep-modes/
+1 = Low to High, 0 = High to Low. Pin pulled HIGH
+esp_sleep_enable_ext0_wakeup(GPIO_NUM_34, 0);
+*/
 void on_sleepState()
 {
   if (fsm.executeOnce)
   {
     didSleep = false;
     commonStateLogic();
-    // ESP.deepSleep(30e6); // Connect Sleep Cable AFTER Uploading Code
-    // checkConnections();
-    // didSleep = true;
-  }
+    // ESP.deepSleep(30e6);
 
-  // Simulate Sleep
-  if (countTime(SLEEP_INTERVAL))
-  {
-    didSleep = true;
+    if (SLEEPTYPE == 0) // Modem Sleep
+    {
+    
+    }
+    else if (SLEEPTYPE == 1) // Light Sleep
+    {
+      // µs (microseconds) 
+      esp_sleep_enable_timer_wakeup(SLEEP_DURATION * 1000);
+      delay(100); // Else no Wakeup
+      esp_light_sleep_start();
+      // Resume Program, Connections and States were kept
+    }
   }
+  
+  if (SLEEPTYPE == -1)  // Simulate Sleep
+  {
+    while (!countTime(SLEEP_DURATION)) {}
+  }
+  didSleep = true;
 }
 
 void on_measureState()
@@ -315,7 +333,7 @@ void on_actionState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    if(wateringNeeded) 
+    if (wateringNeeded)
     {
       // Reset State (so that first Execute Once gets called)
       pump1.currentState = PumpState::IDLE;
@@ -343,10 +361,10 @@ void on_finishState()
     didCycle = true;
 
     const char query[] = "from (bucket: \"messdaten\")"
-    "|> range(start: -1h)"
-    "|> filter(fn: (r) => r._measurement == \"Environment Data\" and r._field == \"rssi\""
-    " and r.device == \"ESP32\")"
-    "|> min()";
+                         "|> range(start: -1h)"
+                         "|> filter(fn: (r) => r._measurement == \"Environment Data\" and r._field == \"rssi\""
+                         " and r.device == \"ESP32\")"
+                         "|> min()";
 
     influxHelper.doQuery(query);
   }
@@ -443,7 +461,7 @@ bool transitionS5S2()
 
 void runStateMachine(void *pvParameters)
 {
-  for(;;) 
+  for (;;)
   {
     fsm.run();
     delay(1);
@@ -519,7 +537,7 @@ void loop()
   // fsm.run();
 
   ButtonHandler::webServer.handleClient();
-  
+
   displayController.displayPlantStatus();
 
   // Check constantly in all States and Sub StateMachines:
