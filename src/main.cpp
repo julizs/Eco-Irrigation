@@ -50,6 +50,12 @@ const char *stateNames[] = {"INIT", "SLEEP", "MEASURE", "EVALUATE", "ACTION", "F
 bool wateringNeeded, didSleep, didCycle;
 unsigned long stateBeginMillis = 0;
 
+void setupToFs()
+{
+  cistern2.setupToF();
+  cistern1.setupToF();
+}
+
 void doMeasurements()
 {
   Utilities::scanI2CBus(&I2Cone);
@@ -69,15 +75,14 @@ void doMeasurements()
   lightSensor2.setupTSL2591(I2Ctwo);
 
   // Redo Setup after Wakeup only if necessary
-  cistern2.setupToF();
-  cistern1.setupToF();
+  setupToFs();
 
   // 3. READ GLOBAL MEASUREMENTS
-  if (cistern1.toF.Status == VL53L0X_ERROR_NONE)
+  if (cistern1.toF_ready)
   {
     cistern1.updateWaterLevel();
   }
-  if (cistern2.toF.Status == VL53L0X_ERROR_NONE)
+  if (cistern2.toF_ready)
   {
     cistern2.updateWaterLevel();
   }
@@ -223,7 +228,7 @@ void on_sleepState()
     else if (SLEEPTYPE == 1) // Light Sleep
     {
       // µs (microseconds) 
-      esp_sleep_enable_timer_wakeup(SLEEP_DURATION * 1000);
+      esp_sleep_enable_timer_wakeup(SLEEP_DURATION * 1000 * 1000);
       delay(100); // Else no Wakeup
       esp_light_sleep_start();
       // Resume Program, Connections and States were kept
@@ -459,6 +464,8 @@ void setup()
       &Task2, // Task handle.
       0       // Core where task runs
   );
+
+  pump1.add_callback(setupToFs);
 }
 
 void loop()

@@ -29,7 +29,7 @@ void Cistern::setupToF()
                 shutToF();
                 delay(100);
             }
-            if (!toF.begin(toF_address, &I2Cone)) // &I2Cone
+            if (!toF.begin(toF_address, &I2Cone))
             {
                 Serial.println("Failed to boot toF at" + toF_address);
                 toF_ready = false;
@@ -41,7 +41,7 @@ void Cistern::setupToF()
                 toF_ready = true;
                 return;
             }
-            delay(1000);
+            // delay(500);
         }
     }
 }
@@ -107,7 +107,7 @@ void Cistern::updateIrrigations()
 
 void Cistern::readToF(int distances[])
 {
-    toF.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY);
+    toF.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY); // 200ms
     // Serial.println(toF_1.getMeasurementTimingBudgetMicroSeconds());
     // toF_1.setMeasurementTimingBudgetMicroSeconds(300000);
 
@@ -123,32 +123,28 @@ void Cistern::readToF(int distances[])
 
         while (!validReading && j < 3)
         {
-            // toF.rangingTest(&measure, false);
-            // distance = measure.RangeMilliMeter;
-            distance = toF.readRange();
+            VL53L0X_Error err = toF.rangingTest(&measure, false);
+            // while(toF.waitRangeComplete()) {}
+
+            if(err == VL53L0X_ERROR_NONE)
+            {
+                distance = measure.RangeMilliMeter;
+            }
+            
+            // distance = toF.readRange();
 
             // Out of Range or Water Tank Physical Limits
-            if (measure.RangeStatus == 4 || distance > cisternHeight || distance < 0)
+            if (measure.RangeStatus == 4 || distance > cisternHeight || distance <= 0)
             {
                 validReading = false;
-                j++;
-
-                /*
-                if(toF.timeoutOccurred())
-                {
-                    Serial.print("VL530X Timeout");
-                    delay(50);
-                    continue;
-                }
-                */
+                j++;   
             }
             else
             {
                 validReading = true;
                 distances[i] = distance;
             }
-
-            delay(100);
+            // delay(200);
         }
     }
 }

@@ -24,12 +24,12 @@ struct INAdata
 
 class Pump
 {
+    using callback = void (*)(); //function pointer
 public:
-
     PumpState currentState, lastState;
     char const *stateNames[4] = {"PUMP_IDLE", "PUMP_ON", "PUMP_DONE", "PUMP_ABORT"};
-    char const *errors[5] = {"None","ToF Setup failed.","Network Request failed.",
-    "Water not sufficient.", "Irrigation aborted by User."};
+    char const *errors[5] = {"None", "ToF Setup failed.", "Network Request failed.",
+                             "Water not sufficient.", "Irrigation aborted by User."};
     unsigned short errorCode, minStateDuration;
     unsigned long stateBeginMillis;
 
@@ -42,23 +42,25 @@ public:
     float voltage_V, shuntVoltage_mV, busVoltage_V;
     float current_mA, power_mW;
 
-    Pump(int pwmChannel, int pwmPin, Cistern& cistern);
+    Pump(int pwmChannel, int pwmPin, Cistern &cistern);
     void setup();
     void loop();
-    void prepareIrrigation(const char* plantGroup, int irrigationAmount);
-    void doIrrigation(const char* pumpName, int irrigationAmount); 
+    void prepareIrrigation(const char *plantGroup, int irrigationAmount);
+    void doIrrigation(const char *pumpName, int irrigationAmount);
 
     bool setupIna();
     INAdata readIna();
     void writeIna();
     void switchOff();
+    void add_callback(callback act);
 
 private:
-    void switchOn(); 
+    void switchOn();
     void setupPWM();
     bool checkPumpPerformance(unsigned short);
     bool countTime(int durationSec);
     void commonStateLogic();
+    callback setupToFs;
 };
 
 #endif // Pump_h

@@ -10,11 +10,7 @@ void Services::setupWifiMulti()
   wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
 
   Serial.print("Connecting to wifi");
-  while (wifiMulti.run() != WL_CONNECTED)
-  {
-    Serial.print(".");
-    delay(100);
-  }
+  while (wifiMulti.run() != WL_CONNECTED) {}
   Serial.println();
 }
 
@@ -23,11 +19,7 @@ void Services::setupWifi()
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.println("Connecting to WiFi");
 
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(100);
-    Serial.print(".");
-  }
+  while (WiFi.status() != WL_CONNECTED) {}
   Serial.println();
   Serial.println("Connected to the WiFi network");
 }

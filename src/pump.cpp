@@ -87,11 +87,7 @@ void Pump::loop()
         {
             commonStateLogic();
 
-            if(cistern.toF.Status != VL53L0X_ERROR_NONE)
-            {
-                // Resetup if toF already works -> Crash
-                cistern.setupToF();
-            }
+            setupToFs();
 
             // Check recent Irrigations for hourly Limits
             // DynamicJsonDocument recentIrrigations(1024);
@@ -102,6 +98,7 @@ void Pump::loop()
 
         if (countTime(minStateDuration))
         {
+            Serial.println(cistern.toF.Status);
             if (cistern.toF.Status != VL53L0X_ERROR_NONE)
             {
                 errorCode = 1;
@@ -250,6 +247,11 @@ lastState = (PumpState)-1;
 Enums cannot be set to null, initial Value is always 0 (so PumpState.IDLE)
 Set to -1 so that lastState != currentState gets triggered after Bootup
 
-Problem: toF.Status == 0, even if not Setup -> Crash when Measuring
-if not also toF.ready checked
+Problem: cistern.toF.Status != VL53L0X_ERROR_NONE is true, even if no Setup -> 
+Crash when Measuring if not also toF.ready checked
 */
+
+void Pump::add_callback(callback func)
+   {
+      setupToFs = func;
+   }
