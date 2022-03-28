@@ -133,7 +133,7 @@ void Cistern::readToF(int distances[])
             
             // distance = toF.readRange();
 
-            // Out of Range or Water Tank Physical Limits
+            // Exclude bad measurements (0, 11114335), so they dont mess up the tmpAvg
             if (measure.RangeStatus == 4 || distance > cisternHeight || distance <= 0)
             {
                 validReading = false;

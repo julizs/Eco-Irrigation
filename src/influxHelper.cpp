@@ -30,18 +30,27 @@ void InfluxHelper::setParameters()
 
 bool InfluxHelper::checkConnection()
 {
-  if (client.validateConnection())
+  if(!Services::getWifiStatus()) {Services::setupWifi(); }
+
+  int attempts = 0;
+
+  while (attempts < 3)
   {
-    Serial.print("Connected to InfluxDB: ");
-    Serial.println(client.getServerUrl());
-    return true;
+    long begin = millis();
+    Serial.println("Trying to connect to InfluxDB.");
+    if(client.validateConnection());
+    {
+      Serial.print("Connected to: ");
+      Serial.println(client.getServerUrl());
+      return true;
+    }
+    while(!Services::countTime(begin, 2)) {}
+    attempts++;
   }
-  else
-  {
-    Serial.print("InfluxDB connection failed: ");
-    Serial.println(client.getLastErrorMessage());
-    return false;
-  }
+
+  Serial.print("InfluxDB connection failed: ");
+  Serial.println(client.getLastErrorMessage());
+  return false;
 }
 
 void InfluxHelper::writeDataPoint(Point &p)
@@ -65,29 +74,27 @@ void InfluxHelper::writeDataPoint(Point &p)
 
 /*
 Write all Datapoints from Buffer to InfluxDB, Critical
-Try to reconnect incase of write Fail or Datapoints in Buffer lost after Sleep
+Try to reconnect if Fail since Datapoints in Buffer will be lost after Sleep
 */
 void InfluxHelper::writeBuffer()
 {
   int attempts = 0;
 
-  while (!Services::getWifiStatus() && attempts < 3)
+  while (attempts < 3)
   {
-    Services::setupWifi();
-    delay(500);
-    attempts++;
+    if(client.flushBuffer())
+    {
+        Serial.println("Successfully Wrote Buffer to InfluxDB.");
+        return;
+    }
+    else
+    {
+      // Only call if inital Attempt fails, validateConnection takes long
+      Serial.println("Failed to write Buffer to InfluxDB.");
+      influxHelper.checkConnection();
+      attempts++;
+    }
   }
-
-  attempts = 0;
-
-  while (!influxHelper.checkConnection() && attempts < 3)
-  {
-    delay(500);
-    attempts++;
-  }
-
-  client.flushBuffer();
-  Serial.println("Successfully Wrote Buffer to InfluxDB.");
 }
 
 FluxQueryResult InfluxHelper::doQuery(const char query[])

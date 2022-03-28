@@ -36,6 +36,7 @@ class Services
     static DynamicJsonDocument doJSONGetRequest(char const url[]);
     static bool getWifiStatus();
     static bool getWifiMultiStatus();
+    static bool countTime(long begin, uint8_t duration);
 };
 
 #endif // Services_h

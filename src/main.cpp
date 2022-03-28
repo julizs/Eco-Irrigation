@@ -190,10 +190,7 @@ void on_initState()
     Serial.println("Main State Machine runs on Core: ");
     Serial.println(xPortGetCoreID());
 
-    if (!Services::getWifiStatus())
-    {
-      Services::setupWifi();
-    }
+    if(!Services::getWifiStatus()) {Services::setupWifi(); }
 
     influxHelper.setParameters();
     if (!influxHelper.checkConnection())
@@ -201,8 +198,8 @@ void on_initState()
       Serial.println("Couldnt connect to InfluxDB");
     }
 
-    // Run WiFi.begin() before this, or exception
-    // Start necessary after every Sleep? Modem Sleep?
+    // WiFi.begin() before this, or Exception
+    // Restart necessary after Sleep?
     ButtonHandler::startRestServer();
   }
 }
@@ -225,6 +222,7 @@ void on_sleepState()
     {
     
     }
+
     else if (SLEEPTYPE == 1) // Light Sleep
     {
       // µs (microseconds) 

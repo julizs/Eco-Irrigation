@@ -1,9 +1,10 @@
 #include <Services.h>
 
-// Definition of static Variable, see ButtonHandler
+// Definition of static Variables
 WiFiMulti Services::wifiMulti;
 HTTPClient Services::http;
 
+/*
 void Services::setupWifiMulti()
 {
   WiFi.mode(WIFI_STA);
@@ -13,15 +14,28 @@ void Services::setupWifiMulti()
   while (wifiMulti.run() != WL_CONNECTED) {}
   Serial.println();
 }
+*/
 
 void Services::setupWifi()
 {
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  Serial.println("Connecting to WiFi");
+  int attempts = 0;
 
-  while (WiFi.status() != WL_CONNECTED) {}
-  Serial.println();
-  Serial.println("Connected to the WiFi network");
+  while (attempts < 3)
+  {
+    long begin = millis();
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    Serial.println("Trying to connect to WiFi.");
+    while (!countTime(begin, 4))
+    {
+    }
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      Serial.println("Connected to WiFi.");
+      return;
+    }
+    attempts++;
+  }
+  Serial.println("Could not connect to Wifi.");
 }
 
 bool Services::getWifiMultiStatus()
@@ -36,9 +50,10 @@ bool Services::getWifiStatus()
 
 void Services::doGetRequest(char const url[])
 {
+  if(!getWifiStatus()) {setupWifi(); }
+
   if (WiFi.status() == WL_CONNECTED)
   {
-
     http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS); // Needed, otherwise 301 Code
     http.begin(url);
 
@@ -76,6 +91,8 @@ void Services::doPostRequest(char const endpoint[])
   Serial.print("POST Request to: ");
   Serial.println(requestUrl);
 
+  if(!getWifiStatus()) {setupWifi(); }
+  
   if (WiFi.status() == WL_CONNECTED)
   {
 
@@ -118,6 +135,8 @@ DynamicJsonDocument Services::doJSONGetRequest(char const endpoint[]) // char en
 
   DynamicJsonDocument doc(2048);
 
+  if(!getWifiStatus()) {setupWifi(); }
+
   if (WiFi.status() == WL_CONNECTED)
   {
     // http.useHTTP10(true); // Error
@@ -143,6 +162,11 @@ DynamicJsonDocument Services::doJSONGetRequest(char const endpoint[]) // char en
   }
 
   return doc;
+}
+
+bool Services::countTime(long begin, uint8_t duration)
+{
+  return (millis() - begin >= duration * 1000UL);
 }
 
 /*
