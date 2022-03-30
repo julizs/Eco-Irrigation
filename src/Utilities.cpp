@@ -36,24 +36,18 @@ void Utilities::scanI2CBus(TwoWire *wire)
   StaticJsonDocument<1024> doc
   DynamicJsonDocument(2048);
   */
-void Utilities::writeFlash(DynamicJsonDocument &doc)
+void Utilities::writeDoc(int address, DynamicJsonDocument &doc)
 {
-  EepromStream eepromStream(0, 1024); // Address 0, Size 1024 Bytes
+  EepromStream eepromStream(address, 1024); // Address, Size
   serializeJson(doc, eepromStream);
   EEPROM.commit();
 }
 
-DynamicJsonDocument Utilities::readFlash(int address)
+DynamicJsonDocument Utilities::readDoc(int address)
 {
   DynamicJsonDocument doc(1024);
   EepromStream eepromStream(address, 1024);
   deserializeJson(doc, eepromStream);
-
-  for (int i = 0; i < doc.size(); i++)
-  {
-    String itemName = doc[i]["name"].as<String>();
-    Serial.println(itemName);
-  }
 
   return doc;
 }

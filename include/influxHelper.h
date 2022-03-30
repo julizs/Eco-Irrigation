@@ -21,6 +21,7 @@ class InfluxHelper
     void writeDataPoint(Point &p);
     void writeBuffer();
     FluxQueryResult doQuery(const char query[]);
+    int solenoidReleasedWater(uint8_t relaisChannel);
 };
 
 extern InfluxDBClient client;

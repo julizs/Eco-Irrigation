@@ -97,7 +97,7 @@ void doMeasurements()
   // 1. Get User-assigned Plant-Sensor Assignments and voltageRanges of moistureSensors
   DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/json");
   DynamicJsonDocument moistureSensors = Services::doJSONGetRequest("/moistureSensors");
-  Utilities::writeFlash(plants);
+  Utilities::writeDoc(0, plants);
 
   // 3. Measure (only) assigned Sensors from each plant
   Point p("Plant Data");
@@ -260,6 +260,9 @@ void on_evaluateState()
 }
 
 // Pump, Fan, Heater, ...
+// Stack/Queue/Linked List of action/pump Obj., that calls pop() as soon 
+// as the FINISH/ABORT State of each Object is reached
+// Action State is done when Queue/Linked List is empty
 void on_actionState()
 {
   if (fsm.executeOnce)
@@ -272,8 +275,7 @@ void on_actionState()
     }
   }
 
-  // Run Sub-StateMachines (Pump, Fan, ...)
-  // Check Irrigation Events and run them one after another
+  // Run Sub-StateMachines (Pump, Fan, ...) one after another and check if isDone()
   if (wateringNeeded)
   {
     pump1.loop();
@@ -472,9 +474,8 @@ void loop()
 
   ButtonHandler::webServer.handleClient();
 
-  displayController.displayPlantStatus();
+  // displayController.displayPlantStatus();
 
-  // Check constantly in all States and Sub StateMachines:
   ButtonHandler::handleHardwareButtons();
 
   // delay(100);

@@ -96,8 +96,10 @@ void Cistern::updateIrrigations()
 
     int newWaterAmount = calcMl(newWaterDist);
     int pumpedWaterML = oldWaterAmount - newWaterAmount;
+
     // Reuse Datapoint, create new Row in InfluxDB Irrigations Measurement
-    // Reason ? Pump ? Pump Time ? MongoDb instead of InfluxDB ?
+    // Add affected Plants, SolenoidValve/relaisChannel and Pump as Tags
+    // MongoDb or InfluxDB ? Reason ? Pump ? Pump Time ?
     p2.clearTags();
     p2.clearFields();
     p2.addTag("Plant", "Magnolie");

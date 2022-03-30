@@ -2,7 +2,15 @@
 #define Pump_h
 #include <main.h>
 #include <Cistern.h>
+#include <Irrigation.h>
 #include "Adafruit_INA219.h"
+
+class ISubStateMachine
+{
+    public:
+        virtual ~ISubStateMachine() {}
+        virtual bool isDone() = 0;
+};
 
 enum class PumpState
 {
@@ -22,7 +30,7 @@ struct INAdata
     float energy;
 };
 
-class Pump
+class Pump : public ISubStateMachine
 {
     using callback = void (*)(); //function pointer
 public:
@@ -45,14 +53,13 @@ public:
     Pump(int pwmChannel, int pwmPin, Cistern &cistern);
     void setup();
     void loop();
-    void prepareIrrigation(const char *plantGroup, int irrigationAmount);
-    void doIrrigation(const char *pumpName, int irrigationAmount);
 
     bool setupIna();
     INAdata readIna();
     void writeIna();
     void switchOff();
     void add_callback(callback act);
+    virtual bool isDone();
 
 private:
     void switchOn();

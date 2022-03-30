@@ -1,13 +1,6 @@
 #include "Pump.h"
 
-// and r.Plant
-const char query[] = "from (bucket: \"messdaten\")"
-    "|> range(start: -1h)"
-    "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r.Plant == "" and r._field == \"pumpedWaterML\""
-    " and r.device == \"ESP32\")"
-    "|> min()";
-
-Pump::Pump(int pwmChannel, int pwmPin, Cistern& c) : pumpModel(1024), cistern(c)
+Pump::Pump(int pwmChannel, int pwmPin, Cistern &c) : pumpModel(1024), cistern(c)
 {
     this->pwmChannel = pwmChannel;
     this->pwmPin = pwmPin;
@@ -89,11 +82,13 @@ void Pump::loop()
 
             setupToFs();
 
-            // Check recent Irrigations for hourly Limits
-            // DynamicJsonDocument recentIrrigations(1024);
-            // recentIrrigations = Services::doJSONGetRequest("/irrigations");
-            // FluxQueryResult cursor;
-            // cursor = influxHelper.doQuery(query);
+            // Check recent Irrigations for Limits (incase of User Button Press)
+            /*
+            if(!Irrigation::validSolenoid())
+            {
+                currentState = PumpState::ABORT;
+            }
+            */
         }
 
         if (countTime(minStateDuration))
@@ -106,7 +101,7 @@ void Pump::loop()
             }
             /*
             else if(recentIrrigations.isNull())
-            {   
+            {
                 errorCode = 2;
                 currentState = PumpState::ABORT;
             }
@@ -122,7 +117,7 @@ void Pump::loop()
                 {
                     errorCode = 3;
                     currentState = PumpState::ABORT;
-                }  
+                }
             }
         }
 
@@ -139,11 +134,11 @@ void Pump::loop()
         }
 
         switchOn();
-       
+
         // cistern.measureWaterFlow();
 
         // Button pressed
-        if(wateringNeeded == false)
+        if (wateringNeeded == false)
         {
             errorCode = 4;
             currentState = PumpState::ABORT;
@@ -163,7 +158,7 @@ void Pump::loop()
         if (lastState != currentState)
         {
             commonStateLogic();
-    
+
             // Measure Power before stopping Pump
             writeIna();
 
@@ -214,30 +209,25 @@ void Pump::switchOff()
     ledcWrite(pwmChannel, 0);
 }
 
-/*
-Pump::checkPumpPerformance(unsigned short lastPumped)
-{
-    // Correct: bestPumped struct per Model and Voltage or PWM value (e.g. Palermo, 100ml, 50% PWM)
-    if(lastPumped > bestPumped)
-    {
-        bestPumped = lastPumped;
-    }
-    if(bestPumped - lastPumped > 50) // 50 Milliliter Threashold
-    {
-        Serial.println("Pump Performance deteriorated, need to clean Pump Filter or Exchange Water.");
-    }
-}
-*/
-
 bool Pump::countTime(int durationSec)
 {
-  return (millis() - stateBeginMillis >= durationSec * 1000UL);
+    return (millis() - stateBeginMillis >= durationSec * 1000UL);
 }
 
 void Pump::commonStateLogic()
 {
     stateBeginMillis = millis();
     Serial.println(stateNames[(byte)currentState]);
+}
+
+void Pump::add_callback(callback func)
+{
+    setupToFs = func;
+}
+
+bool Pump::isDone()
+{
+    return currentState == PumpState::DONE || currentState == PumpState::ABORT;
 }
 
 /*
@@ -247,11 +237,6 @@ lastState = (PumpState)-1;
 Enums cannot be set to null, initial Value is always 0 (so PumpState.IDLE)
 Set to -1 so that lastState != currentState gets triggered after Bootup
 
-Problem: cistern.toF.Status != VL53L0X_ERROR_NONE is true, even if no Setup -> 
+Problem: cistern.toF.Status != VL53L0X_ERROR_NONE is true, even if no Setup ->
 Crash when Measuring if not also toF.ready checked
 */
-
-void Pump::add_callback(callback func)
-   {
-      setupToFs = func;
-   }

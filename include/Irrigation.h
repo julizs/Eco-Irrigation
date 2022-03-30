@@ -3,14 +3,17 @@
 
 #include <main.h>
 #include <Services.h>
+#include <Utilities.h>
+#include <InfluxHelper.h>
 
 class Irrigation
 {
+    static int recentIrrigations[];
     public:
         static void decideIrrigation();
-        static void getSolenoidInfo(const char *irrigationSubject, int irrigationAmount);
-        static void getPumpInfo(const char* pumpName, int irrigationAmount);
-        
+        static void getIrrigationInfo(const char* plantName, int irrigationAmount);
+        static void convert(FluxQueryResult &cursor, int result[]);
+        static bool validSolenoid(FluxQueryResult &cursor, uint8_t relaisChannel);
 };
 
 #endif // Irrigation_h

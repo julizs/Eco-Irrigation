@@ -30,7 +30,10 @@ void InfluxHelper::setParameters()
 
 bool InfluxHelper::checkConnection()
 {
-  if(!Services::getWifiStatus()) {Services::setupWifi(); }
+  if (!Services::getWifiStatus())
+  {
+    Services::setupWifi();
+  }
 
   int attempts = 0;
 
@@ -38,13 +41,16 @@ bool InfluxHelper::checkConnection()
   {
     long begin = millis();
     Serial.println("Trying to connect to InfluxDB.");
-    if(client.validateConnection());
+    if (client.validateConnection())
+      ;
     {
       Serial.print("Connected to: ");
       Serial.println(client.getServerUrl());
       return true;
     }
-    while(!Services::countTime(begin, 2)) {}
+    while (!Services::countTime(begin, 2))
+    {
+    }
     attempts++;
   }
 
@@ -82,10 +88,10 @@ void InfluxHelper::writeBuffer()
 
   while (attempts < 3)
   {
-    if(client.flushBuffer())
+    if (client.flushBuffer())
     {
-        Serial.println("Successfully Wrote Buffer to InfluxDB.");
-        return;
+      Serial.println("Successfully Wrote Buffer to InfluxDB.");
+      return;
     }
     else
     {
@@ -101,20 +107,40 @@ FluxQueryResult InfluxHelper::doQuery(const char query[])
 {
   FluxQueryResult result = client.query(query);
 
-  // Iterate Result Cursor
-  while (result.next())
-  {
-    long rssi = result.getValueByName("_value").getLong();
-    Serial.println(rssi);
-  }
-
-  if (result.getError() != "")
-  {
-    Serial.print("Query result error: ");
-    Serial.println(result.getError());
-  }
-
-  result.close();
-
   return result;
 }
+
+/*
+// Called by Irrigation.cpp and Pump.cpp (on Button Press)
+// Check per per SolenoidValve/relaisChannel
+int InfluxHelper::solenoidReleasedWater(uint8_t relaisChannel)
+{
+  char rC[20] = "relaisChannel == ";
+  itoa(relaisChannel, rC, 10);
+
+  // Plants, SolenoidValve/relaisChannel and Pump are available as Query Tags
+  char query[200] = "from (bucket: \"messdaten\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"Irrigations\" and ";
+  strcat(query, rC);
+  strcat(query, " and r._field == \"pumpedWaterML\" and r.device == \"ESP32\") |> min()");
+
+  FluxQueryResult cursor = influxHelper.doQuery(query);
+  long pumpedWaterML = -1;
+
+  // Iterate Result Cursor
+  while (cursor.next())
+  {
+    pumpedWaterML = cursor.getValueByName("pumpedWaterML").getLong();
+    Serial.println(pumpedWaterML);
+  }
+
+  if (cursor.getError() != "")
+  {
+    Serial.print("Query result error: ");
+    Serial.println(cursor.getError());
+  }
+
+  cursor.close();
+
+  return 0;
+}
+*/
