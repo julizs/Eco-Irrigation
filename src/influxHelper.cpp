@@ -25,7 +25,7 @@ void InfluxHelper::setParameters()
   // client.setWriteOptions(WriteOptions().bufferSize(2));
   // client.setWriteOptions(WriteOptions().flushInterval(30));
 
-  Serial.println("Did Setup Influx Options.");
+  Serial.println("Did Set Influx Options.");
 }
 
 bool InfluxHelper::checkConnection()
@@ -44,7 +44,7 @@ bool InfluxHelper::checkConnection()
     if (client.validateConnection())
       ;
     {
-      Serial.print("Connected to: ");
+      Serial.print("Connected to InfluxDB at: ");
       Serial.println(client.getServerUrl());
       return true;
     }
@@ -103,9 +103,39 @@ void InfluxHelper::writeBuffer()
   }
 }
 
+
 FluxQueryResult InfluxHelper::doQuery(const char query[])
 {
   FluxQueryResult result = client.query(query);
 
+  if(result.getError() != "")
+    {
+      Serial.println(result.getError());
+    }
+
   return result;
 }
+
+/*
+FluxQueryResult InfluxHelper::doQuery(const char query[])
+{
+  int attempts = 0;
+
+  while (attempts < 3)
+  {
+    FluxQueryResult result = client.query(query);
+    if(result.getError() != "")
+    {
+      Serial.println(result.getError());
+      result.close();
+      attempts++;
+    }
+    else
+    {
+      result.close();
+      return result;
+    }
+  }
+  return nullptr;
+}
+*/

@@ -1,11 +1,16 @@
 #include "Irrigation.h"
 
-const char query[] = "from (bucket: \"messdaten\")"
-                     "|> range(start: -24h)"
-                     "|> filter(fn: (r) => r._measurement == \"Irrigations\""
-                     " and r._field == \"pumpedWaterML\""
-                     " and r.device == \"ESP32\")"
-                     "|> min()";
+const char query[] =   "from (bucket: \"messdaten\")"
+                        "|> range(start: -24h)"
+                        "|> filter(fn: (r) => r._measurement == \"Environment Data\" and r._field == \"rssi\""
+                        " and r.device == \"ESP32\")";
+
+// "and r.solenoidValve == \"1\""
+const char query2[] =   "from (bucket: \"messdaten\")"
+                        "|> range(start: -24h)"
+                        "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"pumpedWaterML\")"
+                        "|> sum()";
+
 
 /* Irrigation Algorithm
   1.0 Consider Properties of each Plant in PlantGroup (Size, Dry Roots, ...)
@@ -22,62 +27,67 @@ void Irrigation::decideIrrigation()
 {
     /*
     // Access Tables from EEPROM or do Requests if needed
-    // DynamicJsonDocument recentIrrigations = Services::doJSONGetRequest("/irrigations");
-    // DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/json");
     // DynamicJsonDocument plantNeeds = Utilities::readDoc(0, 1024);
-    DynamicJsonDocument plants = Utilities::readDoc(1024, 2048);
-    if(plants.isNull())
+    DynamicJsonDocument plants = Utilities::readDoc(3072, 2048);
+    if (plants.isNull())
     {
         DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/json");
     }
+    */
 
     // Do InfluxDB query once and convert to Array once
-    FluxQueryResult recentIrrigations = influxHelper.doQuery(query);
-    int result[4];
-    */
-
-    /*
-    if(recentIrrigations.isNull())
-        {
-            return;
-        }
-        else
-        {
-           result[] =
-        }
-    */
-
-    /*
-    for (int i = 0; i < plants.size(); i++)
+    FluxQueryResult recentIrrigations = influxHelper.doQuery(query2);
+    while (recentIrrigations.next())
     {
-        String plantName = plants[i]["name"].as<String>();
-        Serial.println(plantName);
-
-        // 1. Check recentIrrigations per Solenoid/relaisChannel
-        // continue (skip Evaluation of this Plant) if over Threshold
-        uint8_t relaisChannel = plants[plantName]["solenoidValve"];
-        if (!validSolenoid(recentIrrigations, relaisChannel))
-        {
-            continue;
-        }
-
-        // 2. If recentIrrigations under Threshold, get Plant Needs
-        // Compare Needs with recent Irrigations
-        char message[100];
-        uint8_t lightNeeds = plants[plantName]["lightNeeds"];
-        uint8_t waterNeeds = plants[plantName]["waterNeeds"];
-        uint8_t plantSize = plants[plantName]["plantSize"];
-        sprintf(message, "Light Needs: %d, Water Needs: %d", "Plant Size: %d", lightNeeds, waterNeeds, plantSize);
-        Serial.println(message);
+        int pumpedWaterML = recentIrrigations.getValueByName("_value").getLong();
+        Serial.println(pumpedWaterML);
     }
-    */
-    wateringNeeded = true;
+    recentIrrigations.close();
 
-    // Output: [Plant, Milliliters]
-    // [["Thymian", 350], ["Aloe",280]]
+    int result[50];
+    // convert(recentIrrigations, result);
+    for(int i = 0; i < sizeof(result)/sizeof(result[0]); i++)
+    {
+        // Serial.println(result[i]);
+    }
+
+/*
+for (int i = 0; i < plants.size(); i++)
+{
+    String plantName = plants[i]["name"].as<String>();
+    Serial.println(plantName);
+
+    // 1. Check recentIrrigations per Solenoid/relaisChannel
+    // continue (skip Evaluation of this Plant) if over Threshold
+    uint8_t relaisChannel = plants[plantName]["solenoidValve"];
+    if (!validSolenoid(recentIrrigations, relaisChannel))
+    {
+        continue;
+    }
+
+    // 2. If recentIrrigations under Threshold, get Plant Needs
+    // Compare Needs with recent Irrigations
+    char message[100];
+    uint8_t lightNeeds = plants[plantName]["lightNeeds"];
+    uint8_t waterNeeds = plants[plantName]["waterNeeds"];
+    uint8_t plantSize = plants[plantName]["plantSize"];
+    sprintf(message, "Light Needs: %d, Water Needs: %d", "Plant Size: %d", lightNeeds, waterNeeds, plantSize);
+    Serial.println(message);
+}
+*/
+/*
+wateringNeeded = true;
+Pump *action1 = &pump1;
+Pump *action2 = &pump1;
+actions.add(action1);
+actions.add(action2);
+*/
+
+// Output: [Plant, Milliliters]
+// [["Thymian", 350], ["Aloe",280]]
 }
 
-void Irrigation::getIrrigationInfo(const char *plantName, int irrigationAmount)
+void Irrigation::getIrrigationInfo(uint8_t solenoidValve, int irrigationAmount)
 {
     // Access Tables from EEPROM or do Requests if needed
     DynamicJsonDocument pumps = Services::doJSONGetRequest("/pumps");
@@ -100,28 +110,9 @@ void Irrigation::getIrrigationInfo(const char *plantName, int irrigationAmount)
     Serial.println(pumpTime);
     */
 
-   // Output: [relaisChannel, pumpTime]
-   // [[0, 4.6][1, 3.9]]
-   // [pump1, 4.6]
-}
-
-void Irrigation::convert(FluxQueryResult &cursor, int result[])
-{
-    int i = 0;
-    while (cursor.next())
-    {
-        uint8_t channel = cursor.getValueByName("relaisChannel").getLong();
-        Serial.println(channel);
-        int pumpedWaterML = cursor.getValueByName("pumpedWaterML").getLong();
-        result[i] = pumpedWaterML;
-        i++;
-    }
-
-    if (cursor.getError() != "")
-    {
-        Serial.print("Query result error: ");
-        Serial.println(cursor.getError());
-    }
+    // Output: [relaisChannel, pumpTime]
+    // [[0, 4.6][1, 3.9]]
+    // [pump1, 4.6]
 }
 
 bool Irrigation::validSolenoid(FluxQueryResult &cursor, uint8_t relaisChannel)

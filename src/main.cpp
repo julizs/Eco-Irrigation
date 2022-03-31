@@ -11,12 +11,15 @@
 #include <StatusDisplay.h>
 #include <ButtonHandler.h>
 #include <Pump.h>
-
 #include <LinkedList.h>
 #include <ISubStateMachine.h>
 
 #define SLEEPTYPE 1 // Light Sleep or Modem Sleep
 #define LOCALSAVE 1 // Save ArduinoJson Files on Flash
+#define DOMEASURE 0
+#define SENDDATA 0
+#define GETDATA 0
+#define RUNSUBMACHINES 0
 const int SLEEP_DURATION = 16;
 const int MEASURE_INTERVAL = 2;
 const int MIN_STATE_DURATION = 2;
@@ -32,6 +35,7 @@ TwoWire I2Ctwo = TwoWire(1);
 AmbientClimate climate1(500, 2);
 AmbientLight lightSensor1(1);
 AmbientLight lightSensor2(2);
+// Pumps and Cisterns never change, only associated Pump Model
 Cistern cistern1(0x51, 300, 53.0f); // shut
 Cistern cistern2(0x52, 350, 42.0f);
 Pump pump1(0, pump_PWM_1, cistern1);
@@ -192,7 +196,11 @@ void on_initState()
       Serial.println("Couldnt connect to InfluxDB");
     }
 
-    Utilities::provideData();
+#if (GETDATA == 1)
+    {
+      Utilities::provideData();
+    }
+#endif
 
     // WiFi.begin() before this, or Exception
     // Restart necessary after Sleep?
@@ -242,8 +250,12 @@ void on_measureState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    // WiFi.disconnect();
-    doMeasurements();
+// WiFi.disconnect();
+#if (DOMEASURE == 1)
+    {
+      doMeasurements();
+    }
+#endif
   }
 }
 
@@ -268,20 +280,24 @@ void on_actionState()
     commonStateLogic();
   }
 
-  // Run Sub-StateMachines (Pump, Fan, ...) one after another and check if isDone()
-  for (int i = 0; i < actions.size(); i++)
+#if (RUNSUBMACHINES == 1)
   {
-    ISubStateMachine *machine = actions.get(i);
-
-    // Set back State to idle so that same Machine can run multiple times
-    machine->resetMachine();
-
-    while (!machine->isDone())
+    // Run Sub-StateMachines (Pump, Fan, ...) one after another and check if isDone()
+    for (int i = 0; i < actions.size(); i++)
     {
-      machine->loop();
+      ISubStateMachine *machine = actions.get(i);
+
+      // Set back State to idle so that same Machine can run multiple times
+      machine->resetMachine();
+
+      while (!machine->isDone())
+      {
+        machine->loop();
+      }
+      actions.remove(i);
     }
-    actions.remove(i);
   }
+#endif
 }
 
 void on_finishState()
@@ -290,10 +306,13 @@ void on_finishState()
   {
     commonStateLogic();
 
-    // Send current IP Address, no Tunneling necessary
-    Services::doPostRequest("/commands/ip");
-
-    influxHelper.writeBuffer();
+// Send current IP Address, no Tunneling necessary
+#if (DOSEND == 1)
+    {
+      Services::doPostRequest("/commands/ip");
+      influxHelper.writeBuffer();
+    }
+#endif
 
     didCycle = true;
   }
@@ -360,7 +379,7 @@ bool transitionS3S4()
 bool transitionS4S5()
 {
   // min State Duration must be over AND Pump done, Fan done, ...
-  if (countTime(MIN_STATE_DURATION) && actions.size() == 0)
+  if ((countTime(MIN_STATE_DURATION) && actions.size() == 0) || RUNSUBMACHINES == 0)
   {
     return true;
   }

@@ -166,12 +166,15 @@ void Pump::loop()
             wateringNeeded = false;
 
             switchOff();
-
+            #if (DOMEASURE == 1)
+            {
             // Write to InfluxDB (Ina and ToF to p0) AFTER turning off pump
             influxHelper.writeDataPoint(p0);
 
             // If ToF not correctly Setup (but Status == ERROR_NONE) -> Crash
             cistern.updateIrrigations();
+            }
+            #endif
         }
 
         lastState = PumpState::DONE;
