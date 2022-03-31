@@ -93,7 +93,6 @@ void Pump::loop()
 
         if (countTime(minStateDuration))
         {
-            Serial.println(cistern.toF.Status);
             if (cistern.toF.Status != VL53L0X_ERROR_NONE)
             {
                 errorCode = 1;
@@ -137,12 +136,14 @@ void Pump::loop()
 
         // cistern.measureWaterFlow();
 
+        /*
         // Button pressed
         if (wateringNeeded == false)
         {
             errorCode = 4;
             currentState = PumpState::ABORT;
         }
+        */
 
         // Check constantly
         if (countTime(minStateDuration) && countTime(pumpTime))
@@ -227,7 +228,15 @@ void Pump::add_callback(callback func)
 
 bool Pump::isDone()
 {
-    return currentState == PumpState::DONE || currentState == PumpState::ABORT;
+    // lastState instead of currentState, so that Logic of last State also gets exec
+    return lastState == PumpState::DONE || lastState == PumpState::ABORT;
+}
+
+void Pump::resetMachine()
+{
+    currentState = PumpState::IDLE;
+    // lastState must be != currentState for ExecOnce Logic to run
+    lastState = lastState = (PumpState)-1;
 }
 
 /*

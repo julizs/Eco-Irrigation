@@ -44,12 +44,23 @@ const char *stateNames[] = {"INIT", "SLEEP", "MEASURE", "EVALUATE", "ACTION", "F
 bool wateringNeeded, didSleep, didCycle;
 unsigned long stateBeginMillis = 0;
 
-LinkedList<ISubStateMachine*> actions = LinkedList<ISubStateMachine*>();
+LinkedList<ISubStateMachine *> actions = LinkedList<ISubStateMachine *>();
 
 void setupToFs()
 {
   cistern2.setupToF();
   cistern1.setupToF();
+}
+
+// Irrigation.cpp
+void refillActions()
+{
+  // Pumpe 1 shall pump for 2 Plants on 2 different Solenoids consecutively
+  // Pump *pump3 = new Pump(1, pump_PWM_2, cistern2);
+  Pump *action1 = &pump1;
+  Pump *action2 = &pump1;
+  actions.add(action1);
+  actions.add(action2);
 }
 
 void doMeasurements()
@@ -170,7 +181,10 @@ void on_initState()
     Serial.println("Main State Machine runs on Core: ");
     Serial.println(xPortGetCoreID());
 
-    if(!Services::getWifiStatus()) {Services::setupWifi(); }
+    if (!Services::getWifiStatus())
+    {
+      Services::setupWifi();
+    }
 
     influxHelper.setParameters();
     if (!influxHelper.checkConnection())
@@ -202,22 +216,23 @@ void on_sleepState()
 
     if (SLEEPTYPE == 0) // Modem Sleep
     {
-    
     }
 
     else if (SLEEPTYPE == 1) // Light Sleep
     {
-      // µs (microseconds) 
+      // µs (microseconds)
       esp_sleep_enable_timer_wakeup(SLEEP_DURATION * 1000 * 1000);
       delay(100); // Else no Wakeup
       esp_light_sleep_start();
       // Resume Program, Connections and States were kept
     }
   }
-  
-  if (SLEEPTYPE == -1)  // Simulate Sleep
+
+  if (SLEEPTYPE == -1) // Simulate Sleep
   {
-    while (!countTime(SLEEP_DURATION)) {}
+    while (!countTime(SLEEP_DURATION))
+    {
+    }
   }
   didSleep = true;
 }
@@ -238,11 +253,12 @@ void on_evaluateState()
   {
     commonStateLogic();
     Irrigation::decideIrrigation();
+    refillActions();
   }
 }
 
 // Pump, Fan, Heater, ...
-// Stack/Queue/Linked List of action/pump Obj., that calls pop() as soon 
+// Stack/Queue/Linked List of action/pump Obj., that calls pop() as soon
 // as the FINISH/ABORT State of each Object is reached
 // Action State is done when Queue/Linked List is empty
 void on_actionState()
@@ -250,22 +266,22 @@ void on_actionState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    if (wateringNeeded)
-    {
-      // Reset State (so that first Execute Once gets called)
-      Serial.print("Linked List Size: ");
-      Serial.println(actions.size());
-      pump1.currentState = PumpState::IDLE;
-    }
   }
 
   // Run Sub-StateMachines (Pump, Fan, ...) one after another and check if isDone()
-
-  if (wateringNeeded)
+  for (int i = 0; i < actions.size(); i++)
   {
-    pump1.loop();
+    ISubStateMachine *machine = actions.get(i);
+
+    // Set back State to idle so that same Machine can run multiple times
+    machine->resetMachine();
+
+    while (!machine->isDone())
+    {
+      machine->loop();
+    }
+    actions.remove(i);
   }
-  // if(coolingNeeded) {...}
 }
 
 void on_finishState()
@@ -273,7 +289,7 @@ void on_finishState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    
+
     // Send current IP Address, no Tunneling necessary
     Services::doPostRequest("/commands/ip");
 
@@ -344,23 +360,11 @@ bool transitionS3S4()
 bool transitionS4S5()
 {
   // min State Duration must be over AND Pump done, Fan done, ...
-  if (wateringNeeded)
+  if (countTime(MIN_STATE_DURATION) && actions.size() == 0)
   {
-    if (pump1.lastState == PumpState::DONE || pump1.lastState == PumpState::ABORT)
-    {
-      return true;
-    }
-    return false;
+    return true;
   }
-  // else if fanNeeded {...}
-  else
-  {
-    if (countTime(MIN_STATE_DURATION))
-    {
-      return true;
-    }
-    return false;
-  }
+  return false;
 }
 
 bool transitionS5S2()
@@ -409,13 +413,7 @@ void setup()
   pinMode(button1Pin, INPUT);
   pinMode(button2Pin, INPUT);
 
-  // Pumpe 1 shall pump for 2 Plants on 2 different Solenoids consecutively
-  // Pump *pump3 = new Pump(1, pump_PWM_2, cistern2);
   pump1.add_callback(setupToFs);
-  Pump *action1 = &pump1;
-  Pump *action2 = &pump1;
-  actions.add(action1);
-  actions.add(action2);
 
   displayController.setupLEDMatrix();
 

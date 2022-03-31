@@ -45,7 +45,7 @@ public:
 
     Pump(int pwmChannel, int pwmPin, Cistern &cistern);
     void setup();
-    void loop();
+    virtual void loop();
 
     bool setupIna();
     INAdata readIna();
@@ -53,6 +53,7 @@ public:
     void switchOff();
     void add_callback(callback act);
     virtual bool isDone();
+    virtual void resetMachine();
 
 private:
     void switchOn();
