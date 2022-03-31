@@ -36,18 +36,29 @@ void Utilities::scanI2CBus(TwoWire *wire)
   StaticJsonDocument<1024> doc
   DynamicJsonDocument(2048);
   */
-void Utilities::writeDoc(int address, DynamicJsonDocument &doc)
+void Utilities::writeDoc(int address, DynamicJsonDocument &doc, int size)
 {
-  EepromStream eepromStream(address, 1024); // Address, Size
+  EepromStream eepromStream(address, size);
   serializeJson(doc, eepromStream);
   EEPROM.commit();
 }
 
-DynamicJsonDocument Utilities::readDoc(int address)
+DynamicJsonDocument Utilities::readDoc(int address, int size)
 {
-  DynamicJsonDocument doc(1024);
-  EepromStream eepromStream(address, 1024);
+  DynamicJsonDocument doc(size);
+  EepromStream eepromStream(address, size);
   deserializeJson(doc, eepromStream);
 
   return doc;
+}
+
+void Utilities::provideData()
+{
+  // 1. Get User-assigned Plant-Sensor Assignments and voltageRanges of moistureSensors
+  DynamicJsonDocument moistureSensors = Services::doJSONGetRequest("/moistureSensors");
+  DynamicJsonDocument pumps = Services::doJSONGetRequest("/pumps");
+  DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/json");
+  Utilities::writeDoc(0, moistureSensors, 1024);
+  Utilities::writeDoc(1024, pumps, 2048);
+  Utilities::writeDoc(3072, plants, 2048);
 }

@@ -6,9 +6,6 @@
 //WiFiMulti wifiMulti;
 #define DEVICE "ESP32"
 
-#define button1Pin 34
-//#define button2Pin 4
-//#define button3Pin 19
 #define pump_PWM_1 4 // 23
 #define pump_PWM_2 2 // 19
 #define toF_shut 19 // 4
@@ -34,7 +31,9 @@
 // DHT22 und MH-Z19 PWM
 // (Pins 34 and 35 can only be input, no output)
 // #define DHT_IN 34
-#define MHZ19_PWM 35
+// #define MHZ19_PWM 35
+#define button1Pin 34
+#define button2Pin 35
 
 // Relais
 const int Relais[] = {15,23};

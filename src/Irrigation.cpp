@@ -20,15 +20,22 @@ const char query[] = "from (bucket: \"messdaten\")"
 */
 void Irrigation::decideIrrigation()
 {
+    /*
     // Access Tables from EEPROM or do Requests if needed
     // DynamicJsonDocument recentIrrigations = Services::doJSONGetRequest("/irrigations");
     // DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/json");
-    DynamicJsonDocument plants = Utilities::readDoc(0);
-    DynamicJsonDocument plantNeeds = Utilities::readDoc(1024);
+    // DynamicJsonDocument plantNeeds = Utilities::readDoc(0, 1024);
+    DynamicJsonDocument plants = Utilities::readDoc(1024, 2048);
+    if(plants.isNull())
+    {
+        DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/json");
+    }
 
     // Do InfluxDB query once and convert to Array once
     FluxQueryResult recentIrrigations = influxHelper.doQuery(query);
     int result[4];
+    */
+
     /*
     if(recentIrrigations.isNull())
         {
@@ -40,6 +47,7 @@ void Irrigation::decideIrrigation()
         }
     */
 
+    /*
     for (int i = 0; i < plants.size(); i++)
     {
         String plantName = plants[i]["name"].as<String>();
@@ -62,10 +70,11 @@ void Irrigation::decideIrrigation()
         sprintf(message, "Light Needs: %d, Water Needs: %d", "Plant Size: %d", lightNeeds, waterNeeds, plantSize);
         Serial.println(message);
     }
-
+    */
     wateringNeeded = true;
-    // pump1.prepareIrrigation("succulents", 350);
-    // pump1.prepareIrrigation("Tomate", 150);
+
+    // Output: [Plant, Milliliters]
+    // [["Thymian", 350], ["Aloe",280]]
 }
 
 void Irrigation::getIrrigationInfo(const char *plantName, int irrigationAmount)
@@ -90,6 +99,10 @@ void Irrigation::getIrrigationInfo(const char *plantName, int irrigationAmount)
     Serial.println(pwmChannel);
     Serial.println(pumpTime);
     */
+
+   // Output: [relaisChannel, pumpTime]
+   // [[0, 4.6][1, 3.9]]
+   // [pump1, 4.6]
 }
 
 void Irrigation::convert(FluxQueryResult &cursor, int result[])

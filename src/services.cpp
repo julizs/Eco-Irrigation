@@ -168,17 +168,3 @@ bool Services::countTime(long begin, uint8_t duration)
 {
   return (millis() - begin >= duration * 1000UL);
 }
-
-/*
-void Services::runPump()
-{
-  Serial.println("Run Pump BUTTON pressed.");
-
-  StaticJsonDocument<250> jsonDocument;
-  char buffer[250];
-  jsonDocument["Pump"] = "QR50E";
-  serializeJson(jsonDocument, buffer);
-
-  server.send(200, "application/json", "{}");
-}
-*/

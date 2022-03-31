@@ -1,16 +1,19 @@
 #include <main.h>
+#include <LinkedList.h>
 #include <StateMachine.h>
+#include <EEPROM.h>
+#include <ArduinoJson.h>
+#include <Irrigation.h>
+#include <Utilities.h>
 #include <AmbientClimate.h>
 #include <SoilMoisture.h>
 #include <AmbientLight.h>
-#include <Pump.h>
 #include <StatusDisplay.h>
-#include <LinkedList.h>
-#include <ArduinoJson.h>
 #include <ButtonHandler.h>
-#include <Irrigation.h>
-#include <EEPROM.h>
-#include <Utilities.h>
+#include <Pump.h>
+
+#include <LinkedList.h>
+#include <ISubStateMachine.h>
 
 #define SLEEPTYPE 1 // Light Sleep or Modem Sleep
 #define LOCALSAVE 1 // Save ArduinoJson Files on Flash
@@ -21,15 +24,11 @@ const int MIN_STATE_DURATION = 2;
 const char baseUrl[] = "https://juli.uber.space/node";
 
 TaskHandle_t Task1, Task2;
-
-// Services services;
-ButtonHandler buttonHandler;
 InfluxHelper influxHelper;
 
 TwoWire I2Cone = TwoWire(0);
 TwoWire I2Ctwo = TwoWire(1);
 
-// Fotoresistor fotoResistor1(10000, 3.3, 10, C15);
 AmbientClimate climate1(500, 2);
 AmbientLight lightSensor1(1);
 AmbientLight lightSensor2(2);
@@ -37,18 +36,15 @@ Cistern cistern1(0x51, 300, 53.0f); // shut
 Cistern cistern2(0x52, 350, 42.0f);
 Pump pump1(0, pump_PWM_1, cistern1);
 Pump pump2(1, pump_PWM_2, cistern2);
-// Pump pumps[] = {pump1, pump2};
 StatusDisplay displayController;
-
-// Plant plant1(lightSensor2, soilMoisture1);
-// Plant plant2(lightSensor2, soilMoisture2);
-// std::vector<Plant> plants{plant1, plant2};
 
 StateMachine fsm = StateMachine();
 State *initState, *sleepState, *measureState, *evaluateState, *actionState, *finishState;
 const char *stateNames[] = {"INIT", "SLEEP", "MEASURE", "EVALUATE", "ACTION", "FINISH"};
 bool wateringNeeded, didSleep, didCycle;
 unsigned long stateBeginMillis = 0;
+
+LinkedList<ISubStateMachine*> actions = LinkedList<ISubStateMachine*>();
 
 void setupToFs()
 {
@@ -94,10 +90,8 @@ void doMeasurements()
   influxHelper.writeDataPoint(p0);
 
   // PLANT-SPECIFIC MEASUREMENTS
-  // 1. Get User-assigned Plant-Sensor Assignments and voltageRanges of moistureSensors
-  DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/json");
-  DynamicJsonDocument moistureSensors = Services::doJSONGetRequest("/moistureSensors");
-  Utilities::writeDoc(0, plants);
+  DynamicJsonDocument moistureSensors = Utilities::readDoc(0, 1024);
+  DynamicJsonDocument plants = Utilities::readDoc(3072, 2048);
 
   // 3. Measure (only) assigned Sensors from each plant
   Point p("Plant Data");
@@ -148,20 +142,6 @@ void doMeasurements()
   }
 }
 
-void updateIP()
-{
-  // Send current IP Address, no Tunneling necessary
-  Services::doPostRequest("/commands/ip");
-}
-
-void checkConnections()
-{
-  if (!influxHelper.checkConnection() || !Services::getWifiStatus())
-  {
-    fsm.transitionTo(initState);
-  }
-}
-
 void commonStateLogic()
 {
   Serial.println(stateNames[fsm.currentState]);
@@ -197,6 +177,8 @@ void on_initState()
     {
       Serial.println("Couldnt connect to InfluxDB");
     }
+
+    Utilities::provideData();
 
     // WiFi.begin() before this, or Exception
     // Restart necessary after Sleep?
@@ -271,11 +253,14 @@ void on_actionState()
     if (wateringNeeded)
     {
       // Reset State (so that first Execute Once gets called)
+      Serial.print("Linked List Size: ");
+      Serial.println(actions.size());
       pump1.currentState = PumpState::IDLE;
     }
   }
 
   // Run Sub-StateMachines (Pump, Fan, ...) one after another and check if isDone()
+
   if (wateringNeeded)
   {
     pump1.loop();
@@ -288,19 +273,13 @@ void on_finishState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    updateIP();
+    
+    // Send current IP Address, no Tunneling necessary
+    Services::doPostRequest("/commands/ip");
 
     influxHelper.writeBuffer();
 
     didCycle = true;
-
-    const char query[] = "from (bucket: \"messdaten\")"
-                         "|> range(start: -1h)"
-                         "|> filter(fn: (r) => r._measurement == \"Environment Data\" and r._field == \"rssi\""
-                         " and r.device == \"ESP32\")"
-                         "|> min()";
-
-    influxHelper.doQuery(query);
   }
 }
 
@@ -427,13 +406,16 @@ void setup()
     digitalWrite(Relais[i], HIGH);
   }
 
-  /*
   pinMode(button1Pin, INPUT);
   pinMode(button2Pin, INPUT);
-  pinMode(button3Pin, INPUT);
 
-  climate1.setup();
-  */
+  // Pumpe 1 shall pump for 2 Plants on 2 different Solenoids consecutively
+  // Pump *pump3 = new Pump(1, pump_PWM_2, cistern2);
+  pump1.add_callback(setupToFs);
+  Pump *action1 = &pump1;
+  Pump *action2 = &pump1;
+  actions.add(action1);
+  actions.add(action2);
 
   displayController.setupLEDMatrix();
 
@@ -464,8 +446,6 @@ void setup()
       &Task2, // Task handle.
       0       // Core where task runs
   );
-
-  pump1.add_callback(setupToFs);
 }
 
 void loop()

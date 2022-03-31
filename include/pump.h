@@ -5,13 +5,6 @@
 #include <Irrigation.h>
 #include "Adafruit_INA219.h"
 
-class ISubStateMachine
-{
-    public:
-        virtual ~ISubStateMachine() {}
-        virtual bool isDone() = 0;
-};
-
 enum class PumpState
 {
     IDLE = 0,

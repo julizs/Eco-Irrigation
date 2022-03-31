@@ -7,8 +7,9 @@ class Utilities
 {
     public:
         static void scanI2CBus(TwoWire *wire);
-        static DynamicJsonDocument readDoc(int address);
-        static void writeDoc(int address, DynamicJsonDocument &doc);
+        static DynamicJsonDocument readDoc(int address, int size);
+        static void writeDoc(int address, DynamicJsonDocument &doc, int size);
+        static void provideData();
 };
 
 #endif // Utilities_h

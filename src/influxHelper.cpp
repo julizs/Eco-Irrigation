@@ -22,7 +22,7 @@ void InfluxHelper::setParameters()
   // Use high batchSize and do manual flushBuffer, because
   // Number of DataPoints varies, since User can add Plants
   client.setWriteOptions(WriteOptions().batchSize(100));
-  // client.setWriteOptions(WriteOptions().bufferSize(2)); // Don't use
+  // client.setWriteOptions(WriteOptions().bufferSize(2));
   // client.setWriteOptions(WriteOptions().flushInterval(30));
 
   Serial.println("Did Setup Influx Options.");
@@ -109,38 +109,3 @@ FluxQueryResult InfluxHelper::doQuery(const char query[])
 
   return result;
 }
-
-/*
-// Called by Irrigation.cpp and Pump.cpp (on Button Press)
-// Check per per SolenoidValve/relaisChannel
-int InfluxHelper::solenoidReleasedWater(uint8_t relaisChannel)
-{
-  char rC[20] = "relaisChannel == ";
-  itoa(relaisChannel, rC, 10);
-
-  // Plants, SolenoidValve/relaisChannel and Pump are available as Query Tags
-  char query[200] = "from (bucket: \"messdaten\") |> range(start: -1h) |> filter(fn: (r) => r._measurement == \"Irrigations\" and ";
-  strcat(query, rC);
-  strcat(query, " and r._field == \"pumpedWaterML\" and r.device == \"ESP32\") |> min()");
-
-  FluxQueryResult cursor = influxHelper.doQuery(query);
-  long pumpedWaterML = -1;
-
-  // Iterate Result Cursor
-  while (cursor.next())
-  {
-    pumpedWaterML = cursor.getValueByName("pumpedWaterML").getLong();
-    Serial.println(pumpedWaterML);
-  }
-
-  if (cursor.getError() != "")
-  {
-    Serial.print("Query result error: ");
-    Serial.println(cursor.getError());
-  }
-
-  cursor.close();
-
-  return 0;
-}
-*/
