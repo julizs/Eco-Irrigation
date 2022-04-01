@@ -132,8 +132,8 @@ void Pump::loop()
             // cistern.readToF_cont();
         }
 
+        cistern.activateSolenoid(0);
         switchOn();
-
         // cistern.measureWaterFlow();
 
         /*
@@ -172,7 +172,7 @@ void Pump::loop()
             influxHelper.writeDataPoint(p0);
 
             // If ToF not correctly Setup (but Status == ERROR_NONE) -> Crash
-            cistern.updateIrrigations();
+            cistern.updateIrrigations(relaisChannel);
             }
             #endif
         }

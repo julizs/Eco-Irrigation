@@ -1,16 +1,62 @@
 #include "Irrigation.h"
 
-const char query[] =   "from (bucket: \"messdaten\")"
-                        "|> range(start: -24h)"
-                        "|> filter(fn: (r) => r._measurement == \"Environment Data\" and r._field == \"rssi\""
-                        " and r.device == \"ESP32\")";
+const char query[] = "from (bucket: \"messdaten\")"
+                     "|> range(start: -24h)"
+                     "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"pumpedWaterML\")"
+                     "|> sum()";
 
-// "and r.solenoidValve == \"1\""
-const char query2[] =   "from (bucket: \"messdaten\")"
-                        "|> range(start: -24h)"
-                        "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"pumpedWaterML\")"
-                        "|> sum()";
+/*
+Check Irrigation Limits per solenoidValve/relaisChannel for given time Period
+*/
+int Irrigation::recentIrrigations(uint8_t timePeriod, uint8_t solenoidValve)
+{
+    int pumpedWaterML = 0;
+    char query[200] = "";
 
+    sprintf(query, "from (bucket: \"messdaten\")|> range(start: -%dh)"
+                   "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"pumpedWaterML\")"
+                   "and r.solenoidValve == \"%d\" |> sum()",
+                    timePeriod, solenoidValve);
+
+    Serial.println(query);
+
+    FluxQueryResult cursor = influxHelper.doQuery(query);
+    while (cursor.next())
+    {
+        pumpedWaterML = cursor.getValueByName("_value").getLong();
+        Serial.println(pumpedWaterML);
+    }
+
+    if (cursor.getError() != "")
+    {
+        pumpedWaterML = -1;
+        Serial.println(cursor.getError());
+    }
+
+    cursor.close();
+    return pumpedWaterML;
+}
+
+/*
+Gets called by Irrigation Algo and Pump StateMachine at Button Press
+*/
+bool Irrigation::validSolenoid(uint8_t solenoidValve)
+{
+    int waterLimit1h = 500, waterLimit24h = 1000;
+    int pumpedWater1h = recentIrrigations(1, solenoidValve);
+    int pumpedWater24h = recentIrrigations(24, solenoidValve);
+
+    if(pumpedWater1h > waterLimit1h && pumpedWater24h > waterLimit24h)
+    {
+        return false;
+    }
+    else if (pumpedWater1h == -1 || pumpedWater24h == -1)
+    {
+        return false;
+    }
+    
+    return false;
+}
 
 /* Irrigation Algorithm
   1.0 Consider Properties of each Plant in PlantGroup (Size, Dry Roots, ...)
@@ -34,57 +80,45 @@ void Irrigation::decideIrrigation()
         DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/json");
     }
     */
+    
+    Serial.println(recentIrrigations(1,0)); // range -1h, relaisChannel 0
+    Serial.println(recentIrrigations(24,0));
+    Serial.println(validSolenoid(0));
 
-    // Do InfluxDB query once and convert to Array once
-    FluxQueryResult recentIrrigations = influxHelper.doQuery(query2);
-    while (recentIrrigations.next())
+    /*
+    for (int i = 0; i < plants.size(); i++)
     {
-        int pumpedWaterML = recentIrrigations.getValueByName("_value").getLong();
-        Serial.println(pumpedWaterML);
+        String plantName = plants[i]["name"].as<String>();
+        Serial.println(plantName);
+
+        // 1. Check recentIrrigations per Solenoid/relaisChannel
+        // continue (skip Evaluation of this Plant) if over Threshold
+        uint8_t relaisChannel = plants[plantName]["solenoidValve"];
+        if (!validSolenoid(recentIrrigations, relaisChannel))
+        {
+            continue;
+        }
+
+        // 2. If recentIrrigations under Threshold, get Plant Needs
+        // Compare Needs with recent Irrigations
+        char message[100];
+        uint8_t lightNeeds = plants[plantName]["lightNeeds"];
+        uint8_t waterNeeds = plants[plantName]["waterNeeds"];
+        uint8_t plantSize = plants[plantName]["plantSize"];
+        sprintf(message, "Light Needs: %d, Water Needs: %d", "Plant Size: %d", lightNeeds, waterNeeds, plantSize);
+        Serial.println(message);
     }
-    recentIrrigations.close();
+    */
+    /*
+    wateringNeeded = true;
+    Pump *action1 = &pump1;
+    Pump *action2 = &pump1;
+    actions.add(action1);
+    actions.add(action2);
+    */
 
-    int result[50];
-    // convert(recentIrrigations, result);
-    for(int i = 0; i < sizeof(result)/sizeof(result[0]); i++)
-    {
-        // Serial.println(result[i]);
-    }
-
-/*
-for (int i = 0; i < plants.size(); i++)
-{
-    String plantName = plants[i]["name"].as<String>();
-    Serial.println(plantName);
-
-    // 1. Check recentIrrigations per Solenoid/relaisChannel
-    // continue (skip Evaluation of this Plant) if over Threshold
-    uint8_t relaisChannel = plants[plantName]["solenoidValve"];
-    if (!validSolenoid(recentIrrigations, relaisChannel))
-    {
-        continue;
-    }
-
-    // 2. If recentIrrigations under Threshold, get Plant Needs
-    // Compare Needs with recent Irrigations
-    char message[100];
-    uint8_t lightNeeds = plants[plantName]["lightNeeds"];
-    uint8_t waterNeeds = plants[plantName]["waterNeeds"];
-    uint8_t plantSize = plants[plantName]["plantSize"];
-    sprintf(message, "Light Needs: %d, Water Needs: %d", "Plant Size: %d", lightNeeds, waterNeeds, plantSize);
-    Serial.println(message);
-}
-*/
-/*
-wateringNeeded = true;
-Pump *action1 = &pump1;
-Pump *action2 = &pump1;
-actions.add(action1);
-actions.add(action2);
-*/
-
-// Output: [Plant, Milliliters]
-// [["Thymian", 350], ["Aloe",280]]
+    // Output: [Plant, Milliliters]
+    // [["Thymian", 350], ["Aloe",280]]
 }
 
 void Irrigation::getIrrigationInfo(uint8_t solenoidValve, int irrigationAmount)
@@ -115,35 +149,40 @@ void Irrigation::getIrrigationInfo(uint8_t solenoidValve, int irrigationAmount)
     // [pump1, 4.6]
 }
 
-bool Irrigation::validSolenoid(FluxQueryResult &cursor, uint8_t relaisChannel)
+/*
+Do only 1 InfluxDB Request
+*/
+void Irrigation::validSolenoids(bool validSolenoids[])
 {
-    int pumpedWaterML;
-    int limit = 500; // ML, per 24h
+    int waterLimit1h = 500, waterLimit24h = 1000;
+    int i = 0;
+
+    FluxQueryResult cursor = influxHelper.doQuery(query);
+    while (cursor.next())
+    {
+        int pumpedWaterML = cursor.getValueByName("_value").getLong();
+        Serial.println(pumpedWaterML);
+    }
+    cursor.close();
 
     while (cursor.next())
     {
-        uint8_t channel = cursor.getValueByName("relaisChannel").getLong();
-        if (relaisChannel == channel)
+        uint8_t solenoidValve = cursor.getValueByName("_value").getLong();
+        int pumpedWaterML = cursor.getValueByName("pumpedWaterML").getLong();
+        if (pumpedWaterML > waterLimit1h)
         {
-            pumpedWaterML = cursor.getValueByName("pumpedWaterML").getLong();
-            if (pumpedWaterML > limit)
-            {
-                return false;
-            }
-            Serial.print("Water Amount on Solenoid ");
-            Serial.print(channel);
-            Serial.print(" : ");
-            Serial.print(pumpedWaterML);
+            validSolenoids[i] = false;
         }
+        else
+        {
+            validSolenoids[i] = true;
+        }
+        i++;
     }
 
     if (cursor.getError() != "")
     {
         Serial.print("Query result error: ");
         Serial.println(cursor.getError());
-        return false;
     }
-
-    // No Irrigations on this relaisChannel
-    return true;
 }

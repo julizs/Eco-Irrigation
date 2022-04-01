@@ -9,11 +9,12 @@
 
 class Irrigation
 {
-    static int recentIrrigations[];
     public:
         static void decideIrrigation();
         static void getIrrigationInfo(uint8_t solenoidValve, int irrigationAmount);
-        static bool validSolenoid(FluxQueryResult &cursor, uint8_t relaisChannel);
+        static void validSolenoids(bool validSolenoids[]);
+        static bool validSolenoid(uint8_t solenoidValve);
+        static int recentIrrigations(uint8_t timePeriod, uint8_t solenoidValve);
 };
 
 #endif // Irrigation_h

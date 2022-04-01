@@ -12,13 +12,14 @@ class Cistern
     public:
         //VL53L0X toF; // Polulu Library
         Adafruit_VL53L0X toF = Adafruit_VL53L0X();
+        uint8_t* solenoidValves; // relaisChannels
         unsigned short toF_address, sampleSize, cisternHeight;
         unsigned short currWaterDist, minWaterDist, maxWaterDist; // aka minWaterLevel
         float mmToMl;
         bool toF_ready;
 
         // Cistern();
-        Cistern(unsigned short toF_address, unsigned short cisternHeight, float mmToMl);
+        Cistern(uint8_t toF_address, uint8_t solenoidValves[], uint8_t cisternHeight, float mmToMl);
         void setupToF();
         void shutToF();
 
@@ -26,9 +27,10 @@ class Cistern
         void readToF(int distances[]);
         void readToF_cont(int distances[]);
         int updateWaterLevel();
-        void updateIrrigations();
+        void updateIrrigations(uint8_t relaisChannel);
         bool validWaterLevel();
         int calcMl(float waterLevel);
+        void activateSolenoid(uint8_t relaisChannel);
 
     private:
         

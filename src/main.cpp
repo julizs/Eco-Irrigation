@@ -35,9 +35,12 @@ TwoWire I2Ctwo = TwoWire(1);
 AmbientClimate climate1(500, 2);
 AmbientLight lightSensor1(1);
 AmbientLight lightSensor2(2);
-// Pumps and Cisterns never change, only associated Pump Model
-Cistern cistern1(0x51, 300, 53.0f); // shut
-Cistern cistern2(0x52, 350, 42.0f);
+// Pumps and associated solenoids/relaisChannels and ToF Sensor never change, 
+// only associated Pump Model (if User switches Pumps)
+uint8_t solenoids1[] = {0,1};
+uint8_t solenoids2[] = {};
+Cistern cistern1(0x51, solenoids1, 300, 53.0f);
+Cistern cistern2(0x52, solenoids2, 450, 42.0f);
 Pump pump1(0, pump_PWM_1, cistern1);
 Pump pump2(1, pump_PWM_2, cistern2);
 StatusDisplay displayController;

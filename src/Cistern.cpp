@@ -1,10 +1,12 @@
 #include "Cistern.h"
 
-Cistern::Cistern(unsigned short toF_address, unsigned short cisternHeight, float mmToMl)
+Cistern::Cistern(uint8_t toF_address, uint8_t relaisChannels[], uint8_t cisternHeight, float mmToMl)
 {
     this->toF_address = toF_address;
     this->cisternHeight = cisternHeight;
     this->mmToMl = mmToMl;
+
+    solenoidValves = relaisChannels;
     currWaterDist = 0;
     minWaterDist = 50;
     maxWaterDist = 300;
@@ -88,7 +90,7 @@ int Cistern::calcMl(float waterDistance)
 }
 
 // Point p2
-void Cistern::updateIrrigations()
+void Cistern::updateIrrigations(uint8_t relaisChannel)
 {
     int oldWaterDist = currWaterDist;
     int oldWaterAmount = calcMl(oldWaterDist);
@@ -102,7 +104,8 @@ void Cistern::updateIrrigations()
     // MongoDb or InfluxDB ? Reason ? Pump ? Pump Time ?
     p2.clearTags();
     p2.clearFields();
-    p2.addTag("Plant", "Magnolie");
+    char* solenoidValve = itoa(relaisChannel, solenoidValve, 10);
+    p2.addTag("solenoidValve", solenoidValve);
     p2.addField("pumpedWaterML", pumpedWaterML);
     influxHelper.writeDataPoint(p2);
 }
@@ -235,4 +238,9 @@ void Cistern::readToF_cont(int distances[])
 
     toF.stopRangeContinuous();
     // float avgDistance = sum / (distances.size() * 1.0f);
+}
+
+void Cistern::activateSolenoid(uint8_t relaisChannel)
+{
+    digitalWrite(Relais[relaisChannel], LOW);
 }
