@@ -14,15 +14,7 @@
 #include <LinkedList.h>
 #include <ISubStateMachine.h>
 
-#define SLEEPTYPE 1 // Light Sleep or Modem Sleep
-#define LOCALSAVE 1 // Save ArduinoJson Files on Flash
-#define DOMEASURE 0
-#define SENDDATA 0
-#define GETDATA 0
-#define RUNSUBMACHINES 0
-const int SLEEP_DURATION = 16;
-const int MEASURE_INTERVAL = 2;
-const int MIN_STATE_DURATION = 2;
+#define RUNSUBMACHINES 1
 
 const char baseUrl[] = "https://juli.uber.space/node";
 
@@ -310,7 +302,7 @@ void on_finishState()
     commonStateLogic();
 
 // Send current IP Address, no Tunneling necessary
-#if (DOSEND == 1)
+#if (SENDDATA == 1)
     {
       Services::doPostRequest("/commands/ip");
       influxHelper.writeBuffer();
@@ -463,7 +455,7 @@ void setup()
       10000,
       NULL,
       0,
-      &Task2, // Task handle.
+      &Task2, // Task handle
       0       // Core where task runs
   );
 }

@@ -14,8 +14,8 @@ int Irrigation::recentIrrigations(uint8_t timePeriod, uint8_t solenoidValve)
     char query[200] = "";
 
     sprintf(query, "from (bucket: \"messdaten\")|> range(start: -%dh)"
-                   "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"pumpedWaterML\")"
-                   "and r.solenoidValve == \"%d\" |> sum()",
+                   "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"pumpedWaterML\""
+                   "and r.solenoidValve == \"%d\") |> sum()",
                     timePeriod, solenoidValve);
 
     Serial.println(query);
@@ -83,7 +83,7 @@ void Irrigation::decideIrrigation()
     
     Serial.println(recentIrrigations(1,0)); // range -1h, relaisChannel 0
     Serial.println(recentIrrigations(24,0));
-    Serial.println(validSolenoid(0));
+    // Serial.println(validSolenoid(0));
 
     /*
     for (int i = 0; i < plants.size(); i++)

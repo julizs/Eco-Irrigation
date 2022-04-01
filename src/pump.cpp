@@ -132,7 +132,7 @@ void Pump::loop()
             // cistern.readToF_cont();
         }
 
-        cistern.activateSolenoid(0);
+        cistern.driveSolenoid(relaisChannel, LOW);
         switchOn();
         // cistern.measureWaterFlow();
 
@@ -163,12 +163,12 @@ void Pump::loop()
             // Measure Power before stopping Pump
             writeIna();
 
-            wateringNeeded = false;
-
             switchOff();
-            #if (DOMEASURE == 1)
+            cistern.driveSolenoid(relaisChannel, HIGH);
+
+            #if (SENDDATA == 1)
             {
-            // Write to InfluxDB (Ina and ToF to p0) AFTER turning off pump
+            // Write Point (Ina and ToF Data) to Buffer
             influxHelper.writeDataPoint(p0);
 
             // If ToF not correctly Setup (but Status == ERROR_NONE) -> Crash
@@ -239,7 +239,7 @@ void Pump::resetMachine()
 {
     currentState = PumpState::IDLE;
     // lastState must be != currentState for ExecOnce Logic to run
-    lastState = lastState = (PumpState)-1;
+    lastState = (PumpState)-1;
 }
 
 /*

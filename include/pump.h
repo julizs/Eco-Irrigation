@@ -33,8 +33,14 @@ public:
     unsigned short errorCode, minStateDuration;
     unsigned long stateBeginMillis;
 
+    // Changable by User
     DynamicJsonDocument pumpModel;
+
+    // Fixed
     int pwmPin, pwmChannel, frequency, resolution, dutyCycle;
+
+    // Set by Irrigation Algo
+    uint8_t relaisChannel;
     float pumpTime;
 
     Cistern cistern;
