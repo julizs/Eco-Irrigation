@@ -14,8 +14,6 @@
 #include <LinkedList.h>
 #include <ISubStateMachine.h>
 
-#define RUNSUBMACHINES 1
-
 const char baseUrl[] = "https://juli.uber.space/node";
 
 TaskHandle_t Task1, Task2;
@@ -40,7 +38,7 @@ StatusDisplay displayController;
 StateMachine fsm = StateMachine();
 State *initState, *sleepState, *measureState, *evaluateState, *actionState, *finishState;
 const char *stateNames[] = {"INIT", "SLEEP", "MEASURE", "EVALUATE", "ACTION", "FINISH"};
-bool wateringNeeded, didSleep, didCycle;
+bool didSleep, didCycle;
 unsigned long stateBeginMillis = 0;
 
 LinkedList<ISubStateMachine *> actions = LinkedList<ISubStateMachine *>();
@@ -49,17 +47,6 @@ void setupToFs()
 {
   cistern2.setupToF();
   cistern1.setupToF();
-}
-
-// Irrigation.cpp
-void refillActions()
-{
-  // Pumpe 1 shall pump for 2 Plants on 2 different Solenoids consecutively
-  // Pump *pump3 = new Pump(1, pump_PWM_2, cistern2);
-  Pump *action1 = &pump1;
-  Pump *action2 = &pump1;
-  actions.add(action1);
-  actions.add(action2);
 }
 
 void doMeasurements()
@@ -173,6 +160,8 @@ bool countTime(int durationSec)
 // STATE LOGIC
 void on_initState()
 {
+  bool didConnect = false;
+
   if (fsm.executeOnce)
   {
     commonStateLogic();
@@ -217,11 +206,7 @@ void on_sleepState()
     commonStateLogic();
     // ESP.deepSleep(30e6);
 
-    if (SLEEPTYPE == 0) // Modem Sleep
-    {
-    }
-
-    else if (SLEEPTYPE == 1) // Light Sleep
+    if (SLEEPTYPE == 1) // Light Sleep
     {
       // µs (microseconds)
       esp_sleep_enable_timer_wakeup(SLEEP_DURATION * 1000 * 1000);
@@ -229,9 +214,16 @@ void on_sleepState()
       esp_light_sleep_start();
       // Resume Program, Connections and States were kept
     }
+    else if (SLEEPTYPE == 2) 
+    {
+      // Short Deep Sleep (2s) when all Connection Retries fail, rerun setup()
+      esp_sleep_enable_timer_wakeup(2 * 1000 * 1000);
+      delay(100); // Else no Wakeup
+      esp_deep_sleep_start();
+    }
   }
 
-  if (SLEEPTYPE == -1) // Simulate Sleep
+  if (SLEEPTYPE == 0) // Simulate Sleep
   {
     while (!countTime(SLEEP_DURATION))
     {
@@ -260,7 +252,6 @@ void on_evaluateState()
   {
     commonStateLogic();
     Irrigation::decideIrrigation();
-    refillActions();
   }
 }
 
@@ -289,7 +280,8 @@ void on_actionState()
       {
         machine->loop();
       }
-      actions.remove(i);
+      //actions.remove(i);
+      actions.pop();
     }
   }
 #endif
@@ -353,24 +345,27 @@ bool transitionS2S3()
   return false;
 }
 
-bool transitionS3S1()
+// No Action needed, go to finishState
+bool transitionS3S5()
 {
-  if (countTime(MIN_STATE_DURATION) && !wateringNeeded) // && !fanNeeded && ...
+  if (countTime(MIN_STATE_DURATION) && Irrigation::didEvaluate && actions.size() == 0)
   {
     return true;
   }
   return false;
 }
 
+// Action Stack not empty, go to actionState
 bool transitionS3S4()
 {
-  if (countTime(MIN_STATE_DURATION) && wateringNeeded) // || fanNeeded || ...
+  if (countTime(MIN_STATE_DURATION) && Irrigation::didEvaluate && actions.size() > 0)
   {
     return true;
   }
   return false;
 }
 
+// Do/Pop actions until actionStack is empty
 bool transitionS4S5()
 {
   // min State Duration must be over AND Pump done, Fan done, ...
@@ -445,6 +440,7 @@ void setup()
   sleepState->addTransition(&transitionS1S2, measureState);
   measureState->addTransition(&transitionS2S3, evaluateState);
   evaluateState->addTransition(&transitionS3S4, actionState);
+  evaluateState->addTransition(&transitionS3S5, finishState);
   actionState->addTransition(&transitionS4S5, finishState);
   finishState->addTransition(&transitionS5S2, sleepState);
 

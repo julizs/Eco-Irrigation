@@ -16,10 +16,10 @@ extern ESP8266WiFiMulti wifiMulti;
 // #include <ESPAsyncWebServer.h>
 #include <main.h>
 
-#define WIFI_SSID "FRITZ!Box 7430 ED"
-#define WIFI_PASSWORD "49391909776212256241"
-// #define WIFI_SSID "FRITZ!Box 6490 Cable"
-// #define WIFI_PASSWORD "04623152464666844388"
+// #define WIFI_SSID "FRITZ!Box 7430 ED"
+// #define WIFI_PASSWORD "49391909776212256241"
+#define WIFI_SSID "FRITZ!Box 6490 Cable"
+#define WIFI_PASSWORD "04623152464666844388"
 
 class Services
 {

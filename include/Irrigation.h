@@ -10,6 +10,8 @@
 class Irrigation
 {
     public:
+        static bool didEvaluate;
+
         static void decideIrrigation();
         static void getIrrigationInfo(uint8_t solenoidValve, int irrigationAmount);
         static void validSolenoids(bool validSolenoids[]);

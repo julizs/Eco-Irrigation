@@ -15,15 +15,13 @@
 #define DOMEASURE 1
 #define SENDDATA 1
 #define GETDATA 1
-#define RUNSUBMACHINES 0
+#define RUNSUBMACHINES 1
 const int SLEEP_DURATION = 16;
 const int MEASURE_INTERVAL = 2;
 const int MIN_STATE_DURATION = 2;
-
 extern TwoWire I2Cone;
 extern TwoWire I2Ctwo;
 extern InfluxHelper influxHelper;
-extern bool wateringNeeded;
 extern const char baseUrl[];
 extern LinkedList<ISubStateMachine*> actions;
 

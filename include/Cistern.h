@@ -36,4 +36,6 @@ class Cistern
         
 };
 
+extern Cistern cistern1, cistern2;
+
 #endif // Cistern_h

@@ -80,7 +80,8 @@ void Pump::loop()
         {
             commonStateLogic();
 
-            setupToFs();
+            // Crashes when &pump2 put on action Stack
+            // setupToFs();
 
             // Check recent Irrigations for Limits (incase of User Button Press)
             /*

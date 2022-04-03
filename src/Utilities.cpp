@@ -57,8 +57,10 @@ void Utilities::provideData()
   // 1. Get User-assigned Plant-Sensor Assignments and voltageRanges of moistureSensors
   DynamicJsonDocument moistureSensors = Services::doJSONGetRequest("/moistureSensors");
   DynamicJsonDocument pumps = Services::doJSONGetRequest("/pumps");
-  DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/json");
+  // DynamicJsonDocument plantSensors = Services::doJSONGetRequest("/plants/sensors");
+  // DynamicJsonDocument plantNeeds = Services::doJSONGetRequest("/plants/needs");
   Utilities::writeDoc(0, moistureSensors, 1024);
-  Utilities::writeDoc(1024, pumps, 2048);
-  Utilities::writeDoc(3072, plants, 2048);
+  // Utilities::writeDoc(1024, pumps, 2048);
+  // Utilities::writeDoc(0, plantSensors, 1024);
+  // Utilities::writeDoc(1024, plantNeeds, 1024);
 }

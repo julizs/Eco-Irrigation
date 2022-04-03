@@ -69,4 +69,6 @@ private:
     callback setupToFs;
 };
 
+extern Pump pump1, pump2;
+
 #endif // Pump_h

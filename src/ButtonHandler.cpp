@@ -81,8 +81,9 @@ void ButtonHandler::handleHardwareButtons()
 
       if (buttonState == LOW)
       {
-        Serial.println("Pump Button pressed!");
+        // Serial.println("Pump Button pressed!");
 
+        /*
         if (!wateringNeeded)
         {
           wateringNeeded = true;
@@ -91,6 +92,7 @@ void ButtonHandler::handleHardwareButtons()
         {
           wateringNeeded = false;
         }
+        */
 
         /*
         if (fsm.currentState != 4) // otherwise ACTION state before PUMP_IDLE when pressed while Pumping
