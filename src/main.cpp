@@ -25,9 +25,9 @@ TwoWire I2Ctwo = TwoWire(1);
 AmbientClimate climate1(500, 2);
 AmbientLight lightSensor1(1);
 AmbientLight lightSensor2(2);
-// Pumps and associated solenoids/relaisChannels and ToF Sensor never change, 
+// Pumps and associated solenoids/relaisChannels and ToF Sensor never change,
 // only associated Pump Model (if User switches Pumps)
-uint8_t solenoids1[] = {0,1};
+uint8_t solenoids1[] = {0, 1};
 uint8_t solenoids2[] = {};
 Cistern cistern1(0x51, solenoids1, 300, 53.0f);
 Cistern cistern2(0x52, solenoids2, 450, 42.0f);
@@ -107,21 +107,27 @@ void doMeasurements()
     p.clearFields();
     p.addTag("Plant", plantName);
 
-    // For each moistureSensor pinNum assigned to this Plant
-    for (int j = 0; j < sizeof(plants[i]["moistureSensors"]); j++)
+    // New way since ArduinoJson 6
+    StaticJsonDocument<64> doc;
+    JsonArray array = plants[i]["moistureSensors"];
+    if (array.isNull())
     {
-      int moistureSensor = plants[i]["moistureSensors"][j].as<int>();
-      if (moistureSensor != 0) // ignore 0s, e.g. 67000 (=channels 6,7)
-      {
-        int pinNum = moistureSensor - 1;
-        char key[25];
-        sprintf(key, "Soil Moisture Sensor %d", moistureSensor);
+      Serial.println("Plant has no moisture Sensors.");
+      continue;
+    }
 
-        int moistureSmoothed = SoilMoisture::measureSoilMoistureSmoothed(pinNum);
-        // Pass Reference of moistureSensors Table, so only 1 GET Request instead of per Plant, per Sensor
-        int moisturePercentage = SoilMoisture::voltageToPercentage(pinNum, moistureSmoothed, moistureSensors);
-        p.addField(key, moisturePercentage);
-      }
+    // For each moistureSensor pinNum assigned to this Plant
+    for (int j = 0; j < array.size(); j++)
+    {
+      int moistureSensor = array[j];
+      int pinNum = moistureSensor - 1;
+      char key[25];
+      sprintf(key, "Soil Moisture Sensor %d", moistureSensor);
+
+      int moistureSmoothed = SoilMoisture::measureSoilMoistureSmoothed(pinNum);
+      // Pass Reference of moistureSensors Table, so only 1 GET Request instead of per Plant, per Sensor
+      int moisturePercentage = SoilMoisture::voltageToPercentage(pinNum, moistureSmoothed, moistureSensors);
+      p.addField(key, moisturePercentage);
     }
 
     // MongoDb Cursor gets sorted by lightSensor, same Sensor measures less often
@@ -214,7 +220,7 @@ void on_sleepState()
       esp_light_sleep_start();
       // Resume Program, Connections and States were kept
     }
-    else if (SLEEPTYPE == 2) 
+    else if (SLEEPTYPE == 2)
     {
       // Short Deep Sleep (2s) when all Connection Retries fail, rerun setup()
       esp_sleep_enable_timer_wakeup(2 * 1000 * 1000);
@@ -273,14 +279,14 @@ void on_actionState()
     {
       ISubStateMachine *machine = actions.get(i);
 
-      // Set back State to idle so that same Machine can run multiple times
+      // Set back State to idle so that same Pump can run multiple times
       machine->resetMachine();
 
       while (!machine->isDone())
       {
         machine->loop();
       }
-      //actions.remove(i);
+      // actions.remove(i);
       actions.pop();
     }
   }

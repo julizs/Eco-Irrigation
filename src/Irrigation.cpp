@@ -41,23 +41,27 @@ int Irrigation::recentIrrigations(uint8_t timePeriod, uint8_t solenoidValve)
 
 /*
 Gets called by Irrigation Algo and Pump StateMachine at Button Press
+Do as few Requests as possible
 */
 bool Irrigation::validSolenoid(uint8_t solenoidValve)
 {
     int waterLimit1h = 500, waterLimit24h = 1000;
     int pumpedWater1h = recentIrrigations(1, solenoidValve);
-    int pumpedWater24h = recentIrrigations(24, solenoidValve);
-
-    if(pumpedWater1h > waterLimit1h && pumpedWater24h > waterLimit24h)
+    
+    if(pumpedWater1h > waterLimit1h || pumpedWater1h == -1)
     {
         return false;
     }
-    else if (pumpedWater1h == -1 || pumpedWater24h == -1)
+    else
     {
-        return false;
+        int pumpedWater24h = recentIrrigations(24, solenoidValve);
+        if(pumpedWater24h > waterLimit24h || pumpedWater24h == -1)
+        {
+            return false;
+        } 
     }
     
-    return false;
+    return true;
 }
 
 /* Irrigation Algorithm
@@ -74,22 +78,38 @@ bool Irrigation::validSolenoid(uint8_t solenoidValve)
 void Irrigation::decideIrrigation()
 {
     didEvaluate = false;
+    DynamicJsonDocument pumps = Services::doJSONGetRequest("/pumps/json");
+    DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/sensors");
+    DynamicJsonDocument plantNeeds = Services::doJSONGetRequest("/plants/needs");
     // Access Tables from EEPROM
     // DynamicJsonDocument plants = Utilities::readDoc(0, 1024);
     // DynamicJsonDocument plantNeeds = Utilities::readDoc(1024, 1024);
-    DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/sensors");
-    DynamicJsonDocument plantNeeds = Services::doJSONGetRequest("/plants/needs");
-    
 
-    for (int i = 0; i < plantNeeds.size(); i++)
+    // 1. Iterate different SolenoidValves in System
+    // Check 48h and 2h waterAmount
+    for(int i = 0; i < pumps.size(); i++)
     {
-        char message[100];
-        int waterNeeds = plantNeeds[i]["waterNeeds"].as<int>();
-        int lightNeeds = plantNeeds[i]["lightNeeds"].as<int>();
-        int currentSize = plantNeeds[i]["currentSize"].as<int>();
-        sprintf(message, "Water Needs: %d", "Light Needs: %d", "Plant Size: %d", waterNeeds, lightNeeds, currentSize);
-        Serial.println(message);
+        String pumpModel = pumps[i]["name"];
+        Serial.println(pumpModel);
+
+        // New way since ArduinoJson 6
+        StaticJsonDocument<64> doc;
+        JsonArray array = pumps[i]["solenoidValve"];
+        if(array.isNull())
+        {
+            Serial.println("Pump has no Solenoid Valves.");
+            continue;
+        }
+        for(int j = 0; j < array.size(); j++)
+        {
+            int relaisChannel = array[j];
+            Serial.println(relaisChannel);
+            // int pumpedWater24h = recentIrrigations(48, relaisChannel);
+        }
+        // solenoidValve = pumps[i]["solenoidValve"];
+
     }
+
     /*
     for (int i = 0; i < plants.size(); i++)
     {
@@ -98,32 +118,39 @@ void Irrigation::decideIrrigation()
 
         // 1. Check if Irrigation necessary
         char message[100];
-        uint8_t lightNeeds = plantNeeds[plantName]["lightNeeds"].as<int>();
-        uint8_t waterNeeds = plantNeeds[plantName]["waterNeeds"].as<int>();
-        uint8_t plantSize = plantNeeds[plantName]["plantSize"].as<int>();
-        sprintf(message, "Light Needs: %d, Water Needs: %d", "Plant Size: %d", lightNeeds, waterNeeds, plantSize);
-        Serial.println(message);
+        if(plantNeeds[i]["name"].as<String>().equals(plantName))
+        {
+            uint8_t lightNeeds = plantNeeds[i]["lightNeeds"];
+            uint8_t waterNeeds = plantNeeds[i]["waterNeeds"];
+            uint8_t currentSize = plantNeeds[i]["currentSize"];
+            Serial.println(waterNeeds);
+            Serial.println(lightNeeds);
+            Serial.println(currentSize);
+        }
+        // sprintf(message, "Light Needs: %d, Water Needs: %d", "Plant Size: %d", lightNeeds, waterNeeds, plantSize);
+        // Serial.println(message);
 
-        // 2. Reduce to relaisChannels and check if Solenoid valid
-        uint8_t relaisChannel = plants[plantName]["solenoidValve"];
-        int waterAmound1h = recentIrrigations(1,0); // range -1h, relaisChannel 0
-        int waterAmount24 = recentIrrigations(24,0);
+        // 2. Reduce Plants to (same) relaisChannels
+        // Check waterAmount of past 48h
+        // Calc Algo
+        // Check waterAmount of past 1h
+        uint8_t relaisChannel = plants[i]["solenoidValve"];
+        int pumpedWater24h = recentIrrigations(48, relaisChannel);
+
         if(!validSolenoid(relaisChannel))
         {
             Serial.println("FAIL");
         }
     }
     */
-
-    // Pump *action1 = &pump1;
-    // Pump *action3 = &pump1;
-    // Pump *action2 = &pump2;
+    
     actions.add(&pump1);
     actions.add(&pump2);
     actions.add(&pump1);
 
-    // Output: [Plant, Milliliters]
     // [["Thymian", 350], ["Aloe",280]]
+    // [[1,280]] (both on same Solenoid/relaisChannel)
+    // [[1,3.7]] (pumpTime based on L and % Pwm and L/h of pump)
 
     didEvaluate = true;
 }
