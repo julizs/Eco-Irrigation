@@ -9,7 +9,7 @@ Cistern::Cistern(uint8_t toF_address, uint8_t relaisChannels[], int cisternHeigh
     solenoidValves = relaisChannels;
     currWaterDist = 0;
     minWaterDist = 50;
-    maxWaterDist = 300;
+    maxWaterDist = 200;
     sampleSize = 8;
 }
 
@@ -96,7 +96,9 @@ void Cistern::updateIrrigations(uint8_t relaisChannel)
     int oldWaterAmount = calcMl(oldWaterDist);
     int newWaterDist = updateWaterLevel();
     int newWaterAmount = calcMl(newWaterDist);
-    int pumpedWaterML = oldWaterAmount - newWaterAmount;
+    // Not less than 0ml
+    // int pumpedWaterML = min(oldWaterAmount - newWaterAmount,0);
+    int pumpedWaterML = rand() % 200 + 100; // Demo, 100-300ml
 
     // Reuse Datapoint, create new Row in InfluxDB Irrigations Measurement
     // Add affected Plants, SolenoidValve/relaisChannel and Pump as Tags

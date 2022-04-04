@@ -14,6 +14,7 @@ class Irrigation
         static bool didEvaluate;
 
         static void decideIrrigation();
+        static void decidePlants(uint8_t solenoidValve, int recentWater, DynamicJsonDocument &plants, DynamicJsonDocument &plantNeeds);
         static void getIrrigationInfo(uint8_t solenoidValve, int irrigationAmount);
         static void validSolenoids(bool validSolenoids[]);
         static bool validSolenoid(uint8_t solenoidValve);

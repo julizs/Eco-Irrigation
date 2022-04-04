@@ -18,9 +18,9 @@ int Irrigation::recentIrrigations(uint8_t timePeriod, uint8_t solenoidValve)
     sprintf(query, "from (bucket: \"messdaten\")|> range(start: -%dh)"
                    "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"pumpedWaterML\""
                    "and r.solenoidValve == \"%d\") |> sum()",
-                    timePeriod, solenoidValve);
+            timePeriod, solenoidValve);
 
-    Serial.println(query);
+    // Serial.println(query);
 
     FluxQueryResult cursor = influxHelper.doQuery(query);
     while (cursor.next())
@@ -41,109 +41,68 @@ int Irrigation::recentIrrigations(uint8_t timePeriod, uint8_t solenoidValve)
 
 /*
 Gets called by Irrigation Algo and Pump StateMachine at Button Press
-Do as few Requests as possible
 */
 bool Irrigation::validSolenoid(uint8_t solenoidValve)
 {
-    int waterLimit1h = 500, waterLimit24h = 1000;
-    int pumpedWater1h = recentIrrigations(1, solenoidValve);
-    
-    if(pumpedWater1h > waterLimit1h || pumpedWater1h == -1)
+    int waterLimit = 500; // Milliliters
+    int pumpedWater = recentIrrigations(2, solenoidValve);
+
+    if (pumpedWater > waterLimit || pumpedWater == -1)
     {
         return false;
     }
-    else
-    {
-        int pumpedWater24h = recentIrrigations(24, solenoidValve);
-        if(pumpedWater24h > waterLimit24h || pumpedWater24h == -1)
-        {
-            return false;
-        } 
-    }
-    
     return true;
 }
 
 /* Irrigation Algorithm
-  1.0 Consider Properties of each Plant in PlantGroup (Size, Dry Roots, ...)
-  1.1 Consider recent Irrigations (InfluxDB) of this PlantGroup (e.g. less than 1l today, less than 0.5l in past 4 hours)
-  1.2 Consider soilMoisture of every Plant from the PlantGroup
-  2. Decide Subject (Plant/PlantGroup at Solenoid) and Milliliters
-  3. Create (Irrigation) Action Obj that are executed sequential (one after another)
-  4. Get necessary Info for Action (PumpModel, PumpTime, RelaisChannel, ...)
-  5. Run Pump State Machine Loop(s)
-  5. Create Irrigation Datapoint for InfluxDB (also if Irrigation failed)
-  (Reason for Irrigation: ... , Irrigation Amount: ..., Reason for Failure: ...)
+  1.1 Skip if waterAmount released by this Solenoid over last 2h > Threshold
+  1.2 (Ideal: Consider average soilMoisture of every Plant connected to this Solenoid over last 48h,
+  but: 1 InfluxDB Request per Plant, slow)
+  (Quick: Consider waterAmount released by this Solenoid over the last 48h)
+  2. Consider Properties of each Plant in PlantGroup (Size, Dry Roots, ...)
+  3. Decide Subjects (Plants -> same Solenoid/RelaisChannel -> Pump) and Milliliters
+  3. Get necessary Info for Action (PumpModel, PumpTime, RelaisChannel, ...)
+  4. Put ISubStateMachine Pointer on Stack, execute sequentially in ActionState
+  5. Create Irrigation Datapoint for InfluxDB/MongoDB (even if Irrigation fails)
+  (Plants: ..., Reason for Irrigation: ... , Irrigation Amount: ..., Reason for Failure: ...)
 */
 void Irrigation::decideIrrigation()
 {
     didEvaluate = false;
+    // Do 1 Request each only, or read from EEPROM
     DynamicJsonDocument pumps = Services::doJSONGetRequest("/pumps/json");
     DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/sensors");
     DynamicJsonDocument plantNeeds = Services::doJSONGetRequest("/plants/needs");
-    // Access Tables from EEPROM
     // DynamicJsonDocument plants = Utilities::readDoc(0, 1024);
     // DynamicJsonDocument plantNeeds = Utilities::readDoc(1024, 1024);
 
-    // 1. Iterate different SolenoidValves in System
-    // Check 48h and 2h waterAmount
-    for(int i = 0; i < pumps.size(); i++)
+    // 1. Iterate unique SolenoidValves in System
+    for (int i = 0; i < pumps.size(); i++)
     {
         String pumpModel = pumps[i]["name"];
+        int relaisChannel, pumpedWater48h;
         Serial.println(pumpModel);
 
         // New way since ArduinoJson 6
         StaticJsonDocument<64> doc;
         JsonArray array = pumps[i]["solenoidValve"];
-        if(array.isNull())
+        if (array.isNull())
         {
-            Serial.println("Pump has no Solenoid Valves.");
+            // Serial.println("No connected Solenoid Valves.");
             continue;
         }
-        for(int j = 0; j < array.size(); j++)
+        for (int j = 0; j < array.size(); j++)
         {
-            int relaisChannel = array[j];
-            Serial.println(relaisChannel);
-            // int pumpedWater24h = recentIrrigations(48, relaisChannel);
-        }
-        // solenoidValve = pumps[i]["solenoidValve"];
+            relaisChannel = array[j];
+            // Serial.print("Connected Solenoid Valves: ");
+            // Serial.println(relaisChannel);
+            // Do only 1 InfluxDB Request per Solenoid Valve
+            pumpedWater48h = recentIrrigations(48, relaisChannel);
 
-    }
-
-    /*
-    for (int i = 0; i < plants.size(); i++)
-    {
-        String plantName = plants[i]["name"].as<String>();
-        Serial.println(plantName);
-
-        // 1. Check if Irrigation necessary
-        char message[100];
-        if(plantNeeds[i]["name"].as<String>().equals(plantName))
-        {
-            uint8_t lightNeeds = plantNeeds[i]["lightNeeds"];
-            uint8_t waterNeeds = plantNeeds[i]["waterNeeds"];
-            uint8_t currentSize = plantNeeds[i]["currentSize"];
-            Serial.println(waterNeeds);
-            Serial.println(lightNeeds);
-            Serial.println(currentSize);
-        }
-        // sprintf(message, "Light Needs: %d, Water Needs: %d", "Plant Size: %d", lightNeeds, waterNeeds, plantSize);
-        // Serial.println(message);
-
-        // 2. Reduce Plants to (same) relaisChannels
-        // Check waterAmount of past 48h
-        // Calc Algo
-        // Check waterAmount of past 1h
-        uint8_t relaisChannel = plants[i]["solenoidValve"];
-        int pumpedWater24h = recentIrrigations(48, relaisChannel);
-
-        if(!validSolenoid(relaisChannel))
-        {
-            Serial.println("FAIL");
+            decidePlants(relaisChannel, pumpedWater48h, plants, plantNeeds);
         }
     }
-    */
-    
+
     actions.add(&pump1);
     actions.add(&pump2);
     actions.add(&pump1);
@@ -153,6 +112,51 @@ void Irrigation::decideIrrigation()
     // [[1,3.7]] (pumpTime based on L and % Pwm and L/h of pump)
 
     didEvaluate = true;
+}
+
+/*
+Check each Plant connected to same Solenoid Valve
+*/
+void Irrigation::decidePlants(uint8_t solenoidValve, int recentWater, DynamicJsonDocument &plants, DynamicJsonDocument &plantNeeds)
+{
+    // Only 2 MongoDB Requests, but lots of iterating
+    for (int i = 0; i < plants.size(); i++)
+    {
+        int relaisChannel = plants[i]["solenoidValve"].as<int>();
+        if (relaisChannel == solenoidValve)
+        {
+            const char *plantName = plants[i]["name"];
+            Serial.println(plantName);
+            for (int j = 0; j < plantNeeds.size(); j++)
+            {
+                const char *name = plantNeeds[j]["name"];
+                if (strcmp(plantName, name) == 0)
+                {
+                    uint8_t waterNeeds = plantNeeds[j]["waterNeeds"];
+                    uint8_t lightNeeds = plantNeeds[j]["lightNeeds"];
+                    int plantSize = plantNeeds[j]["plantSize"];
+                    char message[64] = "";
+                    sprintf(message, "Water Needs: %d, Light Needs: %d, Plant Size: %d", waterNeeds, lightNeeds, plantSize);
+                    Serial.println(message);
+                }
+            }
+            /*
+            char query[32] = "/";
+            strcat(query, plantName);
+            strcat(query, "/needs");
+            DynamicJsonDocument needs = Services::doJSONGetRequest(query);
+            int currentSize = needs[0]["plantSize"];
+            Serial.println(currentSize);
+            */
+        }
+    }
+
+    /*
+    if (!validSolenoid(solenoidValve))
+    {
+        continue;
+    }
+    */
 }
 
 void Irrigation::getIrrigationInfo(uint8_t solenoidValve, int irrigationAmount)

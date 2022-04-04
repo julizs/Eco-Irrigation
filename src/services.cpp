@@ -35,7 +35,7 @@ void Services::setupWifi()
     }
     attempts++;
   }
-  Serial.println("Could not connect to Wifi.");
+  Serial.println("Could not connect to WiFi.");
 }
 
 bool Services::getWifiMultiStatus()
