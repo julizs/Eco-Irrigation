@@ -63,11 +63,11 @@ void InfluxHelper::writeDataPoint(Point &p)
 {
   if (client.isBufferEmpty())
   {
-    Serial.println("Buffer is empty.");
+    Serial.println("Buffer was flushed and is empty.");
   }
   else
   {
-    Serial.println("Buffer is not empty.");
+    // Serial.println("Buffer is not empty.");
   }
 
   // Write Datapoint into Buffer (or to Database if Buffer Overflow)
@@ -106,7 +106,7 @@ void InfluxHelper::writeBuffer()
 
 FluxQueryResult InfluxHelper::doQuery(const char query[])
 {
-  Serial.println("Trying to Query InfluxDB.");
+  // Serial.println("Trying to Query InfluxDB.");
   
   FluxQueryResult result = client.query(query);
 

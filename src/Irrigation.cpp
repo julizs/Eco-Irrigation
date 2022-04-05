@@ -19,14 +19,15 @@ int Irrigation::recentIrrigations(uint8_t timePeriod, uint8_t solenoidValve)
                    "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"pumpedWaterML\""
                    "and r.solenoidValve == \"%d\") |> sum()",
             timePeriod, solenoidValve);
-
     // Serial.println(query);
 
     FluxQueryResult cursor = influxHelper.doQuery(query);
     while (cursor.next())
     {
         pumpedWaterML = cursor.getValueByName("_value").getLong();
-        Serial.println(pumpedWaterML);
+        Serial.print(pumpedWaterML);
+        Serial.print(" Ml released by Solenoid ");
+        Serial.println(solenoidValve);
     }
 
     if (cursor.getError() != "")
@@ -81,7 +82,7 @@ void Irrigation::decideIrrigation()
     {
         String pumpModel = pumps[i]["name"];
         int relaisChannel, pumpedWater48h;
-        Serial.println(pumpModel);
+        // Serial.println(pumpModel);
 
         // New way since ArduinoJson 6
         StaticJsonDocument<64> doc;
@@ -96,6 +97,7 @@ void Irrigation::decideIrrigation()
             relaisChannel = array[j];
             // Serial.print("Connected Solenoid Valves: ");
             // Serial.println(relaisChannel);
+
             // Do only 1 InfluxDB Request per Solenoid Valve
             pumpedWater48h = recentIrrigations(48, relaisChannel);
 
@@ -126,12 +128,13 @@ void Irrigation::decidePlants(uint8_t solenoidValve, int recentWater, DynamicJso
         if (relaisChannel == solenoidValve)
         {
             String plantName = plants[i]["name"];
-            Serial.println(plantName);
+            // Serial.println(plantName);
             for (int j = 0; j < plantNeeds.size(); j++)
             {
                 String name = plantNeeds[j]["name"];
                 if (plantName.equals(name)) // strcmp(plantName, name) == 0
                 {
+                    Serial.println(plantName);
                     uint8_t waterNeeds = plantNeeds[j]["waterNeeds"];
                     uint8_t lightNeeds = plantNeeds[j]["lightNeeds"];
                     int plantSize = plantNeeds[j]["plantSize"];

@@ -12,7 +12,7 @@ void Services::setupWifiMulti()
   Serial.print("Connecting to wifi");
   long begin = millis();
   // Don't retry infinitely
-  while (wifiMulti.run() != WL_CONNECTED && countTime(begin, 8)) {}
+  while (wifiMulti.run() != WL_CONNECTED && !countTime(begin, 8)) {}
   Serial.println();
 }
 
