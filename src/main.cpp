@@ -35,9 +35,10 @@ Pump pump1(0, pump_PWM_1, cistern1);
 Pump pump2(1, pump_PWM_2, cistern2);
 StatusDisplay displayController;
 
-StateMachine fsm = StateMachine();
-State *initState, *sleepState, *measureState, *evaluateState, *actionState, *finishState;
-const char *stateNames[] = {"INIT", "SLEEP", "MEASURE", "EVALUATE", "ACTION", "FINISH"};
+extern StateMachine fsm = StateMachine();
+State* nextState = nullptr;
+State *initState, *sleepState, *measureState, *evaluateState, *actionState, *finishState, *errorState;
+const char *stateNames[] = {"INIT", "SLEEP", "MEASURE", "EVALUATE", "ACTION", "FINISH", "ERROR"};
 bool didSleep, didCycle;
 unsigned long stateBeginMillis = 0;
 
@@ -175,9 +176,9 @@ void on_initState()
     Serial.println("Main State Machine runs on Core: ");
     Serial.println(xPortGetCoreID());
 
-    if (!Services::getWifiStatus())
+    if (!Services::getWifiMultiStatus())
     {
-      Services::setupWifi();
+      Services::setupWifiMulti();
     }
 
     influxHelper.setParameters();
@@ -243,7 +244,7 @@ void on_measureState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-// WiFi.disconnect();
+    // WiFi.disconnect();
 #if (DOMEASURE == 1)
     {
       doMeasurements();
@@ -257,6 +258,8 @@ void on_evaluateState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
+    // Replaces fsm.transitionTo()
+    // nextState = errorState;
     Irrigation::decideIrrigation();
   }
 }
@@ -297,7 +300,7 @@ void on_finishState()
 {
   if (fsm.executeOnce)
   {
-    commonStateLogic();
+    commonStateLogic(); 
 
 // Send current IP Address, no Tunneling necessary
 #if (SENDDATA == 1)
@@ -308,6 +311,18 @@ void on_finishState()
 #endif
 
     didCycle = true;
+  }
+}
+
+// Multiple failed Wifi Connects
+void on_errorState()
+{
+  if (fsm.executeOnce)
+  {
+    commonStateLogic();
+    Serial.println("Restarting Device...");
+    delay(500);
+    ESP.restart();
   }
 }
 
@@ -395,8 +410,13 @@ void runStateMachine(void *pvParameters)
 {
   for (;;)
   {
+    if (nextState)
+    {
+    fsm.transitionTo(nextState);
+    nextState = nullptr;
+    }
     fsm.run();
-    delay(1);
+    // delay(1);
   }
 }
 
@@ -440,6 +460,7 @@ void setup()
   evaluateState = fsm.addState(&on_evaluateState);
   actionState = fsm.addState(&on_actionState);
   finishState = fsm.addState(&on_finishState);
+  errorState = fsm.addState(&on_errorState);
 
   initState->addTransition(&transitionS0S1, sleepState);
   initState->addTransition(&transitionS0S2, measureState);
@@ -452,13 +473,13 @@ void setup()
 
   // https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
   xTaskCreatePinnedToCore(
-      runStateMachine, // Function to implement the task
+      runStateMachine, // Function to implement the Task
       "Task2",
       10000,
       NULL,
       0,
       &Task2, // Task handle
-      0       // Core where task runs
+      0       // Core running the Task
   );
 }
 

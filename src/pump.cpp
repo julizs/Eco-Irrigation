@@ -50,7 +50,9 @@ INAdata Pump::readIna()
     data.busVoltage = ina219.getBusVoltage_V();
     data.shuntVoltage = abs(ina219.getShuntVoltage_mV() / 1000.0f);
     data.voltage = data.busVoltage + data.shuntVoltage;
-    data.current = abs(ina219.getCurrent_mA() / 1000.0f);
+    // Constrain (InfluxDB Write fail, Current = Inf)
+    float current = abs(ina219.getCurrent_mA() / 1000.0f);
+    data.current = constrain(current, 0, 2);
     // power_mW = ina219.getPower_mW();
     data.power = data.busVoltage * data.current; // P = U * I
 

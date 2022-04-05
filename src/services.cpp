@@ -4,38 +4,16 @@
 WiFiMulti Services::wifiMulti;
 HTTPClient Services::http;
 
-/*
 void Services::setupWifiMulti()
 {
   WiFi.mode(WIFI_STA);
   wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
 
   Serial.print("Connecting to wifi");
-  while (wifiMulti.run() != WL_CONNECTED) {}
+  long begin = millis();
+  // Don't retry infinitely
+  while (wifiMulti.run() != WL_CONNECTED && countTime(begin, 8)) {}
   Serial.println();
-}
-*/
-
-void Services::setupWifi()
-{
-  int attempts = 0;
-
-  while (attempts < 3)
-  {
-    long begin = millis();
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    Serial.println("Trying to connect to WiFi.");
-    while (!countTime(begin, 4))
-    {
-    }
-    if (WiFi.status() == WL_CONNECTED)
-    {
-      Serial.println("Connected to WiFi.");
-      return;
-    }
-    attempts++;
-  }
-  Serial.println("Could not connect to WiFi.");
 }
 
 bool Services::getWifiMultiStatus()
@@ -43,14 +21,9 @@ bool Services::getWifiMultiStatus()
   return wifiMulti.run() == WL_CONNECTED;
 }
 
-bool Services::getWifiStatus()
-{
-  return WiFi.status() == WL_CONNECTED;
-}
-
 void Services::doGetRequest(char const url[])
 {
-  if(!getWifiStatus()) {setupWifi(); }
+  if(!getWifiMultiStatus()) {setupWifiMulti(); }
 
   if (WiFi.status() == WL_CONNECTED)
   {
@@ -91,7 +64,7 @@ void Services::doPostRequest(char const endpoint[])
   Serial.print("POST Request to: ");
   Serial.println(requestUrl);
 
-  if(!getWifiStatus()) {setupWifi(); }
+  if(!getWifiMultiStatus()) {setupWifiMulti(); }
   
   if (WiFi.status() == WL_CONNECTED)
   {
@@ -135,7 +108,7 @@ DynamicJsonDocument Services::doJSONGetRequest(char const endpoint[]) // char en
 
   DynamicJsonDocument doc(2048);
 
-  if(!getWifiStatus()) {setupWifi(); }
+  if(!getWifiMultiStatus()) {setupWifiMulti(); }
 
   if (WiFi.status() == WL_CONNECTED)
   {

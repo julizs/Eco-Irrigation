@@ -125,12 +125,12 @@ void Irrigation::decidePlants(uint8_t solenoidValve, int recentWater, DynamicJso
         int relaisChannel = plants[i]["solenoidValve"].as<int>();
         if (relaisChannel == solenoidValve)
         {
-            const char *plantName = plants[i]["name"];
+            String plantName = plants[i]["name"];
             Serial.println(plantName);
             for (int j = 0; j < plantNeeds.size(); j++)
             {
-                const char *name = plantNeeds[j]["name"];
-                if (strcmp(plantName, name) == 0)
+                String name = plantNeeds[j]["name"];
+                if (plantName.equals(name)) // strcmp(plantName, name) == 0
                 {
                     uint8_t waterNeeds = plantNeeds[j]["waterNeeds"];
                     uint8_t lightNeeds = plantNeeds[j]["lightNeeds"];

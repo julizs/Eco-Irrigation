@@ -30,9 +30,9 @@ void InfluxHelper::setParameters()
 
 bool InfluxHelper::checkConnection()
 {
-  if (!Services::getWifiStatus())
+  if (!Services::getWifiMultiStatus())
   {
-    Services::setupWifi();
+    Services::setupWifiMulti();
   }
 
   int attempts = 0;
@@ -106,6 +106,8 @@ void InfluxHelper::writeBuffer()
 
 FluxQueryResult InfluxHelper::doQuery(const char query[])
 {
+  Serial.println("Trying to Query InfluxDB.");
+  
   FluxQueryResult result = client.query(query);
 
   if(result.getError() != "")
