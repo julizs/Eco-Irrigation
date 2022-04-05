@@ -39,7 +39,7 @@ extern StateMachine fsm = StateMachine();
 State* nextState = nullptr;
 State *initState, *sleepState, *measureState, *evaluateState, *actionState, *finishState, *errorState;
 const char *stateNames[] = {"INIT", "SLEEP", "MEASURE", "EVALUATE", "ACTION", "FINISH", "ERROR"};
-bool didSleep, didCycle;
+bool didSleep, didConnect, didCycle;
 unsigned long stateBeginMillis = 0;
 
 LinkedList<ISubStateMachine *> actions = LinkedList<ISubStateMachine *>();
@@ -89,7 +89,8 @@ void doMeasurements()
 
   // PLANT-SPECIFIC MEASUREMENTS
   DynamicJsonDocument moistureSensors = Utilities::readDoc(0, 1024);
-  DynamicJsonDocument plants = Utilities::readDoc(3072, 2048);
+  DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/sensors");
+  // DynamicJsonDocument plants = Utilities::readDoc(3072, 2048);
 
   // 3. Measure (only) assigned Sensors from each plant
   Point p("Plant Data");
@@ -109,7 +110,7 @@ void doMeasurements()
     p.addTag("Plant", plantName);
 
     // New way since ArduinoJson 6
-    StaticJsonDocument<64> doc;
+    // StaticJsonDocument<64> doc;
     JsonArray array = plants[i]["moistureSensors"];
     if (array.isNull())
     {
@@ -144,6 +145,7 @@ void doMeasurements()
 
     influxHelper.writeDataPoint(p);
   }
+  // Serial.printf_P(PSTR("free heap memory: %d\n"), ESP.getFreeHeap());
 }
 
 void commonStateLogic()
@@ -167,10 +169,9 @@ bool countTime(int durationSec)
 // STATE LOGIC
 void on_initState()
 {
-  bool didConnect = false;
-
   if (fsm.executeOnce)
   {
+    didConnect = false;
     commonStateLogic();
 
     Serial.println("Main State Machine runs on Core: ");
@@ -196,6 +197,7 @@ void on_initState()
     // WiFi.begin() before this, or Exception
     // Restart necessary after Sleep?
     ButtonHandler::startRestServer();
+    didConnect = true;
   }
 }
 
@@ -328,18 +330,9 @@ void on_errorState()
 
 // TRANSITION LOGIC
 // Funcs are evaluated constantly in current State
-bool transitionS0S1()
-{
-  if (countTime(MIN_STATE_DURATION) && didCycle) // Sleep if measured before
-  {
-    return true;
-  }
-  return false;
-}
-
 bool transitionS0S2()
 {
-  if (countTime(MIN_STATE_DURATION) && !didCycle) // Measure immediately if it didnt yet
+  if (countTime(MIN_STATE_DURATION) && didConnect)
   {
     return true;
   }
@@ -462,7 +455,6 @@ void setup()
   finishState = fsm.addState(&on_finishState);
   errorState = fsm.addState(&on_errorState);
 
-  initState->addTransition(&transitionS0S1, sleepState);
   initState->addTransition(&transitionS0S2, measureState);
   sleepState->addTransition(&transitionS1S2, measureState);
   measureState->addTransition(&transitionS2S3, evaluateState);

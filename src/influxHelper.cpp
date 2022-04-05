@@ -37,7 +37,7 @@ bool InfluxHelper::checkConnection()
 
   int attempts = 0;
 
-  while (attempts < 3)
+  while (attempts < 2)
   {
     long begin = millis();
     Serial.println("Trying to connect to InfluxDB.");
@@ -67,7 +67,7 @@ void InfluxHelper::writeDataPoint(Point &p)
   }
   else
   {
-    // Serial.println("Buffer is not empty.");
+    Serial.println("Wrote Datapoint into Buffer");
   }
 
   // Write Datapoint into Buffer (or to Database if Buffer Overflow)
@@ -86,7 +86,7 @@ void InfluxHelper::writeBuffer()
 {
   int attempts = 0;
 
-  while (attempts < 3)
+  while (attempts < 2)
   {
     if (client.flushBuffer())
     {

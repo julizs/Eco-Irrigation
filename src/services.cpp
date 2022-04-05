@@ -11,9 +11,14 @@ void Services::setupWifiMulti()
 
   Serial.print("Connecting to wifi");
   long begin = millis();
-  // Don't retry infinitely
+  // Try reconnecting for 8 Seconds
   while (wifiMulti.run() != WL_CONNECTED && !countTime(begin, 8)) {}
   Serial.println();
+
+  if(wifiMulti.run() != WL_CONNECTED)
+  {
+    ESP.restart();
+  }
 }
 
 bool Services::getWifiMultiStatus()

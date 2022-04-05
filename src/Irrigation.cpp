@@ -71,6 +71,7 @@ void Irrigation::decideIrrigation()
 {
     didEvaluate = false;
     // Do 1 Request each only, or read from EEPROM
+    // DynamicJsonDocument pumps = Utilities::readDoc(1024, 2048);
     DynamicJsonDocument pumps = Services::doJSONGetRequest("/pumps/json");
     DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/sensors");
     DynamicJsonDocument plantNeeds = Services::doJSONGetRequest("/plants/needs");
@@ -85,7 +86,7 @@ void Irrigation::decideIrrigation()
         // Serial.println(pumpModel);
 
         // New way since ArduinoJson 6
-        StaticJsonDocument<64> doc;
+        // StaticJsonDocument<64> doc;
         JsonArray array = pumps[i]["solenoidValve"];
         if (array.isNull())
         {
