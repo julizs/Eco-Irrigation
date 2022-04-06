@@ -35,7 +35,7 @@ Pump pump1(0, pump_PWM_1, cistern1);
 Pump pump2(1, pump_PWM_2, cistern2);
 StatusDisplay displayController;
 
-extern StateMachine fsm = StateMachine();
+StateMachine fsm = StateMachine();
 State* nextState = nullptr;
 State *initState, *sleepState, *measureState, *evaluateState, *actionState, *finishState, *errorState;
 const char *stateNames[] = {"INIT", "SLEEP", "MEASURE", "EVALUATE", "ACTION", "FINISH", "ERROR"};
@@ -225,10 +225,7 @@ void on_sleepState()
     }
     else if (SLEEPTYPE == 2)
     {
-      // Short Deep Sleep (2s) when all Connection Retries fail, rerun setup()
-      esp_sleep_enable_timer_wakeup(2 * 1000 * 1000);
-      delay(100); // Else no Wakeup
-      esp_deep_sleep_start();
+      // Deep Sleep
     }
   }
 
@@ -267,9 +264,8 @@ void on_evaluateState()
 }
 
 // Pump, Fan, Heater, ...
-// Stack/Queue/Linked List of action/pump Obj., that calls pop() as soon
-// as the FINISH/ABORT State of each Object is reached
-// Action State is done when Queue/Linked List is empty
+// Linked List of ISubStateMachine Pointers, each Machine runs till DONE State
+// (Same Pump Obj. runs twice with either SolenoidValve 0 or 1 active, 3.2 and 5.6 Seconds)
 void on_actionState()
 {
   if (fsm.executeOnce)

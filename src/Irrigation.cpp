@@ -46,7 +46,7 @@ Gets called by Irrigation Algo and Pump StateMachine at Button Press
 bool Irrigation::validSolenoid(uint8_t solenoidValve)
 {
     int waterLimit = 500; // Milliliters
-    int pumpedWater = recentIrrigations(2, solenoidValve);
+    int pumpedWater = recentIrrigations(2, solenoidValve); // -2h hours
 
     if (pumpedWater > waterLimit || pumpedWater == -1)
     {

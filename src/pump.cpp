@@ -85,10 +85,11 @@ void Pump::loop()
             // Crashes when &pump2 put on action Stack
             // setupToFs();
 
-            // Check recent Irrigations for Limits (incase of User Button Press)
             /*
-            if(!Irrigation::validSolenoid())
+            // Check recent Irrigations for Limits (on Button Press by User)
+            if(!Irrigation::validSolenoid(relaisChannel))
             {
+                errorCode = 2;
                 currentState = PumpState::ABORT;
             }
             */
@@ -101,13 +102,6 @@ void Pump::loop()
                 errorCode = 1;
                 currentState = PumpState::ABORT;
             }
-            /*
-            else if(recentIrrigations.isNull())
-            {
-                errorCode = 2;
-                currentState = PumpState::ABORT;
-            }
-            */
             else
             {
                 if (cistern.validWaterLevel())
@@ -141,7 +135,7 @@ void Pump::loop()
 
         /*
         // Button pressed
-        if (wateringNeeded == false)
+        if (pumpButton == true)
         {
             errorCode = 4;
             currentState = PumpState::ABORT;

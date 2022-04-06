@@ -28,8 +28,8 @@ class Pump : public ISubStateMachine
 public:
     PumpState currentState, lastState;
     char const *stateNames[4] = {"PUMP_IDLE", "PUMP_ON", "PUMP_DONE", "PUMP_ABORT"};
-    char const *errors[5] = {"None", "ToF Setup failed.", "Network Request failed.",
-                             "Water not sufficient.", "Irrigation aborted by User."};
+    char const *errors[5] = {"None", "ToF Setup failed.", "Too many recent Irrgations.",
+                             "Water not sufficient.", "Irrigation cancelled by User."};
     unsigned short errorCode, minStateDuration;
     unsigned long stateBeginMillis;
 
