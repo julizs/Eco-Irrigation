@@ -194,6 +194,9 @@ void on_initState()
     }
 #endif
 
+    // Send own IP
+    Services::doPostRequest("/commands/ip");
+
     // WiFi.begin() before this, or Exception
     // Restart necessary after Sleep?
     ButtonHandler::startRestServer();
@@ -303,7 +306,6 @@ void on_finishState()
 // Send current IP Address, no Tunneling necessary
 #if (SENDDATA == 1)
     {
-      Services::doPostRequest("/commands/ip");
       influxHelper.writeBuffer();
     }
 #endif

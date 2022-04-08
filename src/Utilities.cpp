@@ -54,13 +54,9 @@ DynamicJsonDocument Utilities::readDoc(int address, int size)
 
 void Utilities::provideData()
 {
-  // 1. Get User-assigned Plant-Sensor Assignments and voltageRanges of moistureSensors
+  // Write pump Models and voltageRanges of moistureSensors to EEPROM
   DynamicJsonDocument moistureSensors = Services::doJSONGetRequest("/moistureSensors");
   DynamicJsonDocument pumps = Services::doJSONGetRequest("/pumps");
-  // DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/sensors");
-  // DynamicJsonDocument plantNeeds = Services::doJSONGetRequest("/plants/needs");
   Utilities::writeDoc(0, moistureSensors, 1024);
   Utilities::writeDoc(1024, pumps, 2048);
-  // Utilities::writeDoc(0, plantSensors, 1024);
-  // Utilities::writeDoc(1024, plantNeeds, 1024);
 }

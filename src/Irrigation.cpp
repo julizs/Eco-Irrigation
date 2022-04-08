@@ -125,6 +125,7 @@ void Irrigation::decidePlants(uint8_t solenoidValve, int recentWater, DynamicJso
     // Only 2 MongoDB Requests, but lots of iterating
     for (int i = 0; i < plants.size(); i++)
     {
+        // Check PlantNeeds only of plants connected to this Solenoid
         int relaisChannel = plants[i]["solenoidValve"].as<int>();
         if (relaisChannel == solenoidValve)
         {

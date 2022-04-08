@@ -68,7 +68,7 @@ void Pump::writeIna()
     p0.addField("power", inaData.power);
     p0.addField("busVoltage", inaData.busVoltage);
     p0.addField("shuntVoltage", inaData.shuntVoltage);
-    delay(200);
+    // delay(200);
 }
 
 void Pump::loop()
@@ -83,7 +83,7 @@ void Pump::loop()
             commonStateLogic();
 
             // Crashes when &pump2 put on action Stack
-            // setupToFs();
+            // cistern.setupToF();
 
             /*
             // Check recent Irrigations for Limits (on Button Press by User)
@@ -161,13 +161,15 @@ void Pump::loop()
             writeIna();
 
             switchOff();
+
             cistern.driveSolenoid(relaisChannel, HIGH);
 
             #if (SENDDATA == 1)
             {
-            // Write Point (Ina and ToF Data) to Buffer
+            // Write Point P0 (Ina and ToF Data) to Buffer
             influxHelper.writeDataPoint(p0);
 
+            // Write Point P1 to Buffer
             // If ToF not correctly Setup (but Status == ERROR_NONE) -> Crash
             cistern.updateIrrigations(relaisChannel);
             }
