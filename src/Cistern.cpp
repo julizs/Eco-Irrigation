@@ -118,15 +118,14 @@ void Cistern::readToF(int distances[])
     // Serial.println(toF_1.getMeasurementTimingBudgetMicroSeconds());
     // toF_1.setMeasurementTimingBudgetMicroSeconds(300000);
 
-    // Do n-valid Readings
-    // 3 Attemps per Reading (or > IDLE State time limit)
+    // Do n-valid Readings, 3 Attemps (j) per Reading
     VL53L0X_RangingMeasurementData_t measure;
 
     for (int i = 0; i < sampleSize; i++)
     {
         int distance = 0;
         bool validReading = false;
-        int j = 0; // 3 Attemps per Reading
+        int j = 0;
 
         while (!validReading && j < 3)
         {
@@ -137,10 +136,8 @@ void Cistern::readToF(int distances[])
             {
                 distance = measure.RangeMilliMeter;
             }
-            
             // distance = toF.readRange();
 
-            // Exclude bad measurements (0, 11114335), so they dont mess up the tmpAvg
             if (measure.RangeStatus == 4 || distance > cisternHeight || distance <= 0)
             {
                 validReading = false;
@@ -150,67 +147,46 @@ void Cistern::readToF(int distances[])
             {
                 validReading = true;
                 distances[i] = distance;
+                Serial.print(distance); Serial.print(" ");
             }
-            // delay(200);
+            // delay(150);
         }
     }
 }
 
 /*
-Sort out the worst Readings
-e.g. avgDistance 80mm, two invalid Readings 77mm, 83mm
+Use Median / 50th Percentile of Readings
 */
-float Cistern::evaluateToF() // Adafruit_VL53L0X toF
+float Cistern::evaluateToF()
 {
-    float distancesSum = 0.0f;
-    int tolerance = 2; // mm
-    int validSamples = sampleSize;
-    int distances[sampleSize];
+    int n = sampleSize;
+    // int n = sizeof(distances) / sizeof(distances[0]);
+    int distances[n];
+    float median = 0.0f;
     char message[50];
 
-    readToF(distances); // Manipulate Array
-
-    sprintf(message, "Measure VL530X at: 0x%x", toF_address);
-    Serial.println(message);
-
-    for (int i = 0; i < sampleSize; i++)
-    {
-        distancesSum += distances[i];
-        Serial.print(distances[i]);
-        Serial.print(" ");
+    readToF(distances); // Pass by Reference
+    std::sort(distances, distances + n);
+    
+    /*
+    for (int i = 0; i < sampleSize; i++) {
+       Serial.print(distances[i]); Serial.print(" "); 
     }
-    Serial.println();
+    */
 
-    float tempAvg = distancesSum / (sampleSize * 1.0f);
-
-    for (int i = 0; i < sampleSize; i++)
+    if (n % 2 != 0)
     {
-        if (abs(tempAvg - distances[i]) > tolerance)
-        {
-            distancesSum -= distances[i];
-            distances[i] = -1;
-            validSamples -= 1;
-        }
-
-        Serial.print(distances[i]);
-        Serial.print(" ");
-    }
-    Serial.println();
-
-    float finalAvg;
-    if (validSamples > 4)
-    {
-        finalAvg = distancesSum / (validSamples * 1.0f);
+        median = (float)distances[n / 2];
     }
     else
     {
-        finalAvg = 0;
+        median = (float)(distances[(n - 1) / 2] + distances[n / 2]) / 2.0;
     }
 
-    sprintf(message, "TempAvg: %0.2f, FinalAvg: %0.2f", tempAvg, finalAvg);
+    sprintf(message, "VL530X 0x%x, Median: %0.2f", toF_address, median);
     Serial.println(message);
 
-    return finalAvg;
+    return median;
 }
 
 void Cistern::readToF_cont(int distances[])
@@ -221,6 +197,7 @@ void Cistern::readToF_cont(int distances[])
     int i = 0;
 
     toF.startRangeContinuous(100);
+
     while (i < sampleSize)
     {
         int distance = toF.readRange();
@@ -239,7 +216,6 @@ void Cistern::readToF_cont(int distances[])
     }
 
     toF.stopRangeContinuous();
-    // float avgDistance = sum / (distances.size() * 1.0f);
 }
 
 void Cistern::driveSolenoid(uint8_t relaisChannel, uint8_t state)
