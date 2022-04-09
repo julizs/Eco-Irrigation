@@ -8,17 +8,25 @@
 #include <Pump.h>
 #include <Action.h>
 
+struct SolenoidMl { 
+    uint8_t solenoidValve;
+    uint16_t waterAmountMl;
+};
+
 class Irrigation
 {
     public:
         static bool didEvaluate;
+        static int waterLimit2h, waterLimit24h, pumpedWater2h, pumpedWater24h;
+        static std::vector<SolenoidMl> solenoidsMl; // Vector of int[] not possible
+        static FluxQueryResult cursor2h, cursor24h;
 
         static void decideIrrigation();
-        static void decidePlants(uint8_t solenoidValve, int recentWater, DynamicJsonDocument &plants, DynamicJsonDocument &plantNeeds);
+        static void decidePlants(uint8_t solenoidValve, DynamicJsonDocument &plants, DynamicJsonDocument &plantNeeds);
         static void getIrrigationInfo(uint8_t solenoidValve, int irrigationAmount);
-        static void validSolenoids(bool validSolenoids[]);
-        static bool validSolenoid(uint8_t solenoidValve);
-        static int recentIrrigations(uint8_t timePeriod, uint8_t solenoidValve);
+        static bool validSolenoid(uint8_t solenoidValve, uint16_t waterLimit);
+        static FluxQueryResult recentIrrigations(uint8_t timePeriod);
+        static void writeVector(FluxQueryResult &cursor);
 };
 
 #endif // Irrigation_h

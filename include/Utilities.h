@@ -2,6 +2,7 @@
 #define Utilities_h
 
 #include <main.h>
+#include <Irrigation.h>
 
 class Utilities
 {

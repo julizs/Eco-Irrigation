@@ -1,57 +1,80 @@
 #include "Irrigation.h"
 
 bool Irrigation::didEvaluate = false;
-
-const char query[] = "from (bucket: \"messdaten\")"
-                     "|> range(start: -24h)"
-                     "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"pumpedWaterML\")"
-                     "|> sum()";
+int Irrigation::waterLimit2h = 500;
+int Irrigation::waterLimit24h = 5000;
+std::vector<SolenoidMl> Irrigation::solenoidsMl;
+FluxQueryResult Irrigation::cursor2h("empty");
+FluxQueryResult Irrigation::cursor24h("empty");
 
 /*
-Check Irrigation Limits per solenoidValve/relaisChannel for given time Period
+Do Query only once and not per SolenoidValve
+Call from 2nd Core?
+Allows Button Press in Realtime
 */
-int Irrigation::recentIrrigations(uint8_t timePeriod, uint8_t solenoidValve)
+FluxQueryResult Irrigation::recentIrrigations(uint8_t timePeriod)
 {
-    int pumpedWaterML = 0;
     char query[200] = "";
-
     sprintf(query, "from (bucket: \"messdaten\")|> range(start: -%dh)"
-                   "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"pumpedWaterML\""
-                   "and r.solenoidValve == \"%d\") |> sum()",
-            timePeriod, solenoidValve);
-    // Serial.println(query);
+                   "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"pumpedWaterML\")"
+                   "|> sum()",
+            timePeriod);
+    Serial.println(query);
 
     FluxQueryResult cursor = influxHelper.doQuery(query);
+    return cursor;
+}
+
+void Irrigation::writeVector(FluxQueryResult &cursor)
+{
     while (cursor.next())
     {
-        pumpedWaterML = cursor.getValueByName("_value").getLong();
-        Serial.print(pumpedWaterML);
-        Serial.print(" Ml released by Solenoid ");
-        Serial.println(solenoidValve);
-    }
+        uint8_t solenoidValve = cursor.getValueByName("solenoidValve").getLong();
+        uint16_t waterAmount = cursor.getValueByName("_value").getLong();
+        bool exists = false;
 
-    if (cursor.getError() != "")
-    {
-        pumpedWaterML = -1;
-        Serial.println(cursor.getError());
+        for(auto &s: solenoidsMl)
+        {
+            if(s.solenoidValve == solenoidValve)
+            {
+                s.waterAmountMl += waterAmount;
+                exists = true;
+            }
+        }
+        if(!exists)
+        {
+            SolenoidMl sol;
+            sol.solenoidValve = solenoidValve;
+            sol.waterAmountMl = waterAmount;
+            solenoidsMl.push_back(sol);
+        }
+        
+        if (cursor.getError() != "")
+        {
+            Serial.println(cursor.getError());
+        }
     }
-
-    cursor.close();
-    return pumpedWaterML;
 }
 
 /*
-Gets called by Irrigation Algo and Pump StateMachine at Button Press
+Gets called by Irrigation Algo and at Button Press
+Iterate Flux Cursor
+Also check per Pump (multiple solenoidValves, Addition)
 */
-bool Irrigation::validSolenoid(uint8_t solenoidValve)
+bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit)
 {
-    int waterLimit = 500; // Milliliters
-    int pumpedWater = recentIrrigations(2, solenoidValve); // -2h hours
-
-    if (pumpedWater > waterLimit || pumpedWater == -1)
-    {
-        return false;
-    }
+    for(auto const &s : solenoidsMl)
+       {
+           if(s.solenoidValve == solenoidValve)
+           {
+               if(s.waterAmountMl > waterLimit)
+               {
+                   return false;
+               }
+           }
+           // Serial.println(s.solenoidValve);
+           // Serial.println(s.waterAmountMl);
+       }
     return true;
 }
 
@@ -67,42 +90,44 @@ bool Irrigation::validSolenoid(uint8_t solenoidValve)
   5. Create Irrigation Datapoint for InfluxDB/MongoDB (even if Irrigation fails)
   (Plants: ..., Reason for Irrigation: ... , Irrigation Amount: ..., Reason for Failure: ...)
 */
+
+/*
+Check each Plant connected to same Solenoid Valve
+*/
 void Irrigation::decideIrrigation()
 {
     didEvaluate = false;
     // Do 1 Request each only, or read from EEPROM
-    // DynamicJsonDocument pumps = Utilities::readDoc(1024, 2048);
-    DynamicJsonDocument pumps = Services::doJSONGetRequest("/pumps/json");
     DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/sensors");
     DynamicJsonDocument plantNeeds = Services::doJSONGetRequest("/plants/needs");
-    // DynamicJsonDocument plants = Utilities::readDoc(0, 1024);
-    // DynamicJsonDocument plantNeeds = Utilities::readDoc(1024, 1024);
+    FluxQueryResult cursor = recentIrrigations(2);
+    writeVector(cursor);
 
-    // 1. Iterate unique SolenoidValves in System
-    for (int i = 0; i < pumps.size(); i++)
+    // Only 2 MongoDB Requests, but lots of iterating
+    for (int i = 0; i < plants.size(); i++)
     {
-        String pumpModel = pumps[i]["name"];
-        int relaisChannel, pumpedWater48h;
-        // Serial.println(pumpModel);
-
-        // New way since ArduinoJson 6
-        // StaticJsonDocument<64> doc;
-        JsonArray array = pumps[i]["solenoidValve"];
-        if (array.isNull())
+        // Check PlantNeeds only of plants connected to this Solenoid
+        String plantName = plants[i]["name"];
+        int solenoidValve = plants[i]["solenoidValve"].as<int>();
+        
+        if (!validSolenoid(solenoidValve, 10000))
         {
-            // Serial.println("No connected Solenoid Valves.");
             continue;
         }
-        for (int j = 0; j < array.size(); j++)
+
+        for (int j = 0; j < plantNeeds.size(); j++)
         {
-            relaisChannel = array[j];
-            // Serial.print("Connected Solenoid Valves: ");
-            // Serial.println(relaisChannel);
-
-            // Do only 1 InfluxDB Request per Solenoid Valve
-            pumpedWater48h = recentIrrigations(48, relaisChannel);
-
-            decidePlants(relaisChannel, pumpedWater48h, plants, plantNeeds);
+            String name = plantNeeds[j]["name"];
+            if (plantName.equals(name)) // strcmp(plantName, name) == 0
+            {
+                Serial.print(plantName);
+                uint8_t waterNeeds = plantNeeds[j]["waterNeeds"];
+                uint8_t lightNeeds = plantNeeds[j]["lightNeeds"];
+                int plantSize = plantNeeds[j]["plantSize"];
+                char message[64] = "";
+                sprintf(message, " Water Needs: %d, Light Needs: %d, Plant Size: %d", waterNeeds, lightNeeds, plantSize);
+                Serial.println(message);
+            }
         }
     }
 
@@ -115,53 +140,6 @@ void Irrigation::decideIrrigation()
     // [[1,3.7]] (pumpTime based on L and % Pwm and L/h of pump)
 
     didEvaluate = true;
-}
-
-/*
-Check each Plant connected to same Solenoid Valve
-*/
-void Irrigation::decidePlants(uint8_t solenoidValve, int recentWater, DynamicJsonDocument &plants, DynamicJsonDocument &plantNeeds)
-{
-    // Only 2 MongoDB Requests, but lots of iterating
-    for (int i = 0; i < plants.size(); i++)
-    {
-        // Check PlantNeeds only of plants connected to this Solenoid
-        int relaisChannel = plants[i]["solenoidValve"].as<int>();
-        if (relaisChannel == solenoidValve)
-        {
-            String plantName = plants[i]["name"];
-            // Serial.println(plantName);
-            for (int j = 0; j < plantNeeds.size(); j++)
-            {
-                String name = plantNeeds[j]["name"];
-                if (plantName.equals(name)) // strcmp(plantName, name) == 0
-                {
-                    Serial.println(plantName);
-                    uint8_t waterNeeds = plantNeeds[j]["waterNeeds"];
-                    uint8_t lightNeeds = plantNeeds[j]["lightNeeds"];
-                    int plantSize = plantNeeds[j]["plantSize"];
-                    char message[64] = "";
-                    sprintf(message, "Water Needs: %d, Light Needs: %d, Plant Size: %d", waterNeeds, lightNeeds, plantSize);
-                    Serial.println(message);
-                }
-            }
-            /*
-            char query[32] = "/";
-            strcat(query, plantName);
-            strcat(query, "/needs");
-            DynamicJsonDocument needs = Services::doJSONGetRequest(query);
-            int currentSize = needs[0]["plantSize"];
-            Serial.println(currentSize);
-            */
-        }
-    }
-
-    /*
-    if (!validSolenoid(solenoidValve))
-    {
-        continue;
-    }
-    */
 }
 
 void Irrigation::getIrrigationInfo(uint8_t solenoidValve, int irrigationAmount)
@@ -195,6 +173,7 @@ void Irrigation::getIrrigationInfo(uint8_t solenoidValve, int irrigationAmount)
 /*
 Do only 1 InfluxDB Request
 */
+/*
 void Irrigation::validSolenoids(bool validSolenoids[])
 {
     int waterLimit1h = 500, waterLimit24h = 1000;
@@ -229,3 +208,13 @@ void Irrigation::validSolenoids(bool validSolenoids[])
         Serial.println(cursor.getError());
     }
 }
+*/
+
+/*
+char query[32] = "/";
+strcat(query, plantName);
+strcat(query, "/needs");
+DynamicJsonDocument needs = Services::doJSONGetRequest(query);
+int currentSize = needs[0]["plantSize"];
+Serial.println(currentSize);
+*/
