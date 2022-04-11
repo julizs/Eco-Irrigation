@@ -60,6 +60,7 @@ void Utilities::provideData()
   Utilities::writeDoc(0, moistureSensors, 1024);
   Utilities::writeDoc(1024, pumps, 2048);
 
-  // Irrigation::cursor2h = Irrigation::recentIrrigations(2);
-  // Irrigation::cursor24h = Irrigation::recentIrrigations(24);
+  // Provide data asap for Realtime Check on User Button Click
+  FluxQueryResult cursor = Irrigation::recentIrrigations(2);
+  Irrigation::writeVector(cursor);
 }

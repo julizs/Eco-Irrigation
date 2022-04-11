@@ -43,7 +43,7 @@ void Cistern::setupToF()
                 toF_ready = true;
                 return;
             }
-            // delay(500);
+            delay(500);
         }
     }
 }
@@ -112,15 +112,18 @@ void Cistern::updateIrrigations(uint8_t relaisChannel)
     influxHelper.writeDataPoint(p2);
 }
 
+/*
+Only way to prevent Crash if one or both ToF setup fail:
+Do Test Reading and only then compare err Code
+*/
 void Cistern::readToF(int distances[])
 {
+    VL53L0X_RangingMeasurementData_t measure;
     toF.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY); // 200ms
     // Serial.println(toF_1.getMeasurementTimingBudgetMicroSeconds());
     // toF_1.setMeasurementTimingBudgetMicroSeconds(300000);
 
     // Do n-valid Readings, 3 Attemps (j) per Reading
-    VL53L0X_RangingMeasurementData_t measure;
-
     for (int i = 0; i < sampleSize; i++)
     {
         int distance = 0;
@@ -132,22 +135,20 @@ void Cistern::readToF(int distances[])
             VL53L0X_Error err = toF.rangingTest(&measure, false);
             // while(toF.waitRangeComplete()) {}
 
-            if(err == VL53L0X_ERROR_NONE)
-            {
-                distance = measure.RangeMilliMeter;
-            }
+            distance = measure.RangeMilliMeter;
             // distance = toF.readRange();
 
             if (measure.RangeStatus == 4 || distance > cisternHeight || distance <= 0)
             {
                 validReading = false;
-                j++;   
+                j++;
             }
             else
             {
                 validReading = true;
                 distances[i] = distance;
-                Serial.print(distance); Serial.print(" ");
+                Serial.print(distance);
+                Serial.print(" ");
             }
             // delay(150);
         }
@@ -167,10 +168,10 @@ float Cistern::evaluateToF()
 
     readToF(distances); // Pass by Reference
     std::sort(distances, distances + n);
-    
+
     /*
     for (int i = 0; i < sampleSize; i++) {
-       Serial.print(distances[i]); Serial.print(" "); 
+       Serial.print(distances[i]); Serial.print(" ");
     }
     */
 
@@ -201,7 +202,7 @@ void Cistern::readToF_cont(int distances[])
     while (i < sampleSize)
     {
         int distance = toF.readRange();
-        //distances.push_back(distance);
+        // distances.push_back(distance);
         distances[i] = distance;
         Serial.print(distance);
         Serial.print(" ");

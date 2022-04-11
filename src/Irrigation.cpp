@@ -10,7 +10,7 @@ FluxQueryResult Irrigation::cursor24h("empty");
 /*
 Do Query only once and not per SolenoidValve
 Call from 2nd Core?
-Allows Button Press in Realtime
+Check Query in Console, "influx query"
 */
 FluxQueryResult Irrigation::recentIrrigations(uint8_t timePeriod)
 {
@@ -58,7 +58,7 @@ void Irrigation::writeVector(FluxQueryResult &cursor)
 
 /*
 Gets called by Irrigation Algo and at Button Press
-Iterate Flux Cursor
+Button Evaluation in Realtime
 Also check per Pump (multiple solenoidValves, Addition)
 */
 bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit)
@@ -75,6 +75,7 @@ bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit)
            // Serial.println(s.solenoidValve);
            // Serial.println(s.waterAmountMl);
        }
+    // No entry in Vec/InfluxDB or lower than Limit
     return true;
 }
 
@@ -92,42 +93,42 @@ bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit)
 */
 
 /*
-Check each Plant connected to same Solenoid Valve
+strcmp(plantName, name) == 0
 */
 void Irrigation::decideIrrigation()
 {
+    char message[64];
     didEvaluate = false;
-    // Do 1 Request each only, or read from EEPROM
+    uint8_t waterNeeds = 1, lightNeeds = 1, plantSize = 1; // e.g. plantSize 1 = 100-200mm
+
+    // Get Data once
     DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/sensors");
     DynamicJsonDocument plantNeeds = Services::doJSONGetRequest("/plants/needs");
-    FluxQueryResult cursor = recentIrrigations(2);
-    writeVector(cursor);
+    // FluxQueryResult cursor = recentIrrigations(2);
+    // writeVector(cursor);
 
-    // Only 2 MongoDB Requests, but lots of iterating
     for (int i = 0; i < plants.size(); i++)
     {
-        // Check PlantNeeds only of plants connected to this Solenoid
         String plantName = plants[i]["name"];
         int solenoidValve = plants[i]["solenoidValve"].as<int>();
         
-        if (!validSolenoid(solenoidValve, 10000))
+        if (!validSolenoid(solenoidValve, waterLimit24h)) // Efficient Checks
         {
-            continue;
+            continue; // skip Plant
         }
 
         for (int j = 0; j < plantNeeds.size(); j++)
         {
             String name = plantNeeds[j]["name"];
-            if (plantName.equals(name)) // strcmp(plantName, name) == 0
+            if (plantName.equals(name))
             {
-                Serial.print(plantName);
-                uint8_t waterNeeds = plantNeeds[j]["waterNeeds"];
-                uint8_t lightNeeds = plantNeeds[j]["lightNeeds"];
-                int plantSize = plantNeeds[j]["plantSize"];
-                char message[64] = "";
-                sprintf(message, " Water Needs: %d, Light Needs: %d, Plant Size: %d", waterNeeds, lightNeeds, plantSize);
-                Serial.println(message);
+                waterNeeds = plantNeeds[j]["waterNeeds"];
+                lightNeeds = plantNeeds[j]["lightNeeds"];
+                plantSize = plantNeeds[j]["plantSize"];
             }
+
+            sprintf(message, "%s Needs: Water: %d, Light: %d, Plant Size: %d", name, waterNeeds, lightNeeds, plantSize);
+            Serial.println(message);
         }
     }
 

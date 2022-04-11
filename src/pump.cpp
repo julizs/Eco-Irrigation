@@ -82,24 +82,26 @@ void Pump::loop()
         {
             commonStateLogic();
 
-            // Crashes when &pump2 put on action Stack
-            // cistern.setupToF();
-
-            /*
-            // Check recent Irrigations for Limits (on Button Press by User)
-            if(!Irrigation::validSolenoid(relaisChannel))
-            {
-                errorCode = 2;
-                currentState = PumpState::ABORT;
+            err = cistern.toF.rangingTest(&measure, false);
+            if (err != 0) // VL53L0X_ERROR_NONE
+            {             
+                setupToFs();
             }
-            */
         }
 
         if (countTime(minStateDuration))
         {
-            if (cistern.toF.Status != VL53L0X_ERROR_NONE)
+            err = cistern.toF.rangingTest(&measure, false);
+            if (err != 0) // VL53L0X_ERROR_NONE
             {
                 errorCode = 1;
+                currentState = PumpState::ABORT;
+            }
+            else if(!Irrigation::validSolenoid(relaisChannel, Irrigation::waterLimit24h))
+            {
+                // Check waterLimits per SolenoidValve (on Button Press by User)
+                // Data needs to be provided first (Utilities::provideData())
+                errorCode = 2;
                 currentState = PumpState::ABORT;
             }
             else
