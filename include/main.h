@@ -18,7 +18,7 @@
 #define RUNSUBMACHINES 1
 const int SLEEP_DURATION = 16;
 const int MEASURE_INTERVAL = 2;
-const int MIN_STATE_DURATION = 2;
+const int MIN_STATE_DURATION = 3;
 extern TwoWire I2Cone;
 extern TwoWire I2Ctwo;
 extern InfluxHelper influxHelper;

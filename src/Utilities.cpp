@@ -61,6 +61,7 @@ void Utilities::provideData()
   Utilities::writeDoc(1024, pumps, 2048);
 
   // Provide data asap for Realtime Check on User Button Click
+  // High Power Usage, Brownout & causes VL530X not to setup correctly
   FluxQueryResult cursor = Irrigation::recentIrrigations(2);
   Irrigation::writeVector(cursor);
 }

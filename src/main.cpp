@@ -34,20 +34,42 @@ Cistern cistern2(0x52, solenoids2, 450, 42.0f);
 Pump pump1(0, pump_PWM_1, cistern1);
 Pump pump2(1, pump_PWM_2, cistern2);
 StatusDisplay displayController;
+VL53L0X_Error status1 = -1, status2 = -1;
 
 StateMachine fsm = StateMachine();
-State* nextState = nullptr;
-State *initState, *sleepState, *measureState, *evaluateState, *actionState, *finishState, *errorState;
-const char *stateNames[] = {"INIT", "SLEEP", "MEASURE", "EVALUATE", "ACTION", "FINISH", "ERROR"};
-bool didSleep, didConnect, didCycle;
+State *nextState = nullptr;
+State *initState, *sleepState, *prepareState, *measureState, *evaluateState, *actionState, *finishState, *errorState;
+const char *stateNames[] = {"INIT", "SLEEP", "PREPARE", "MEASURE", "EVALUATE", "ACTION", "FINISH", "ERROR"};
+bool didSleep, didConnect, didPrepare, didCycle, toFs_ready;
 unsigned long stateBeginMillis = 0;
 
 LinkedList<ISubStateMachine *> actions = LinkedList<ISubStateMachine *>();
 
+bool countTime(int durationSec)
+{
+  return (millis() - stateBeginMillis >= durationSec * 1000UL);
+}
+
+// Always reset/resetup both Sensors at once
 void setupToFs()
 {
-  cistern2.setupToF();
-  cistern1.setupToF();
+  VL53L0X_RangingMeasurementData_t measure, measure2;
+  int attempts = 0;
+
+  while ((status1 != 0 || status2 != 0) && attempts < 3)
+  {
+      Serial.println("(Re)doing ToFs Setup.");
+      cistern2.setupToF();
+      cistern1.setupToF();
+      delay(200);
+      status1 = cistern1.toF.rangingTest(&measure, false);
+      status2 = cistern2.toF.rangingTest(&measure2, false);
+      attempts++;
+  }
+
+  if(status1 != 0 || status2 != 0)
+        toFs_ready = false;
+  toFs_ready = true;
 }
 
 void doMeasurements()
@@ -64,20 +86,16 @@ void doMeasurements()
   p0.clearFields();
 
   // 2. Setup Sensors
+  setupToFs();
   pump1.setupIna();
   lightSensor1.setupTSL2591(I2Cone);
   lightSensor2.setupTSL2591(I2Ctwo);
 
-  // Redo Setup after Wakeup only if necessary
-  setupToFs();
-
   // 3. READ GLOBAL MEASUREMENTS
-  if (cistern1.toF_ready)
+  
+  if(toFs_ready)
   {
     cistern1.updateWaterLevel();
-  }
-  if (cistern2.toF_ready)
-  {
     cistern2.updateWaterLevel();
   }
 
@@ -150,8 +168,10 @@ void doMeasurements()
 
 void commonStateLogic()
 {
-  Serial.println(stateNames[fsm.currentState]);
   stateBeginMillis = millis();
+
+  Serial.println();
+  Serial.println(stateNames[fsm.currentState]);
 
   // checkWebButtons();
 
@@ -159,11 +179,6 @@ void commonStateLogic()
   pump1.switchOff();
   digitalWrite(Relais[0], HIGH);
   digitalWrite(Relais[1], HIGH);
-}
-
-bool countTime(int durationSec)
-{
-  return (millis() - stateBeginMillis >= durationSec * 1000UL);
 }
 
 // STATE LOGIC
@@ -174,7 +189,7 @@ void on_initState()
     didConnect = false;
     commonStateLogic();
 
-    Serial.println("Main State Machine runs on Core: ");
+    Serial.print("Main State Machine runs on Core: ");
     Serial.println(xPortGetCoreID());
 
     if (!Services::getWifiMultiStatus())
@@ -187,15 +202,6 @@ void on_initState()
     {
       Serial.println("Couldnt connect to InfluxDB");
     }
-
-#if (GETDATA == 1)
-    {
-      Utilities::provideData();
-    }
-#endif
-
-    // Send own IP
-    Services::doPostRequest("/commands/ip");
 
     // WiFi.begin() before this, or Exception
     // Restart necessary after Sleep?
@@ -239,6 +245,27 @@ void on_sleepState()
     }
   }
   didSleep = true;
+}
+
+void on_prepareState()
+{
+  if (fsm.executeOnce)
+  {
+    didPrepare = false;
+
+    commonStateLogic();
+
+    // Send own IP
+    Services::doPostRequest("/commands/ip");
+
+    #if (GETDATA == 1)
+    {
+      Utilities::provideData();
+    }
+#endif
+
+    didPrepare = true;
+  }
 }
 
 void on_measureState()
@@ -301,7 +328,7 @@ void on_finishState()
 {
   if (fsm.executeOnce)
   {
-    commonStateLogic(); 
+    commonStateLogic();
 
 // Send current IP Address, no Tunneling necessary
 #if (SENDDATA == 1)
@@ -327,7 +354,7 @@ void on_errorState()
 }
 
 // TRANSITION LOGIC
-// Funcs are evaluated constantly in current State
+// INIT -> PREPARE
 bool transitionS0S2()
 {
   if (countTime(MIN_STATE_DURATION) && didConnect)
@@ -337,7 +364,8 @@ bool transitionS0S2()
   return false;
 }
 
-bool transitionS1S2()
+// SLEEP -> INIT
+bool transitionS1S0()
 {
   if (countTime(MIN_STATE_DURATION) && didSleep)
   {
@@ -346,7 +374,18 @@ bool transitionS1S2()
   return false;
 }
 
+// PREPARE -> MEASURE
 bool transitionS2S3()
+{
+  if (countTime(MIN_STATE_DURATION) && didPrepare)
+  {
+    return true;
+  }
+  return false;
+}
+
+// MEASURE -> EVALUATE
+bool transitionS3S4()
 {
   //*
   // Wait till max Measure time is up || dht11.didMeasure && aht10.didMeasure && ... (Sensors ready before)
@@ -357,8 +396,9 @@ bool transitionS2S3()
   return false;
 }
 
+// EVALUATE -> FINISH
 // No Action needed, go to finishState
-bool transitionS3S5()
+bool transitionS4S6()
 {
   if (countTime(MIN_STATE_DURATION) && Irrigation::didEvaluate && actions.size() == 0)
   {
@@ -367,8 +407,9 @@ bool transitionS3S5()
   return false;
 }
 
+// EVALUATE -> ACTION
 // Action Stack not empty, go to actionState
-bool transitionS3S4()
+bool transitionS4S5()
 {
   if (countTime(MIN_STATE_DURATION) && Irrigation::didEvaluate && actions.size() > 0)
   {
@@ -377,8 +418,9 @@ bool transitionS3S4()
   return false;
 }
 
+// ACTION -> FINISH
 // Do/Pop actions until actionStack is empty
-bool transitionS4S5()
+bool transitionS5S6()
 {
   // min State Duration must be over AND Pump done, Fan done, ...
   if ((countTime(MIN_STATE_DURATION) && actions.size() == 0) || RUNSUBMACHINES == 0)
@@ -388,7 +430,8 @@ bool transitionS4S5()
   return false;
 }
 
-bool transitionS5S2()
+// FINISH -> SLEEP
+bool transitionS6S1()
 {
   if (countTime(MIN_STATE_DURATION))
   {
@@ -403,8 +446,8 @@ void runStateMachine(void *pvParameters)
   {
     if (nextState)
     {
-    fsm.transitionTo(nextState);
-    nextState = nullptr;
+      fsm.transitionTo(nextState);
+      nextState = nullptr;
     }
     fsm.run();
     // delay(1);
@@ -425,10 +468,6 @@ void setup()
   I2Cone.begin(SDA1, SCL1, 200000);
   I2Ctwo.begin(SDA2, SCL2, 100000);
 
-  // Immediately Shut down 2nd ToF, start with different i2C Address later
-  pinMode(toF_shut, OUTPUT);
-  digitalWrite(toF_shut, LOW);
-
   // Init (LOW-Trigger) Relais
   for (int i = 0; i < 2; i++)
   {
@@ -439,27 +478,34 @@ void setup()
   pinMode(button1Pin, INPUT);
   pinMode(button2Pin, INPUT);
 
+  // Immediately Shut down 2nd ToF, start with different i2C Address later
+  pinMode(toF_shut, OUTPUT);
+  digitalWrite(toF_shut, LOW);
+
   pump1.add_callback(setupToFs);
+  pump2.add_callback(setupToFs);
 
   displayController.setupLEDMatrix();
 
   Multiplexer::setup();
 
-  initState = fsm.addState(&on_initState);
+  initState = fsm.addState(&on_initState); 
   sleepState = fsm.addState(&on_sleepState);
+  prepareState = fsm.addState(&on_prepareState);
   measureState = fsm.addState(&on_measureState);
   evaluateState = fsm.addState(&on_evaluateState);
   actionState = fsm.addState(&on_actionState);
   finishState = fsm.addState(&on_finishState);
   errorState = fsm.addState(&on_errorState);
 
-  initState->addTransition(&transitionS0S2, measureState);
-  sleepState->addTransition(&transitionS1S2, measureState);
-  measureState->addTransition(&transitionS2S3, evaluateState);
-  evaluateState->addTransition(&transitionS3S4, actionState);
-  evaluateState->addTransition(&transitionS3S5, finishState);
-  actionState->addTransition(&transitionS4S5, finishState);
-  finishState->addTransition(&transitionS5S2, sleepState);
+  initState->addTransition(&transitionS0S2, prepareState);
+  sleepState->addTransition(&transitionS1S0, initState);
+  prepareState->addTransition(&transitionS2S3, measureState);
+  measureState->addTransition(&transitionS3S4, evaluateState);
+  evaluateState->addTransition(&transitionS4S5, actionState);
+  evaluateState->addTransition(&transitionS4S6, finishState);
+  actionState->addTransition(&transitionS5S6, finishState);
+  finishState->addTransition(&transitionS6S1, sleepState);
 
   // https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
   xTaskCreatePinnedToCore(

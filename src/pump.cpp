@@ -83,8 +83,9 @@ void Pump::loop()
             commonStateLogic();
 
             err = cistern.toF.rangingTest(&measure, false);
+            delay(50);
             if (err != 0) // VL53L0X_ERROR_NONE
-            {             
+            {         
                 setupToFs();
             }
         }
@@ -92,6 +93,7 @@ void Pump::loop()
         if (countTime(minStateDuration))
         {
             err = cistern.toF.rangingTest(&measure, false);
+            delay(50);
             if (err != 0) // VL53L0X_ERROR_NONE
             {
                 errorCode = 1;
@@ -106,6 +108,7 @@ void Pump::loop()
             }
             else
             {
+                cistern.updateWaterLevel();
                 if (cistern.validWaterLevel())
                 {
                     errorCode = 0; // None

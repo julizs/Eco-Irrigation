@@ -24,7 +24,7 @@ struct INAdata
 
 class Pump : public ISubStateMachine
 {
-    using callback = void (*)(); //function pointer
+    using callback = void (*)(); // Func Pointer
 public:
     PumpState currentState, lastState;
     char const *stateNames[4] = {"PUMP_IDLE", "PUMP_ON", "PUMP_DONE", "PUMP_ABORT"};

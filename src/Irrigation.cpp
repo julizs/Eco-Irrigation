@@ -63,17 +63,19 @@ Also check per Pump (multiple solenoidValves, Addition)
 */
 bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit)
 {
+    char message[64];
+
     for(auto const &s : solenoidsMl)
        {
            if(s.solenoidValve == solenoidValve)
            {
                if(s.waterAmountMl > waterLimit)
                {
+                   sprintf(message, "Solenoid: %d, Water: %d, Water Limit: %d", solenoidValve, s.waterAmountMl, waterLimit);
+                   Serial.println(message);
                    return false;
                }
            }
-           // Serial.println(s.solenoidValve);
-           // Serial.println(s.waterAmountMl);
        }
     // No entry in Vec/InfluxDB or lower than Limit
     return true;

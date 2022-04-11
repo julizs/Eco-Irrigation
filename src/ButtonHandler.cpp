@@ -31,7 +31,7 @@ void ButtonHandler::startRestServer()
 
   webServer.begin();
 
-  Serial.println("Web Server started on Core: ");
+  Serial.print("Web Server started on Core: ");
   Serial.println(xPortGetCoreID());
 }
 

@@ -15,45 +15,50 @@ Cistern::Cistern(uint8_t toF_address, uint8_t relaisChannels[], int cisternHeigh
 
 void Cistern::setupToF()
 {
+    if (toF_address == 0x51)
+    {
+        shutToF();
+        delay(100);
+    }
+    if (!toF.begin(toF_address, &I2Cone))
+    {
+        Serial.println("Failed to boot toF at" + toF_address);
+    }
     /*
     Error Codes see Strg + Click toF.Status, VL53L0X_ERROR_NONE
     Two VL530X on same i2C bus possible with immediate shut LOW in main.setup()
     toF_ready needed for first Setup
     */
-    int attempts = 0;
 
-    if (toF_ready == false || toF.Status != VL53L0X_ERROR_NONE)
+   /*
+    VL53L0X_Error status;
+    VL53L0X_RangingMeasurementData_t measure;
+    int attempt = 0;
+
+    while (status != 0 && attempt < 3)
     {
-        while (attempts < 4)
+        if (toF_address == 0x51)
         {
-            if (toF_address == 0x51)
-            {
-                shutToF();
-                delay(100);
-            }
-            if (!toF.begin(toF_address, &I2Cone))
-            {
-                Serial.println("Failed to boot toF at" + toF_address);
-                toF_ready = false;
-                attempts++;
-            }
-            else
-            {
-                // ToF is ready
-                toF_ready = true;
-                return;
-            }
-            delay(500);
+            shutToF();
+            delay(100);
         }
+        if (!toF.begin(toF_address, &I2Cone))
+        {
+            Serial.println("Failed to boot toF at" + toF_address);
+        }
+        delay(100);
+        status = toF.rangingTest(&measure, false);
+        attempt++;
     }
+
+    return true;
+   */
 }
 
 void Cistern::shutToF()
 {
     digitalWrite(toF_shut, LOW);
-    delay(50);
     digitalWrite(toF_shut, HIGH);
-    delay(50);
 }
 
 bool Cistern::validWaterLevel()
@@ -118,6 +123,7 @@ Do Test Reading and only then compare err Code
 */
 void Cistern::readToF(int distances[])
 {
+    VL53L0X_Error status;
     VL53L0X_RangingMeasurementData_t measure;
     toF.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY); // 200ms
     // Serial.println(toF_1.getMeasurementTimingBudgetMicroSeconds());
@@ -126,17 +132,16 @@ void Cistern::readToF(int distances[])
     // Do n-valid Readings, 3 Attemps (j) per Reading
     for (int i = 0; i < sampleSize; i++)
     {
-        int distance = 0;
+        uint16_t distance = 0;
         bool validReading = false;
         int j = 0;
 
         while (!validReading && j < 3)
         {
-            VL53L0X_Error err = toF.rangingTest(&measure, false);
+            // status = toF.rangingTest(&measure, false);
+            // distance = measure.RangeMilliMeter;
+            distance = toF.readRange();
             // while(toF.waitRangeComplete()) {}
-
-            distance = measure.RangeMilliMeter;
-            // distance = toF.readRange();
 
             if (measure.RangeStatus == 4 || distance > cisternHeight || distance <= 0)
             {
@@ -150,7 +155,7 @@ void Cistern::readToF(int distances[])
                 Serial.print(distance);
                 Serial.print(" ");
             }
-            // delay(150);
+            // delay(200);
         }
     }
 }
