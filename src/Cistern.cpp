@@ -17,6 +17,9 @@ Cistern::Cistern(uint8_t toF_address, uint8_t relaisChannels[], int cisternHeigh
 Wrong Readings if spadCount after (re)Setup is different
 than before (e.g. 3 instead of 4 spads)
 (Check while debug mode true)
+https://wolles-elektronikkiste.de/vl53l0x-und-vl53l1x-tof-abstandssensoren
+toF.status is 0 even if not correctly setup
+toF.rangingTest for current ErrCode crashes if not setup before
 */
 bool Cistern::setupToF()
 {
@@ -28,7 +31,6 @@ bool Cistern::setupToF()
     // true/false for debug infos while Setup
     while (!toF.begin(toF_address, true, &I2Cone) && attempt < 5)
     {
-        Serial.println("Test3");
         delay(500 * attempt);
         Serial.println(toF.Status);
         attempt++;
@@ -39,9 +41,18 @@ bool Cistern::setupToF()
     }
     // Serial.println(toF.Status);
     
-    if(toF.Status != 0)
+    if(toF.Status == 0)
+    {
+        VL53L0X_Error status;
+        VL53L0X_RangingMeasurementData_t measure;
+        toF.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY); // 200ms
+        // toF_1.setMeasurementTimingBudgetMicroSeconds(300000);
+        toF_ready = true;
+    }
+    else
+    {
         toF_ready = false;
-    toF_ready = true;
+    }
 
     return true;
 }
@@ -117,12 +128,6 @@ Do Test Reading and only then compare err Code
 */
 void Cistern::readToF(int distances[])
 {
-    VL53L0X_Error status;
-    VL53L0X_RangingMeasurementData_t measure;
-    toF.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY); // 200ms
-    // Serial.println(toF_1.getMeasurementTimingBudgetMicroSeconds());
-    // toF_1.setMeasurementTimingBudgetMicroSeconds(300000);
-
     // Do n-valid Readings, 3 Attemps (j) per Reading
     for (int i = 0; i < sampleSize; i++)
     {
@@ -137,7 +142,7 @@ void Cistern::readToF(int distances[])
             distance = toF.readRange();
             // while(toF.waitRangeComplete()) {}
 
-            if (measure.RangeStatus == 4 || distance > cisternHeight || distance <= 0)
+            if (distance > cisternHeight || distance <= 0)
             {
                 validReading = false;
                 j++;

@@ -33,17 +33,16 @@ public:
     unsigned short errorCode, minStateDuration;
     unsigned long stateBeginMillis;
 
-    // Changable by User
+    // Interchangable by User
     DynamicJsonDocument pumpModel;
-
-    // Fixed
-    int pwmPin, pwmChannel, frequency, resolution, dutyCycle;
 
     // Set by Irrigation Algo
     uint8_t relaisChannel;
     float pumpTime;
 
-    Cistern cistern;
+    int pwmPin, pwmChannel, frequency, resolution, dutyCycle;
+
+    Cistern &cistern;
     Adafruit_INA219 ina219;
     float voltage_V, shuntVoltage_mV, busVoltage_V;
     float current_mA, power_mW;
@@ -52,15 +51,15 @@ public:
     void setup();
     virtual void loop();
 
-    bool setupIna();
-    INAdata readIna();
-    void writeIna();
     void switchOff();
+    bool setupIna();
     void add_callback(callback act);
     virtual bool isDone();
     virtual void resetMachine();
 
 private:
+    INAdata readIna();
+    void writeIna();
     void switchOn();
     void setupPWM();
     bool checkPumpPerformance(unsigned short);

@@ -55,21 +55,6 @@ void setupToFs()
 {
   while(!cistern2.setupToF());
   while(!cistern1.setupToF());
-  /*
-  VL53L0X_RangingMeasurementData_t measure, measure2;
-  int attempts = 0;
-
-  while ((status1 != 0 || status2 != 0) && attempts < 3)
-  {
-      Serial.println("(Re)doing ToFs Setup.");
-      cistern2.setupToF();
-      cistern1.setupToF();
-      delay(200);
-      status1 = cistern1.toF.rangingTest(&measure, false);
-      status2 = cistern2.toF.rangingTest(&measure2, false);
-      attempts++;
-  }
-  */
 }
 
 void doMeasurements()
@@ -198,10 +183,12 @@ void on_initState()
     }
 
     influxHelper.setParameters();
+    /*
     if (!influxHelper.checkConnection())
     {
       Serial.println("Couldnt connect to InfluxDB");
     }
+    */
 
     // WiFi.begin() before this, or Exception
     // Restart necessary after Sleep?

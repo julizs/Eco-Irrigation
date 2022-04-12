@@ -9,14 +9,17 @@ class ButtonHandler
 public:
     static WebServer webServer;
     // (Hardware Btn) Debouncing
-    static unsigned long lastDebounceTime;      // Last time Output Pin was toggled
-    static unsigned short debounceDelay;         // Increase if Output flickers
-    static int buttonState, lastButtonState;    // Initial State is Off
+    static uint16_t lastDebounceTime;               // Last time Output Pin was toggled
+    static uint8_t debounceDelay;                   // Increase if Output flickers
+    static uint8_t buttonState, lastButtonState;    // Initial State is Off
 
     static void startRestServer();
     static void handleHardwareButtons();
     static void handleWebButtons();
+    
+private:
     static void rootEndpoint();
+
 };
 
 #endif // ButtonHandler.h

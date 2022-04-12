@@ -1,18 +1,17 @@
 #include <ButtonHandler.h>
 
-// Definition of static Variable
+// Definition of static Variables
 WebServer ButtonHandler::webServer(443);
-unsigned long ButtonHandler::lastDebounceTime = 0;
-unsigned short ButtonHandler::debounceDelay = 50;
-int ButtonHandler::buttonState = HIGH;
-int ButtonHandler::lastButtonState = HIGH;
+uint16_t ButtonHandler::lastDebounceTime = 0;
+uint8_t ButtonHandler::debounceDelay = 50;
+uint8_t ButtonHandler::buttonState = HIGH;
+uint8_t ButtonHandler::lastButtonState = HIGH;
 
 
 void ButtonHandler::rootEndpoint()
 {
-  Serial.println("Web Server Clients handled on Core: ");
+  Serial.print("Web Server Clients handled on Core: ");
   Serial.println(xPortGetCoreID());
-
   webServer.send(200, "text/plain", "200 All is Ok.");
 }
 
@@ -38,7 +37,6 @@ void ButtonHandler::startRestServer()
 /*
 Passive Handling of WebButtons
 Read User Commands and Settings, but take Actions later in Action State
-(e.g. Water Level needs to be checked first before Pump)
 */
 void ButtonHandler::handleWebButtons()
 {

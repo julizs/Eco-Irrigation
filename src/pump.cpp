@@ -82,7 +82,7 @@ void Pump::loop()
         {
             commonStateLogic();
   
-            if(cistern.toF.Status != 0)
+            if(!cistern.toF_ready)
             {
                 // Resetup...
                 cistern.setupToF(); // crashes
@@ -92,7 +92,7 @@ void Pump::loop()
 
         if (countTime(minStateDuration))
         {
-            if (cistern.toF.Status != 0) // VL53L0X_ERROR_NONE
+            if (!cistern.toF_ready)
             {
                 errorCode = 1;
                 currentState = PumpState::ABORT;
