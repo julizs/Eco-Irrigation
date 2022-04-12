@@ -81,20 +81,18 @@ void Pump::loop()
         if (lastState != currentState)
         {
             commonStateLogic();
-
-            err = cistern.toF.rangingTest(&measure, false);
-            delay(50);
-            if (err != 0) // VL53L0X_ERROR_NONE
-            {         
-                setupToFs();
-            }
+  
+            if(cistern.toF.Status != 0)
+            {
+                // Resetup...
+                cistern.setupToF(); // crashes
+                // setupToFs(); // works
+            }     
         }
 
         if (countTime(minStateDuration))
         {
-            err = cistern.toF.rangingTest(&measure, false);
-            delay(50);
-            if (err != 0) // VL53L0X_ERROR_NONE
+            if (cistern.toF.Status != 0) // VL53L0X_ERROR_NONE
             {
                 errorCode = 1;
                 currentState = PumpState::ABORT;

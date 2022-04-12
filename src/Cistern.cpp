@@ -13,52 +13,46 @@ Cistern::Cistern(uint8_t toF_address, uint8_t relaisChannels[], int cisternHeigh
     sampleSize = 8;
 }
 
-void Cistern::setupToF()
+/*
+Wrong Readings if spadCount after (re)Setup is different
+than before (e.g. 3 instead of 4 spads)
+(Check while debug mode true)
+*/
+bool Cistern::setupToF()
 {
-    if (toF_address == 0x51)
-    {
-        shutToF();
-        delay(100);
-    }
-    if (!toF.begin(toF_address, &I2Cone))
-    {
-        Serial.println("Failed to boot toF at" + toF_address);
-    }
-    /*
-    Error Codes see Strg + Click toF.Status, VL53L0X_ERROR_NONE
-    Two VL530X on same i2C bus possible with immediate shut LOW in main.setup()
-    toF_ready needed for first Setup
-    */
-
-   /*
     VL53L0X_Error status;
     VL53L0X_RangingMeasurementData_t measure;
     int attempt = 0;
 
-    while (status != 0 && attempt < 3)
+    // Serial.println(toF.Status);
+    // true/false for debug infos while Setup
+    while (!toF.begin(toF_address, true, &I2Cone) && attempt < 5)
     {
+        Serial.println("Test3");
+        delay(500 * attempt);
+        Serial.println(toF.Status);
+        attempt++;
         if (toF_address == 0x51)
         {
             shutToF();
-            delay(100);
         }
-        if (!toF.begin(toF_address, &I2Cone))
-        {
-            Serial.println("Failed to boot toF at" + toF_address);
-        }
-        delay(100);
-        status = toF.rangingTest(&measure, false);
-        attempt++;
     }
+    // Serial.println(toF.Status);
+    
+    if(toF.Status != 0)
+        toF_ready = false;
+    toF_ready = true;
 
     return true;
-   */
 }
 
 void Cistern::shutToF()
 {
+    Serial.println("Shutting");
     digitalWrite(toF_shut, LOW);
+    delay(50);
     digitalWrite(toF_shut, HIGH);
+    delay(50);
 }
 
 bool Cistern::validWaterLevel()

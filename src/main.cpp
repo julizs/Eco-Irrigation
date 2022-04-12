@@ -53,6 +53,9 @@ bool countTime(int durationSec)
 // Always reset/resetup both Sensors at once
 void setupToFs()
 {
+  while(!cistern2.setupToF());
+  while(!cistern1.setupToF());
+  /*
   VL53L0X_RangingMeasurementData_t measure, measure2;
   int attempts = 0;
 
@@ -66,10 +69,7 @@ void setupToFs()
       status2 = cistern2.toF.rangingTest(&measure2, false);
       attempts++;
   }
-
-  if(status1 != 0 || status2 != 0)
-        toFs_ready = false;
-  toFs_ready = true;
+  */
 }
 
 void doMeasurements()
@@ -92,12 +92,12 @@ void doMeasurements()
   lightSensor2.setupTSL2591(I2Ctwo);
 
   // 3. READ GLOBAL MEASUREMENTS
-  
-  if(toFs_ready)
-  {
+  if(cistern1.toF_ready)
     cistern1.updateWaterLevel();
+
+  if(cistern2.toF_ready)
     cistern2.updateWaterLevel();
-  }
+  
 
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);

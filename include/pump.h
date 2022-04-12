@@ -33,9 +33,6 @@ public:
     unsigned short errorCode, minStateDuration;
     unsigned long stateBeginMillis;
 
-    VL53L0X_Error err;
-    VL53L0X_RangingMeasurementData_t measure;
-
     // Changable by User
     DynamicJsonDocument pumpModel;
 

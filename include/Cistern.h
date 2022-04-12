@@ -20,7 +20,7 @@ class Cistern
 
         // Cistern();
         Cistern(uint8_t toF_address, uint8_t solenoidValves[], int cisternHeight, float mmToMl);
-        void setupToF();
+        bool setupToF();
         void shutToF();
 
         float evaluateToF();
