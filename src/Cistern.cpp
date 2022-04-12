@@ -19,7 +19,7 @@ than before (e.g. 3 instead of 4 spads)
 (Check while debug mode true)
 https://wolles-elektronikkiste.de/vl53l0x-und-vl53l1x-tof-abstandssensoren
 toF.status is 0 even if not correctly setup
-toF.rangingTest for current ErrCode crashes if not setup before
+toF.rangingTest for current ErrCode crashes if toF not setup before
 */
 bool Cistern::setupToF()
 {
@@ -43,8 +43,6 @@ bool Cistern::setupToF()
     
     if(toF.Status == 0)
     {
-        VL53L0X_Error status;
-        VL53L0X_RangingMeasurementData_t measure;
         toF.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY); // 200ms
         // toF_1.setMeasurementTimingBudgetMicroSeconds(300000);
         toF_ready = true;
@@ -52,6 +50,7 @@ bool Cistern::setupToF()
     else
     {
         toF_ready = false;
+        critErrCode = 1;
     }
 
     return true;

@@ -22,7 +22,12 @@ const int MIN_STATE_DURATION = 3;
 extern TwoWire I2Cone;
 extern TwoWire I2Ctwo;
 extern InfluxHelper influxHelper;
-extern const char baseUrl[];
 extern LinkedList<ISubStateMachine*> actions;
+
+extern const char baseUrl[];
+
+// watchDog checks Critical Errors, goto ERROR State
+extern uint8_t critErrCode;
+extern const char* critErrMessage[];
 
 #endif //main_h

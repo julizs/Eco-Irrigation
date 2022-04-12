@@ -34,16 +34,16 @@ Cistern cistern2(0x52, solenoids2, 450, 42.0f);
 Pump pump1(0, pump_PWM_1, cistern1);
 Pump pump2(1, pump_PWM_2, cistern2);
 StatusDisplay displayController;
-VL53L0X_Error status1 = -1, status2 = -1;
 
 StateMachine fsm = StateMachine();
 State *nextState = nullptr;
-State *initState, *sleepState, *prepareState, *measureState, *evaluateState, *actionState, *finishState, *errorState;
-const char *stateNames[] = {"INIT", "SLEEP", "PREPARE", "MEASURE", "EVALUATE", "ACTION", "FINISH", "ERROR"};
-bool didSleep, didConnect, didPrepare, didCycle, toFs_ready;
-unsigned long stateBeginMillis = 0;
-
+uint8_t critErrCode = 0;
+const char* critErrMessage[] = {"None","Final Fail to setup ToFs"};
+State *initState, *idleState, *prepState, *measureState, *evaluateState, *actionState, *transmitState, *errorState;
+const char *stateNames[] = {"INIT", "IDLE", "PREP", "MEASURE", "EVALUATE", "ACTION", "TRANSMIT", "ERROR"};
+bool didSleep, didConnect, didPrepare;
 LinkedList<ISubStateMachine *> actions = LinkedList<ISubStateMachine *>();
+uint32_t stateBeginMillis = 0;
 
 bool countTime(int durationSec)
 {
@@ -203,7 +203,7 @@ https://m1cr0lab-esp32.github.io/sleep-modes/
 1 = Low to High, 0 = High to Low. Pin pulled HIGH
 esp_sleep_enable_ext0_wakeup(GPIO_NUM_34, 0);
 */
-void on_sleepState()
+void on_idleState()
 {
   if (fsm.executeOnce)
   {
@@ -214,6 +214,7 @@ void on_sleepState()
     if (SLEEPTYPE == 1) // Light Sleep
     {
       // µs (microseconds)
+      Serial.println("Entering Light Sleep.");
       esp_sleep_enable_timer_wakeup(SLEEP_DURATION * 1000 * 1000);
       delay(100); // Else no Wakeup
       esp_light_sleep_start();
@@ -225,16 +226,15 @@ void on_sleepState()
     }
   }
 
-  if (SLEEPTYPE == 0) // Simulate Sleep
+  if (SLEEPTYPE == 0) // Simulate Sleep / Idle
   {
-    while (!countTime(SLEEP_DURATION))
-    {
-    }
+    Serial.println("Idle");
+    while (!countTime(SLEEP_DURATION)){}
   }
   didSleep = true;
 }
 
-void on_prepareState()
+void on_prepState()
 {
   if (fsm.executeOnce)
   {
@@ -274,8 +274,6 @@ void on_evaluateState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    // Replaces fsm.transitionTo()
-    // nextState = errorState;
     Irrigation::decideIrrigation();
   }
 }
@@ -311,7 +309,7 @@ void on_actionState()
 #endif
 }
 
-void on_finishState()
+void on_transmitState()
 {
   if (fsm.executeOnce)
   {
@@ -323,8 +321,6 @@ void on_finishState()
       influxHelper.writeBuffer();
     }
 #endif
-
-    didCycle = true;
   }
 }
 
@@ -334,10 +330,20 @@ void on_errorState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    Serial.println("Restarting Device...");
-    delay(500);
+    Serial.println(critErrMessage[critErrCode]);
+    delay(2000);
     ESP.restart();
   }
+}
+
+/*
+Replaces bugged fsm.transitionTo()
+Called by watchDog
+*/
+void checkCriticalErrors()
+{
+  if(critErrCode != 0)
+    nextState = errorState;
 }
 
 // TRANSITION LOGIC
@@ -477,22 +483,22 @@ void setup()
   Multiplexer::setup();
 
   initState = fsm.addState(&on_initState); 
-  sleepState = fsm.addState(&on_sleepState);
-  prepareState = fsm.addState(&on_prepareState);
+  idleState = fsm.addState(&on_idleState);
+  prepState = fsm.addState(&on_prepState);
   measureState = fsm.addState(&on_measureState);
   evaluateState = fsm.addState(&on_evaluateState);
   actionState = fsm.addState(&on_actionState);
-  finishState = fsm.addState(&on_finishState);
+  transmitState = fsm.addState(&on_transmitState);
   errorState = fsm.addState(&on_errorState);
 
-  initState->addTransition(&transitionS0S2, prepareState);
-  sleepState->addTransition(&transitionS1S0, initState);
-  prepareState->addTransition(&transitionS2S3, measureState);
+  initState->addTransition(&transitionS0S2, prepState);
+  idleState->addTransition(&transitionS1S0, initState);
+  prepState->addTransition(&transitionS2S3, measureState);
   measureState->addTransition(&transitionS3S4, evaluateState);
   evaluateState->addTransition(&transitionS4S5, actionState);
-  evaluateState->addTransition(&transitionS4S6, finishState);
-  actionState->addTransition(&transitionS5S6, finishState);
-  finishState->addTransition(&transitionS6S1, sleepState);
+  evaluateState->addTransition(&transitionS4S6, transmitState);
+  actionState->addTransition(&transitionS5S6, transmitState);
+  transmitState->addTransition(&transitionS6S1, idleState);
 
   // https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
   xTaskCreatePinnedToCore(
@@ -515,6 +521,8 @@ void loop()
   // displayController.displayPlantStatus();
 
   ButtonHandler::handleHardwareButtons();
+
+  checkCriticalErrors();
 
   // delay(100);
 }

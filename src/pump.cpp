@@ -85,8 +85,8 @@ void Pump::loop()
             if(!cistern.toF_ready)
             {
                 // Resetup...
-                cistern.setupToF(); // crashes
-                // setupToFs(); // works
+                // cistern.setupToF();
+                setupToFs();
             }     
         }
 
