@@ -10,19 +10,19 @@
 #include <LinkedList.h>
 #include <ISubStateMachine.h>
 
-#define SLEEPTYPE 1 // Light Sleep or Modem Sleep
+#define SLEEPTYPE 0 // Light Sleep or Modem Sleep
 #define LOCALSAVE 1 // Save ArduinoJson Files on Flash
 #define DOMEASURE 1
 #define SENDDATA 1
 #define GETDATA 1
 #define RUNSUBMACHINES 1
-const int SLEEP_DURATION = 16;
-const int MEASURE_INTERVAL = 2;
-const int MIN_STATE_DURATION = 3;
+extern uint8_t SLEEP_DUR, IDLE_DUR; // Changable by User
+extern uint8_t MIN_STATE_DUR;
 extern TwoWire I2Cone;
 extern TwoWire I2Ctwo;
 extern InfluxHelper influxHelper;
 extern LinkedList<ISubStateMachine*> actions;
+// extern DynamicJsonDocument moistureSensors, plants, plantNeeds, pumps;
 
 extern const char baseUrl[];
 

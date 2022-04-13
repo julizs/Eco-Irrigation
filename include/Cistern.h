@@ -18,6 +18,7 @@ class Cistern
         int cisternHeight, currWaterDist, minWaterDist, maxWaterDist;
         float mmToMl;
         bool toF_ready;
+        unsigned long stateBeginMillis;
 
         Cistern(uint8_t toF_address, uint8_t solenoidValves[], int cisternHeight, float mmToMl);
         bool setupToF();

@@ -25,7 +25,7 @@ FluxQueryResult Irrigation::recentIrrigations(uint8_t timePeriod)
     return cursor;
 }
 
-void Irrigation::writeVector(FluxQueryResult &cursor)
+bool Irrigation::writeVector(FluxQueryResult &cursor)
 {
     while (cursor.next())
     {
@@ -52,8 +52,10 @@ void Irrigation::writeVector(FluxQueryResult &cursor)
         if (cursor.getError() != "")
         {
             Serial.println(cursor.getError());
+             return false;
         }
     }
+    return true;
 }
 
 /*

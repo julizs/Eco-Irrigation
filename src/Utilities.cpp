@@ -52,16 +52,31 @@ DynamicJsonDocument Utilities::readDoc(int address, int size)
   return doc;
 }
 
-void Utilities::provideData()
+/*
+MongoDB Request: assignable pump Models and voltageRanges of moistureSensors
+3 Attempts per Request
+InfluxDB Request: Query and Writing take long, do sparsely / use EEPROM
+(So waterLevel Evaluation on Button Press is fast)
+*/
+/*
+bool Utilities::provideData()
 {
-  // Write pump Models and voltageRanges of moistureSensors to EEPROM
-  DynamicJsonDocument moistureSensors = Services::doJSONGetRequest("/moistureSensors");
-  DynamicJsonDocument pumps = Services::doJSONGetRequest("/pumps");
-  Utilities::writeDoc(0, moistureSensors, 1024);
-  Utilities::writeDoc(1024, pumps, 2048);
+  moistureSensors = Services::doJSONGetRequest("/moistureSensors");
+  plants = Services::doJSONGetRequest("/plants/sensors");
+  plantNeeds = Services::doJSONGetRequest("/plants/needs");
+  pumps = Services::doJSONGetRequest("/pumps/json");
 
-  // Provide data asap for Realtime Check on User Button Click
-  // High Power Usage, Brownout & causes VL530X not to setup correctly
   FluxQueryResult cursor = Irrigation::recentIrrigations(2);
-  Irrigation::writeVector(cursor);
+  bool wroteCursor = Irrigation::writeVector(cursor);
+
+  Serial.println(moistureSensors.isNull());
+  Serial.println(plants.isNull());
+  Serial.println(plantNeeds.isNull());
+  Serial.println(pumps.isNull());
+  Serial.println(wroteCursor);
+
+  if(!moistureSensors.isNull() && !plants.isNull() && !pumps.isNull() && wroteCursor)
+    return true;
+  return false;
 }
+*/

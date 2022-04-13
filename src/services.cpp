@@ -3,6 +3,7 @@
 // Definition of static Variables
 WiFiMulti Services::wifiMulti;
 HTTPClient Services::http;
+WebServer Services::webServer(443);
 
 void Services::setupWifiMulti()
 {
@@ -142,6 +143,57 @@ DynamicJsonDocument Services::doJSONGetRequest(char const endpoint[]) // char en
 
   return doc;
 }
+
+void Services::rootEndpoint()
+{
+  Serial.print("Web Server Clients handled on Core: ");
+  Serial.println(xPortGetCoreID());
+  webServer.send(200, "text/plain", "200 All is Ok.");
+}
+
+/*
+Active Handling of WebButtons
+*/
+void Services::startRestServer()
+{
+  // https://www.survivingwithandroid.com/esp32-rest-api-esp32-api-server/
+  webServer.on("/", rootEndpoint);
+  webServer.on("/solenoidValve", []() {
+      // digitalWrite(Relais[0], LOW);
+      digitalWrite(Relais[1], LOW);
+      webServer.send(200, "text/plain", "Toggled Solenoid Valve");
+  });
+
+  webServer.begin();
+
+  Serial.print("Web Server started on Core: ");
+  Serial.println(xPortGetCoreID());
+}
+
+/*
+Passive Handling of WebButtons
+Read User Commands and Settings, but take Actions later in Action State
+*/
+/*
+void Services::handleWebButtons()
+{
+  DynamicJsonDocument commands = Services::doJSONGetRequest("/commands");
+
+  // Solenoid
+  int relaisChannel = commands[0]["SolenoidValve"][0];
+  bool relaisState = commands[0]["SolenoidValve"][1];
+
+  // Irrigation (Plant or Pump)
+  const char *irrSubject = commands[0]["Irrigation"][0];
+  int irrAmount = commands[0]["Irrigation"][1];
+
+  // Status Light
+  const char *display = commands[0]["StatusLight"][0];
+  int displayContent = commands[0]["StatusLight"][1];
+
+  // Reset all Commands...
+}
+*/
 
 bool Services::countTime(long begin, uint8_t duration)
 {

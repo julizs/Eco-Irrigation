@@ -21,6 +21,7 @@ https://wolles-elektronikkiste.de/vl53l0x-und-vl53l1x-tof-abstandssensoren
 toF.status is 0 even if not correctly setup
 toF.rangingTest for current ErrCode crashes if toF not setup before
 */
+
 bool Cistern::setupToF()
 {
     VL53L0X_Error status;
@@ -55,14 +56,41 @@ bool Cistern::setupToF()
 
     return true;
 }
+/*
+bool Cistern::setupToF()
+{
+    VL53L0X_Error status;
+    VL53L0X_RangingMeasurementData_t measure;
+    int attempt = 0;
+
+    // true/false for debug infos while Setup
+    while (attempt < 5)
+    {
+        stateBeginMillis = millis();
+        if (toF_address == 0x51)
+        {
+            shutToF();
+            delay(50);
+        }
+        if (!toF.begin(toF_address, true, &I2Cone))
+        {
+            while (!countTime(2));
+            // delay(500 * attempt);
+        }
+        else 
+        { return true; }
+        attempt++;
+        Serial.println(toF.Status);
+    }
+}
+*/
 
 void Cistern::shutToF()
 {
     Serial.println("Shutting");
     digitalWrite(toF_shut, LOW);
-    delay(50);
+    delay(10);
     digitalWrite(toF_shut, HIGH);
-    delay(50);
 }
 
 bool Cistern::validWaterLevel()
