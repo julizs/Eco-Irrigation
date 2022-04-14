@@ -12,26 +12,26 @@ void Services::setupWifiMulti()
 
   Serial.print("Connecting to wifi");
   long begin = millis();
-  // Try reconnecting for 8 Seconds
-  while (wifiMulti.run() != WL_CONNECTED && !countTime(begin, 8))
+ 
+  while (!wifiMultiConnected() && !countTime(begin, 4))
   {
   }
   Serial.println();
 
-  if (wifiMulti.run() != WL_CONNECTED)
+  if (!wifiMultiConnected())
   {
     ESP.restart();
   }
 }
 
-bool Services::getWifiMultiStatus()
+bool Services::wifiMultiConnected()
 {
   return wifiMulti.run() == WL_CONNECTED;
 }
 
 void Services::doGetRequest(char const url[])
 {
-  if (!getWifiMultiStatus())
+  if (!wifiMultiConnected())
   {
     setupWifiMulti();
   }
@@ -66,16 +66,16 @@ void Services::doGetRequest(char const url[])
 // https://randomnerdtutorials.com/esp32-http-get-post-arduino/
 void Services::doPostRequest(char const endpoint[])
 {
+  if (!wifiMultiConnected())
+  {
+    setupWifiMulti();
+  }
+
   char requestUrl[50] = "";
   strcat(requestUrl, baseUrl);
   strcat(requestUrl, endpoint);
   Serial.print("POST Request to: ");
   Serial.println(requestUrl);
-
-  if (!getWifiMultiStatus())
-  {
-    setupWifiMulti();
-  }
 
   http.begin(requestUrl);
   http.addHeader("Content-Type", "application/json");
@@ -105,20 +105,18 @@ void Services::doPostRequest(char const endpoint[])
 }
 
 // https://arduinojson.org/v6/how-to/use-arduinojson-with-httpclient/
-DynamicJsonDocument Services::doJSONGetRequest(char const endpoint[]) // char endpoint[]
+void Services::doJSONGetRequest(char const endpoint[], DynamicJsonDocument &doc)
 {
+  if (!wifiMultiConnected())
+  {
+    setupWifiMulti();
+  }
+
   char requestUrl[50] = "";
   strcat(requestUrl, baseUrl);
   strcat(requestUrl, endpoint);
   Serial.print("GET Request to: ");
   Serial.println(requestUrl);
-
-  DynamicJsonDocument doc(2048);
-
-  if (!getWifiMultiStatus())
-  {
-    setupWifiMulti();
-  }
 
   // http.useHTTP10(true); // Error
   http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
@@ -140,8 +138,6 @@ DynamicJsonDocument Services::doJSONGetRequest(char const endpoint[]) // char en
 
   // Disconnect
   http.end();
-
-  return doc;
 }
 
 void Services::rootEndpoint()

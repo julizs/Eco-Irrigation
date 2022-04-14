@@ -35,8 +35,8 @@ class Services
         static void setupWifiMulti();
         static void doGetRequest(char const url[]);
         static void doPostRequest(char const url[]);
-        static DynamicJsonDocument doJSONGetRequest(char const url[]);
-        static bool getWifiMultiStatus();
+        static void doJSONGetRequest(char const url[], DynamicJsonDocument &doc);
+        static bool wifiMultiConnected();
         static void startRestServer();
         // static void handleWebButtons();
         static bool countTime(long begin, uint8_t duration);

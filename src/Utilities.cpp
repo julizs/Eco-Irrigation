@@ -53,30 +53,26 @@ DynamicJsonDocument Utilities::readDoc(int address, int size)
 }
 
 /*
-MongoDB Request: assignable pump Models and voltageRanges of moistureSensors
-3 Attempts per Request
-InfluxDB Request: Query and Writing take long, do sparsely / use EEPROM
-(So waterLevel Evaluation on Button Press is fast)
+Only do Requests here that take long but require little disc space
+Write InfluxDB Cursors to Vectors so waterLevel Evaluation on Button Press is fast
+Use (huge) ArduinoJsonDocs only as local Vars that get destroyed if scope ends
 */
-/*
-bool Utilities::provideData()
+void Utilities::prepData()
 {
+  /*
   moistureSensors = Services::doJSONGetRequest("/moistureSensors");
   plants = Services::doJSONGetRequest("/plants/sensors");
   plantNeeds = Services::doJSONGetRequest("/plants/needs");
   pumps = Services::doJSONGetRequest("/pumps/json");
-
-  FluxQueryResult cursor = Irrigation::recentIrrigations(2);
-  bool wroteCursor = Irrigation::writeVector(cursor);
-
   Serial.println(moistureSensors.isNull());
   Serial.println(plants.isNull());
   Serial.println(plantNeeds.isNull());
   Serial.println(pumps.isNull());
   Serial.println(wroteCursor);
-
-  if(!moistureSensors.isNull() && !plants.isNull() && !pumps.isNull() && wroteCursor)
-    return true;
-  return false;
+  */
+  
+  FluxQueryResult cursor2h = Irrigation::recentIrrigations(2);
+  FluxQueryResult cursor24h = Irrigation::recentIrrigations(24);
+  Irrigation::vec2h = Irrigation::writeVector(cursor2h);
+  Irrigation::vec24h = Irrigation::writeVector(cursor24h);
 }
-*/

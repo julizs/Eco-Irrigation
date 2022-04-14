@@ -10,7 +10,7 @@ class Utilities
         static void scanI2CBus(TwoWire *wire);
         static DynamicJsonDocument readDoc(int address, int size);
         static void writeDoc(int address, DynamicJsonDocument &doc, int size);
-        static bool provideData();
+        static void prepData();
 };
 
 #endif // Utilities_h

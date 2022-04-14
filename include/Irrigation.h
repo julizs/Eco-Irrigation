@@ -18,7 +18,7 @@ class Irrigation
     public:
         static bool didEvaluate;
         static int waterLimit2h, waterLimit24h, pumpedWater2h, pumpedWater24h;
-        static std::vector<SolenoidMl> solenoidsMl; // Vector of int[] not possible
+        static std::vector<SolenoidMl> vec2h, vec24h; // Vector of int[] not possible
         static FluxQueryResult cursor2h, cursor24h;
 
         static void decideIrrigation();
@@ -26,7 +26,6 @@ class Irrigation
         static void getIrrigationInfo(uint8_t solenoidValve, int irrigationAmount);
         static bool validSolenoid(uint8_t solenoidValve, uint16_t waterLimit);
         static FluxQueryResult recentIrrigations(uint8_t timePeriod);
-        static bool writeVector(FluxQueryResult &cursor);
+        static std::vector<SolenoidMl> writeVector(FluxQueryResult &cursor);
 };
-
 #endif // Irrigation_h

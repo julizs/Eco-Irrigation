@@ -51,6 +51,8 @@ uint32_t stateBeginMillis = 0;
 
 bool countTime(int durationSec)
 {
+  if(millis() % 1000000 == 0)
+    Serial.print(".");
   return (millis() - stateBeginMillis >= durationSec * 1000UL);
 }
 
@@ -84,8 +86,9 @@ void doMeasurements()
 
   // PLANT-SPECIFIC MEASUREMENTS
   // Advantage: Local DynamicJsonDocs (big) get destroyed after leaving Scope
-  DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/sensors");
-  DynamicJsonDocument moistureSensors = Services::doJSONGetRequest("/moistureSensors");
+  DynamicJsonDocument plants(2048), moistureSensors(1024);
+  Services::doJSONGetRequest("/plants/sensors", plants);
+  Services::doJSONGetRequest("/moistureSensors", moistureSensors);
 
   Point p("Plant Data");
   int lastMeasuredLightSensor = -1;
@@ -157,42 +160,6 @@ void commonStateLogic()
   digitalWrite(Relais[1], HIGH);
 }
 
-// STATE LOGIC
-void on_initState()
-{
-  if (fsm.executeOnce)
-  {
-    didConnect = false;
-    commonStateLogic();
-
-    // Clock Esp32 down to help prevent Brownout
-    setCpuFrequencyMhz(80);
-    Serial.println(getCpuFrequencyMhz());
-
-    Serial.print("Main State Machine runs on Core: ");
-    Serial.println(xPortGetCoreID());
-
-    if (!Services::getWifiMultiStatus())
-    {
-      Services::setupWifiMulti();
-    }
-
-    influxHelper.setParameters();
-    /*
-    if (!influxHelper.checkConnection())
-      Serial.println("Couldnt connect to InfluxDB");
-    */
-
-    // Send current own IP for WebButtons
-    Services::doPostRequest("/commands/ip");
-
-    // WiFi.begin() before this, or Exception
-    // Restart or ask for Status? 
-    Services::startRestServer();
-    didConnect = true;
-  }
-}
-
 /*
 https://lastminuteengineers.com/esp32-sleep-modes-power-consumption/
 https://m1cr0lab-esp32.github.io/sleep-modes/
@@ -209,9 +176,8 @@ void on_idleState()
 
     if (SLEEPTYPE == 1) // Light Sleep
     {
-      // µs (microseconds)
       Serial.println("Entering Light Sleep.");
-      esp_sleep_enable_timer_wakeup(SLEEP_DUR * 1000 * 1000);
+      esp_sleep_enable_timer_wakeup(SLEEP_DUR * 1000 * 1000); // µs
       delay(100); // Else no Wakeup
       esp_light_sleep_start();
       // Resume Program, Connections and States were kept
@@ -231,11 +197,10 @@ void on_idleState()
   didSleep = true;
 }
 
-void on_prepState()
+void on_initState()
 {
   if (fsm.executeOnce)
   {
-    didPrepare = false;
     commonStateLogic();
 
     // Setup Sensors
@@ -245,15 +210,50 @@ void on_prepState()
     lightSensor2.setupTSL2591(I2Ctwo);
 
     Utilities::scanI2CBus(&I2Cone);
-    Utilities::scanI2CBus(&I2Ctwo);
+    Utilities::scanI2CBus(&I2Ctwo); 
+  }
+}
+
+void on_prepState()
+{
+  if (fsm.executeOnce)
+  {
+    didConnect = false;
+    commonStateLogic();
+
+    // Clock Esp32 down to help prevent Brownout
+    setCpuFrequencyMhz(80);
+    Serial.println(getCpuFrequencyMhz());
+
+    Serial.print("Main State Machine runs on Core: ");
+    Serial.println(xPortGetCoreID());
+
+    if (!Services::wifiMultiConnected())
+    {
+      Services::setupWifiMulti();
+    }
+
+    influxHelper.setParameters();
 
     /*
+    if (!influxHelper.checkConnection())
+      Serial.println("Couldnt connect to InfluxDB");
+    */
+
+    // Send current own IP for WebButtons
+    Services::doPostRequest("/commands/ip");
+
+    // WiFi.begin() before this, or Exception
+    // Restart or ask for Status?
+    Services::startRestServer();
+
     #if (GETDATA == 1)
     {
-      didPrepare = Utilities::provideData();
+      Utilities::prepData();
     }
 #endif
-*/
+
+    didConnect = true;
   }
 }
 
@@ -262,7 +262,7 @@ void on_measureState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    setCpuFrequencyMhz(240);
+    setCpuFrequencyMhz(160);
     Serial.println(getCpuFrequencyMhz());
     // WiFi.disconnect();
 #if (DOMEASURE == 1)
@@ -364,7 +364,7 @@ bool transitionS0S1()
 // INIT -> PREP
 bool transitionS1S2()
 {
-  if (countTime(STATE_MIN_DUR) && didConnect)
+  if (countTime(STATE_MIN_DUR))
   {
     return true;
   }
@@ -374,7 +374,7 @@ bool transitionS1S2()
 // PREP-> MEASURE
 bool transitionS2S3()
 {
-  if (countTime(STATE_MIN_DUR) && didPrepare)
+  if (countTime(STATE_MIN_DUR) && didConnect)
   {
     return true;
   }

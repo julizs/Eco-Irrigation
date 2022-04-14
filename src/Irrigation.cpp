@@ -3,13 +3,13 @@
 bool Irrigation::didEvaluate = false;
 int Irrigation::waterLimit2h = 500;
 int Irrigation::waterLimit24h = 5000;
-std::vector<SolenoidMl> Irrigation::solenoidsMl;
-FluxQueryResult Irrigation::cursor2h("empty");
-FluxQueryResult Irrigation::cursor24h("empty");
+std::vector<SolenoidMl> Irrigation::vec2h;
+std::vector<SolenoidMl> Irrigation::vec24h;
+// FluxQueryResult Irrigation::cursor2h("empty");
+// FluxQueryResult Irrigation::cursor24h("empty");
 
 /*
-Do Query only once and not per SolenoidValve
-Call from 2nd Core?
+Do Query only once per timePeriod and not per SolenoidValve
 Check Query in Console, "influx query"
 */
 FluxQueryResult Irrigation::recentIrrigations(uint8_t timePeriod)
@@ -25,15 +25,16 @@ FluxQueryResult Irrigation::recentIrrigations(uint8_t timePeriod)
     return cursor;
 }
 
-bool Irrigation::writeVector(FluxQueryResult &cursor)
+std::vector<SolenoidMl> Irrigation::writeVector(FluxQueryResult &cursor)
 {
+    std::vector<SolenoidMl> vec;
     while (cursor.next())
     {
         uint8_t solenoidValve = cursor.getValueByName("solenoidValve").getLong();
         uint16_t waterAmount = cursor.getValueByName("_value").getLong();
         bool exists = false;
 
-        for(auto &s: solenoidsMl)
+        for(auto &s: vec)
         {
             if(s.solenoidValve == solenoidValve)
             {
@@ -46,28 +47,26 @@ bool Irrigation::writeVector(FluxQueryResult &cursor)
             SolenoidMl sol;
             sol.solenoidValve = solenoidValve;
             sol.waterAmountMl = waterAmount;
-            solenoidsMl.push_back(sol);
+            vec.push_back(sol);
         }
         
         if (cursor.getError() != "")
         {
             Serial.println(cursor.getError());
-             return false;
         }
     }
-    return true;
+    return vec;
 }
 
 /*
-Gets called by Irrigation Algo and at Button Press
-Button Evaluation in Realtime
-Also check per Pump (multiple solenoidValves, Addition)
+Gets called by Irrigation Algo and at each Button Press
+TODO check per Pump (multiple solenoidValves, Addition)
 */
 bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit)
 {
     char message[64];
 
-    for(auto const &s : solenoidsMl)
+    for(auto const &s : vec24h)
        {
            if(s.solenoidValve == solenoidValve)
            {
@@ -105,11 +104,12 @@ void Irrigation::decideIrrigation()
     didEvaluate = false;
     uint8_t waterNeeds = 1, lightNeeds = 1, plantSize = 1; // e.g. plantSize 1 = 100-200mm
 
-    // Get Data once
-    DynamicJsonDocument plants = Services::doJSONGetRequest("/plants/sensors");
-    DynamicJsonDocument plantNeeds = Services::doJSONGetRequest("/plants/needs");
-    // FluxQueryResult cursor = recentIrrigations(2);
-    // writeVector(cursor);
+    // Do only 1 Request each
+    DynamicJsonDocument plants(2048), plantNeeds(1024);
+    Services::doJSONGetRequest("/plants/sensors", plants);
+    Services::doJSONGetRequest("/plants/needs", plantNeeds);
+    // FluxQueryResult cursor2h = recentIrrigations(2);
+    // vec2h = writeVector(cursor2h);
 
     for (int i = 0; i < plants.size(); i++)
     {
@@ -150,7 +150,8 @@ void Irrigation::decideIrrigation()
 void Irrigation::getIrrigationInfo(uint8_t solenoidValve, int irrigationAmount)
 {
     // Access Tables from EEPROM or do Requests if needed
-    DynamicJsonDocument pumps = Services::doJSONGetRequest("/pumps");
+    DynamicJsonDocument pumps(1024);
+    Services::doJSONGetRequest("/pumps", pumps);
 
     // Get specific Pump
 

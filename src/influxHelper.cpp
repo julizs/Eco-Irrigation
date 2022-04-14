@@ -30,7 +30,7 @@ void InfluxHelper::setParameters()
 
 bool InfluxHelper::checkConnection()
 {
-  if (!Services::getWifiMultiStatus())
+  if (!Services::wifiMultiConnected())
   {
     Services::setupWifiMulti();
   }
@@ -42,7 +42,6 @@ bool InfluxHelper::checkConnection()
     long begin = millis();
     Serial.println("Trying to connect to InfluxDB.");
     if (client.validateConnection())
-      ;
     {
       Serial.print("Connected to InfluxDB at: ");
       Serial.println(client.getServerUrl());

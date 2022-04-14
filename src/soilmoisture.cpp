@@ -69,7 +69,8 @@ void SoilMoisture::getSensorRange(int pinNum, int range[])
   // from Sensor to Sensor (pinNum is Sensor ID, from 0 - 15)
   // C++ passes Arrays to Funcs with Call by Reference, Original Array gets changed
 
-  DynamicJsonDocument doc = Services::doJSONGetRequest("/moistureSensors");
-  range[0] = doc[pinNum]["minVoltage"].as<int>();
-  range[1] = doc[pinNum]["maxVoltage"].as<int>();
+  DynamicJsonDocument moistureSensors(1024);
+  Services::doJSONGetRequest("/moistureSensors", moistureSensors);
+  range[0] = moistureSensors[pinNum]["minVoltage"].as<int>();
+  range[1] = moistureSensors[pinNum]["maxVoltage"].as<int>();
 }
