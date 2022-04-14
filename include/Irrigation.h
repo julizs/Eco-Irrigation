@@ -26,6 +26,6 @@ class Irrigation
         static void getIrrigationInfo(uint8_t solenoidValve, int irrigationAmount);
         static bool validSolenoid(uint8_t solenoidValve, uint16_t waterLimit);
         static FluxQueryResult recentIrrigations(uint8_t timePeriod);
-        static std::vector<SolenoidMl> writeVector(FluxQueryResult &cursor);
+        static bool writeVector(FluxQueryResult &cursor, std::vector<SolenoidMl> &vec);
 };
 #endif // Irrigation_h

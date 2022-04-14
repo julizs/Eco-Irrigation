@@ -9,18 +9,15 @@ void Services::setupWifiMulti()
 {
   WiFi.mode(WIFI_STA);
   wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
-
-  Serial.print("Connecting to wifi");
   long begin = millis();
  
-  while (!wifiMultiConnected() && !countTime(begin, 4))
-  {
-  }
-  Serial.println();
+  Serial.print("Connecting to Wifi.");
+  while (!wifiMultiConnected() && !Utilities::countTime(begin, 8))
+  {}
 
   if (!wifiMultiConnected())
   {
-    ESP.restart();
+    critErrCode = 1;
   }
 }
 
@@ -36,30 +33,21 @@ void Services::doGetRequest(char const url[])
     setupWifiMulti();
   }
 
+  char message[128];
   http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS); // Needed, otherwise 301 Code
   http.begin(url);
 
-  // Send HTTP GET request
+  // Send HTTP GET Req
   int httpResponseCode = http.GET();
 
-  Serial.print("Requesting ");
-  Serial.print(url);
-  Serial.print(" : ");
+  snprintf(message, 128,"GET %s Response Code: %d", url, httpResponseCode);
+  Serial.println(message);
 
   if (httpResponseCode > 0)
-  {
-    Serial.print("HTTP Response code: ");
-    Serial.print(httpResponseCode);
-    Serial.print(" ");
-    String payload = http.getString();
-    Serial.println(payload);
+  { 
+    Serial.println(http.getString());
   }
-  else
-  {
-    Serial.print("Error code: ");
-    Serial.println(httpResponseCode);
-  }
-  // Free resources
+  
   http.end();
 }
 
@@ -71,36 +59,24 @@ void Services::doPostRequest(char const endpoint[])
     setupWifiMulti();
   }
 
-  char requestUrl[50] = "";
-  strcat(requestUrl, baseUrl);
-  strcat(requestUrl, endpoint);
-  Serial.print("POST Request to: ");
-  Serial.println(requestUrl);
+  char url[50] = "", message[128];
+  strcat(url, baseUrl);
+  strcat(url, endpoint);
 
-  http.begin(requestUrl);
+  http.begin(url);
   http.addHeader("Content-Type", "application/json");
 
-  // Send HTTP POST request
+  // Send HTTP POST Req
   int httpResponseCode = http.POST("{}");
 
-  Serial.print("Requesting ");
-  Serial.print(requestUrl);
-  Serial.print(" : ");
+  snprintf(message, 128, "POST %s, HTTP Response code: %d ", url, httpResponseCode);
+  Serial.println(message);
 
   if (httpResponseCode > 0)
   {
-    Serial.print("HTTP Response code: ");
-    Serial.print(httpResponseCode);
-    Serial.print(" ");
-    String payload = http.getString();
-    Serial.println(payload);
+    Serial.println(http.getString()); // Print payload
   }
-  else
-  {
-    Serial.print("Error code: ");
-    Serial.println(httpResponseCode);
-  }
-  // Free resources
+
   http.end();
 }
 
@@ -112,31 +88,25 @@ void Services::doJSONGetRequest(char const endpoint[], DynamicJsonDocument &doc)
     setupWifiMulti();
   }
 
-  char requestUrl[50] = "";
-  strcat(requestUrl, baseUrl);
-  strcat(requestUrl, endpoint);
-  Serial.print("GET Request to: ");
-  Serial.println(requestUrl);
+  char url[50] = "", message[128];
+  strcat(url, baseUrl);
+  strcat(url, endpoint);
 
   // http.useHTTP10(true); // Error
   http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-  http.begin(requestUrl);
+  http.begin(url);
   int httpResponseCode = http.GET();
+
+  snprintf(message, 128, "GET %s, HTTP Response code: %d ", url, httpResponseCode);
+  Serial.println(message);
 
   if (httpResponseCode > 0)
   {
-    // Parse response
-    deserializeJson(doc, http.getStream());
+    deserializeJson(doc, http.getStream()); // Parse response
     // ReadLoggingStream loggingStream(http.getStream(), Serial); // StreamUtils.h
     // deserializeJson(doc, loggingStream);
   }
-  else
-  {
-    Serial.print("Error code: ");
-    Serial.println(httpResponseCode);
-  }
 
-  // Disconnect
   http.end();
 }
 
@@ -164,34 +134,4 @@ void Services::startRestServer()
 
   Serial.print("Web Server started on Core: ");
   Serial.println(xPortGetCoreID());
-}
-
-/*
-Passive Handling of WebButtons
-Read User Commands and Settings, but take Actions later in Action State
-*/
-/*
-void Services::handleWebButtons()
-{
-  DynamicJsonDocument commands = Services::doJSONGetRequest("/commands");
-
-  // Solenoid
-  int relaisChannel = commands[0]["SolenoidValve"][0];
-  bool relaisState = commands[0]["SolenoidValve"][1];
-
-  // Irrigation (Plant or Pump)
-  const char *irrSubject = commands[0]["Irrigation"][0];
-  int irrAmount = commands[0]["Irrigation"][1];
-
-  // Status Light
-  const char *display = commands[0]["StatusLight"][0];
-  int displayContent = commands[0]["StatusLight"][1];
-
-  // Reset all Commands...
-}
-*/
-
-bool Services::countTime(long begin, uint8_t duration)
-{
-  return (millis() - begin >= duration * 1000UL);
 }

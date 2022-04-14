@@ -14,8 +14,8 @@ Check Query in Console, "influx query"
 */
 FluxQueryResult Irrigation::recentIrrigations(uint8_t timePeriod)
 {
-    char query[200] = "";
-    sprintf(query, "from (bucket: \"messdaten\")|> range(start: -%dh)"
+    char query[256] = "";
+    snprintf(query, 256, "from (bucket: \"messdaten\")|> range(start: -%dh)"
                    "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"pumpedWaterML\")"
                    "|> sum()",
             timePeriod);
@@ -25,9 +25,9 @@ FluxQueryResult Irrigation::recentIrrigations(uint8_t timePeriod)
     return cursor;
 }
 
-std::vector<SolenoidMl> Irrigation::writeVector(FluxQueryResult &cursor)
+bool Irrigation::writeVector(FluxQueryResult &cursor, std::vector<SolenoidMl> &vec)
 {
-    std::vector<SolenoidMl> vec;
+    // std::vector<SolenoidMl> vec;
     while (cursor.next())
     {
         uint8_t solenoidValve = cursor.getValueByName("solenoidValve").getLong();
@@ -52,10 +52,12 @@ std::vector<SolenoidMl> Irrigation::writeVector(FluxQueryResult &cursor)
         
         if (cursor.getError() != "")
         {
+            Serial.println("Vector write Error: ");
             Serial.println(cursor.getError());
         }
     }
-    return vec;
+    Serial.println("Vector write Success.");
+    return true;
 }
 
 /*
@@ -72,7 +74,7 @@ bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit)
            {
                if(s.waterAmountMl > waterLimit)
                {
-                   sprintf(message, "Solenoid: %d, Water: %d, Water Limit: %d", solenoidValve, s.waterAmountMl, waterLimit);
+                   snprintf(message, 64, "Solenoid: %d, Water: %d, Water Limit: %d", solenoidValve, s.waterAmountMl, waterLimit);
                    Serial.println(message);
                    return false;
                }
@@ -123,7 +125,7 @@ void Irrigation::decideIrrigation()
 
         for (int j = 0; j < plantNeeds.size(); j++)
         {
-            String name = plantNeeds[j]["name"];
+            const char *name = plantNeeds[j]["name"];
             if (plantName.equals(name))
             {
                 waterNeeds = plantNeeds[j]["waterNeeds"];
@@ -131,7 +133,7 @@ void Irrigation::decideIrrigation()
                 plantSize = plantNeeds[j]["plantSize"];
             }
 
-            sprintf(message, "%s Needs: Water: %d, Light: %d, Plant Size: %d", name, waterNeeds, lightNeeds, plantSize);
+            snprintf(message, 64, "%s Needs: Water: %d, Light: %d, Plant Size: %d", name, waterNeeds, lightNeeds, plantSize);
             Serial.println(message);
         }
     }

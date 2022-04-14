@@ -57,8 +57,14 @@ Only do Requests here that take long but require little disc space
 Write InfluxDB Cursors to Vectors so waterLevel Evaluation on Button Press is fast
 Use (huge) ArduinoJsonDocs only as local Vars that get destroyed if scope ends
 */
-void Utilities::prepData()
+bool Utilities::prepData()
 {
+  FluxQueryResult cursor2h = Irrigation::recentIrrigations(2);
+  FluxQueryResult cursor24h = Irrigation::recentIrrigations(24);
+  while(!Irrigation::writeVector(cursor2h, Irrigation::vec2h));
+  while(!Irrigation::writeVector(cursor24h, Irrigation::vec24h));
+  return true;
+
   /*
   moistureSensors = Services::doJSONGetRequest("/moistureSensors");
   plants = Services::doJSONGetRequest("/plants/sensors");
@@ -70,9 +76,9 @@ void Utilities::prepData()
   Serial.println(pumps.isNull());
   Serial.println(wroteCursor);
   */
-  
-  FluxQueryResult cursor2h = Irrigation::recentIrrigations(2);
-  FluxQueryResult cursor24h = Irrigation::recentIrrigations(24);
-  Irrigation::vec2h = Irrigation::writeVector(cursor2h);
-  Irrigation::vec24h = Irrigation::writeVector(cursor24h);
+}
+
+bool Utilities::countTime(long begin, uint8_t duration)
+{
+  return (millis() - begin >= duration * 1000UL);
 }

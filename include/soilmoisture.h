@@ -2,7 +2,7 @@
 #define SoilMoisture_h
 
 #include <main.h>
-// #include <Services.h>
+#include <Services.h>
 #include <multiplexer.h>
 
 class SoilMoisture

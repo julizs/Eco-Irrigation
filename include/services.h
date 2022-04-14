@@ -16,6 +16,7 @@ extern ESP8266WiFiMulti wifiMulti;
 // #include <ESPAsyncWebServer.h>
 #include <main.h>
 #include <WebServer.h>
+#include <Utilities.h>
 
 // #define WIFI_SSID "FRITZ!Box 7430 ED"
 // #define WIFI_PASSWORD "49391909776212256241"
@@ -39,7 +40,6 @@ class Services
         static bool wifiMultiConnected();
         static void startRestServer();
         // static void handleWebButtons();
-        static bool countTime(long begin, uint8_t duration);
 
     private:
         static void rootEndpoint();

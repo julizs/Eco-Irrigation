@@ -51,7 +51,7 @@ bool Cistern::setupToF()
     else
     {
         toF_ready = false;
-        critErrCode = 1;
+        critErrCode = 2;
     }
 
     return true;
@@ -109,10 +109,10 @@ int Cistern::updateWaterLevel()
     {
         currWaterDist = measurement;
 
-        char key1[25], key2[25];
-        sprintf(key1, "waterDistance 0x%x", this->toF_address);
+        char key1[32], key2[32];
+        snprintf(key1, 32, "waterDistance 0x%x", this->toF_address);
         p0.addField(key1, currWaterDist);
-        sprintf(key2, "waterAmount 0x%x", this->toF_address);
+        snprintf(key2, 32, "waterAmount 0x%x", this->toF_address);
         p0.addField(key2, calcMl(currWaterDist));
     }
 
@@ -195,7 +195,7 @@ float Cistern::evaluateToF()
     // int n = sizeof(distances) / sizeof(distances[0]);
     int distances[n];
     float median = 0.0f;
-    char message[50];
+    char message[64];
 
     readToF(distances); // Pass by Reference
     std::sort(distances, distances + n);
@@ -215,7 +215,7 @@ float Cistern::evaluateToF()
         median = (float)(distances[(n - 1) / 2] + distances[n / 2]) / 2.0;
     }
 
-    sprintf(message, "VL530X 0x%x, Median: %0.2f", toF_address, median);
+    snprintf(message, 64, "VL530X 0x%x, Median: %0.2f", toF_address, median);
     Serial.println(message);
 
     return median;

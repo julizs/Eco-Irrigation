@@ -41,18 +41,16 @@ StatusDisplay displayController;
 StateMachine fsm = StateMachine();
 State *nextState = nullptr;
 uint8_t critErrCode = 0;
-const char* critErrMessage[] = {"None","Final Failure to setup ToFs"};
+const char* critErrMessage[] = {"None","Final Fail to connect WiFi","Final Fail to setup ToFs"};
 State *idleState, *initState, *prepState, *measureState, *evaluateState, *actionState, *transmitState, *errorState;
 const char *stateNames[] = {"IDLE", "INIT", "PREP", "MEASURE", "EVALUATE", "ACTION", "TRANSMIT", "ERROR"};
-bool didSleep, didConnect, didPrepare;
+bool didSleep, didServices, didPrepare;
 LinkedList<ISubStateMachine *> actions = LinkedList<ISubStateMachine *>();
 uint32_t stateBeginMillis = 0;
 // DynamicJsonDocument moistureSensors(2048), plants(2048), plantNeeds(2048), pumps(2048);
 
 bool countTime(int durationSec)
 {
-  if(millis() % 1000000 == 0)
-    Serial.print(".");
   return (millis() - stateBeginMillis >= durationSec * 1000UL);
 }
 
@@ -120,8 +118,8 @@ void doMeasurements()
     {
       int moistureSensor = array[j];
       int pinNum = moistureSensor - 1;
-      char key[25];
-      sprintf(key, "Soil Moisture Sensor %d", moistureSensor);
+      char key[64];
+      snprintf(key, 64, "Soil Moisture Sensor %d", moistureSensor);
 
       int moistureSmoothed = SoilMoisture::measureSoilMoistureSmoothed(pinNum);
       // Pass Reference of moistureSensors Table, so only 1 GET Request instead of per Plant, per Sensor
@@ -218,7 +216,7 @@ void on_prepState()
 {
   if (fsm.executeOnce)
   {
-    didConnect = false;
+    didServices = false;
     commonStateLogic();
 
     // Clock Esp32 down to help prevent Brownout
@@ -228,17 +226,13 @@ void on_prepState()
     Serial.print("Main State Machine runs on Core: ");
     Serial.println(xPortGetCoreID());
 
-    if (!Services::wifiMultiConnected())
+    while (!Services::wifiMultiConnected())
     {
       Services::setupWifiMulti();
     }
 
+    // Set before any Connection to InfluxDB
     influxHelper.setParameters();
-
-    /*
-    if (!influxHelper.checkConnection())
-      Serial.println("Couldnt connect to InfluxDB");
-    */
 
     // Send current own IP for WebButtons
     Services::doPostRequest("/commands/ip");
@@ -249,11 +243,9 @@ void on_prepState()
 
     #if (GETDATA == 1)
     {
-      Utilities::prepData();
+      didServices = Utilities::prepData();
     }
 #endif
-
-    didConnect = true;
   }
 }
 
@@ -374,7 +366,7 @@ bool transitionS1S2()
 // PREP-> MEASURE
 bool transitionS2S3()
 {
-  if (countTime(STATE_MIN_DUR) && didConnect)
+  if (countTime(STATE_MIN_DUR) && didServices)
   {
     return true;
   }
