@@ -1,7 +1,7 @@
 #include <influxHelper.h>
 #include <services.h>
 
-// Use full param constructor to set the certificate or fingerprint to trust a server
+// Use full param constructor to set certificate or fingerprint to trust server
 // https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#secure-connection
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
 Point p0("Environment Data");
@@ -19,15 +19,8 @@ void InfluxHelper::setParameters()
   */
   timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
   client.setWriteOptions(WriteOptions().writePrecision(WritePrecision::MS));
-  client.setWriteOptions(WriteOptions().batchSize(128));
-  client.setWriteOptions(WriteOptions().bufferSize(256));
-  // client.setWriteOptions(WriteOptions().flushInterval(180));
-  // client.setWriteOptions(WriteOptions().retryInterval(3));
-  client.setWriteOptions(WriteOptions().maxRetryAttempts(5));
-  client.setWriteOptions(WriteOptions().maxRetryInterval(30));
-  // Connection refused:
-  // client.setHTTPOptions(HTTPOptions().connectionReuse(true));
-  // client.setHTTPOptions(HTTPOptions().httpReadTimeout(10000));
+  client.setWriteOptions(WriteOptions().batchSize(64).bufferSize(128).retryInterval(5).maxRetryAttempts(10).flushInterval(180));
+  client.setHTTPOptions(HTTPOptions().httpReadTimeout(10000).connectionReuse(true));
 
   Serial.println("Did Set Influx Options.");
 }
@@ -57,7 +50,7 @@ void InfluxHelper::writeDataPoint(Point &p)
 {
   if (client.isBufferEmpty())
   {
-    Serial.println("Buffer was flushed and is empty.");
+    Serial.println("Buffer is empty or was flushed.");
   }
   else
   {
@@ -81,14 +74,14 @@ void InfluxHelper::writeBuffer()
   if (client.flushBuffer())
   {
     Serial.println("Successfully Wrote Buffer to InfluxDB.");
-    // client.resetBuffer();
+    client.resetBuffer();
     return;
   }
   else
   {
     // Only call if inital Attempt fails, validateConnection takes long
     Serial.println("Failed to write Buffer to InfluxDB.");
-    influxHelper.checkConnection();
+    // influxHelper.checkConnection();
   }
 }
 

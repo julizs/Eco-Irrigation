@@ -14,7 +14,7 @@
 #define DOMEASURE 1
 #define SENDDATA 1
 #define GETDATA 1
-#define RUNSUBMACHINES 1
+#define RUNSUBMACHINES 0
 extern uint8_t SLEEP_DUR, IDLE_DUR; // Changable by User
 extern uint8_t MIN_STATE_DUR;
 extern TwoWire I2Cone;

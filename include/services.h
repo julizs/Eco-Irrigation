@@ -33,11 +33,13 @@ class Services
         static WebServer webServer;
 
         static void setupWifi();
+        static bool wifiConnected();
         static void setupWifiMulti();
+        static bool wifiMultiConnected();
+
         static void doGetRequest(char const url[]);
         static void doPostRequest(char const url[]);
         static void doJSONGetRequest(char const url[], DynamicJsonDocument &doc);
-        static bool wifiMultiConnected();
         static void startRestServer();
         // static void handleWebButtons();
 

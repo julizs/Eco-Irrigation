@@ -68,16 +68,17 @@ bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit)
 {
     char message[64];
 
-    for(auto const &s : vec24h)
+    for(auto const &s : vec2h)
        {
            if(s.solenoidValve == solenoidValve)
            {
-               if(s.waterAmountMl > waterLimit)
-               {
-                   snprintf(message, 64, "Solenoid: %d, Water: %d, Water Limit: %d", solenoidValve, s.waterAmountMl, waterLimit);
-                   Serial.println(message);
-                   return false;
-               }
+                snprintf(message, 64, "Solenoid: %d, Water: %d, Water Limit: %d", solenoidValve, s.waterAmountMl, waterLimit);
+                Serial.println(message);
+
+                if(s.waterAmountMl > waterLimit)
+                {
+                    return false;
+                }
            }
        }
     // No entry in Vec/InfluxDB or lower than Limit

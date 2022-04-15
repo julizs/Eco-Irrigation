@@ -226,13 +226,14 @@ void on_prepState()
     Serial.print("Main State Machine runs on Core: ");
     Serial.println(xPortGetCoreID());
 
+    /*
     while (!Services::wifiMultiConnected())
     {
       Services::setupWifiMulti();
     }
-
-    // Set before any Connection to InfluxDB
-    influxHelper.setParameters();
+    */
+    if(!Services::wifiConnected())
+      Services::setupWifi();
 
     // Send current own IP for WebButtons
     Services::doPostRequest("/commands/ip");
@@ -240,6 +241,16 @@ void on_prepState()
     // WiFi.begin() before this, or Exception
     // Restart or ask for Status?
     Services::startRestServer();
+
+    // Set before any Connection to InfluxDB
+    influxHelper.setParameters();
+
+    /*
+    if (!influxHelper.checkConnection())
+    {
+      Serial.println("Could not connect to InfluxDB");
+    }
+    */
 
     #if (GETDATA == 1)
     {

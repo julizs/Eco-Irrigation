@@ -5,20 +5,46 @@ WiFiMulti Services::wifiMulti;
 HTTPClient Services::http;
 WebServer Services::webServer(443);
 
+void Services::setupWifi()
+{
+  int attempts = 0;
+
+  // while (attempts < 3)
+  // {
+    long begin = millis();
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    Serial.println("Connecting to WiFi...");
+    while (!Utilities::countTime(begin, 4)){}
+
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      Serial.println("Connected to WiFi.");
+      return;
+    }
+  //  attempts++;
+  // }
+  Serial.println("Could not connect to WiFi.");
+}
+
 void Services::setupWifiMulti()
 {
+  long begin = millis();
   WiFi.mode(WIFI_STA);
   wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
-  long begin = millis();
  
-  Serial.print("Connecting to Wifi.");
-  while (!wifiMultiConnected() && !Utilities::countTime(begin, 8))
-  {}
+  Serial.print("Connecting to Wifi...");
+  wifiMulti.run();
+  while (!Utilities::countTime(begin, 4)){}
 
-  if (!wifiMultiConnected())
+  if (!wifiMulti.run())
   {
     critErrCode = 1;
   }
+}
+
+bool Services::wifiConnected()
+{
+  return WiFi.status() == WL_CONNECTED;
 }
 
 bool Services::wifiMultiConnected()
@@ -28,11 +54,6 @@ bool Services::wifiMultiConnected()
 
 void Services::doGetRequest(char const url[])
 {
-  if (!wifiMultiConnected())
-  {
-    setupWifiMulti();
-  }
-
   char message[128];
   http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS); // Needed, otherwise 301 Code
   http.begin(url);
@@ -54,11 +75,6 @@ void Services::doGetRequest(char const url[])
 // https://randomnerdtutorials.com/esp32-http-get-post-arduino/
 void Services::doPostRequest(char const endpoint[])
 {
-  if (!wifiMultiConnected())
-  {
-    setupWifiMulti();
-  }
-
   char url[50] = "", message[128];
   strcat(url, baseUrl);
   strcat(url, endpoint);
@@ -83,11 +99,6 @@ void Services::doPostRequest(char const endpoint[])
 // https://arduinojson.org/v6/how-to/use-arduinojson-with-httpclient/
 void Services::doJSONGetRequest(char const endpoint[], DynamicJsonDocument &doc)
 {
-  if (!wifiMultiConnected())
-  {
-    setupWifiMulti();
-  }
-
   char url[50] = "", message[128];
   strcat(url, baseUrl);
   strcat(url, endpoint);
@@ -119,6 +130,8 @@ void Services::rootEndpoint()
 
 /*
 Active Handling of WebButtons
+http://192.168.178.86:443/
+http://192.168.178.86:443/solenoidValve 
 */
 void Services::startRestServer()
 {

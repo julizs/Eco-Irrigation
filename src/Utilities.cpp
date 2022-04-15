@@ -60,9 +60,9 @@ Use (huge) ArduinoJsonDocs only as local Vars that get destroyed if scope ends
 bool Utilities::prepData()
 {
   FluxQueryResult cursor2h = Irrigation::recentIrrigations(2);
-  FluxQueryResult cursor24h = Irrigation::recentIrrigations(24);
+  // FluxQueryResult cursor24h = Irrigation::recentIrrigations(24);
   while(!Irrigation::writeVector(cursor2h, Irrigation::vec2h));
-  while(!Irrigation::writeVector(cursor24h, Irrigation::vec24h));
+  // while(!Irrigation::writeVector(cursor24h, Irrigation::vec24h));
   return true;
 
   /*
