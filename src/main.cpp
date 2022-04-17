@@ -281,7 +281,7 @@ void on_evaluateState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    Irrigation::decideIrrigation();
+    Irrigation::decidePlants();
   }
 }
 

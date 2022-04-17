@@ -4,25 +4,65 @@
 WiFiMulti Services::wifiMulti;
 HTTPClient Services::http;
 WebServer Services::webServer(443);
+// ip_addr_t Services::ip6_dns;
+
+/*
+https://github.com/espressif/arduino-esp32/blob/master/libraries/WiFi/examples/WiFiIPv6/WiFiIPv6.ino
+Strg + Click WiFiEvent_t to see defined Event types
+*/
+void Services::wifiEventHandler(WiFiEvent_t event)
+{
+  switch (event)
+  {
+  case SYSTEM_EVENT_AP_START:
+    WiFi.softAPsetHostname(AP_SSID);
+    // Enable AP Ipv6
+    WiFi.softAPenableIpV6();
+    break;
+
+  case SYSTEM_EVENT_STA_START:
+    WiFi.setHostname(AP_SSID);
+    break;
+  case SYSTEM_EVENT_STA_CONNECTED:
+    // Enable STA Ipv6
+    WiFi.enableIpV6();
+    break;
+  case SYSTEM_EVENT_GOT_IP6:
+    Serial.print("AP IPv6: ");
+    Serial.println(WiFi.softAPIPv6());
+    Serial.print("STA IPv6: ");
+    Serial.println(WiFi.localIPv6());
+    break;
+  case SYSTEM_EVENT_STA_GOT_IP:
+    Serial.println("STA Connected");
+    Serial.print("STA IPv4: ");
+    Serial.println(WiFi.localIP());
+    break;
+  case SYSTEM_EVENT_STA_DISCONNECTED:
+    Serial.println("STA Disconnected");
+    break;
+  default:
+    break;
+  }
+}
 
 void Services::setupWifi()
 {
-  int attempts = 0;
+  long begin = millis();
+  // WiFi.mode(WIFI_MODE_APSTA);
+  // WiFi.softAP(AP_SSID);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  WiFi.onEvent(wifiEventHandler);
+  Serial.println("Connecting to WiFi...");
+  while (!Utilities::countTime(begin, 4))
+  {
+  }
 
-  // while (attempts < 3)
-  // {
-    long begin = millis();
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    Serial.println("Connecting to WiFi...");
-    while (!Utilities::countTime(begin, 4)){}
-
-    if (WiFi.status() == WL_CONNECTED)
-    {
-      Serial.println("Connected to WiFi.");
-      return;
-    }
-  //  attempts++;
-  // }
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    Serial.println("Connected to WiFi.");
+    return;
+  }
   Serial.println("Could not connect to WiFi.");
 }
 
@@ -31,10 +71,12 @@ void Services::setupWifiMulti()
   long begin = millis();
   WiFi.mode(WIFI_STA);
   wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
- 
+
   Serial.print("Connecting to Wifi...");
   wifiMulti.run();
-  while (!Utilities::countTime(begin, 4)){}
+  while (!Utilities::countTime(begin, 4))
+  {
+  }
 
   if (!wifiMulti.run())
   {
@@ -61,14 +103,14 @@ void Services::doGetRequest(char const url[])
   // Send HTTP GET Req
   int httpResponseCode = http.GET();
 
-  snprintf(message, 128,"GET %s Response Code: %d", url, httpResponseCode);
+  snprintf(message, 128, "GET %s Response Code: %d", url, httpResponseCode);
   Serial.println(message);
 
   if (httpResponseCode > 0)
-  { 
+  {
     Serial.println(http.getString());
   }
-  
+
   http.end();
 }
 
@@ -131,20 +173,72 @@ void Services::rootEndpoint()
 /*
 Active Handling of WebButtons
 http://192.168.178.86:443/
-http://192.168.178.86:443/solenoidValve 
+http://192.168.178.86:443/solenoidValve
+http://95.222.24.18:443/solenoidValve (geht nicht)
+https://en.avm.de/service/knowledge-base/dok/FRITZ-Box-7369-int/1089_Identifying-the-address-range-of-the-IPv4-address-for-the-internet-connection/
+https://avm.de/service/wissensdatenbank/dok/FRITZ-Box-7590/1083_Kein-Zugriff-uber-Portfreigabe-auf-FRITZ-Box-Heimnetz/
+The FRITZ!Box does not have a public IPv4 address if the message
+"FRITZ!Box uses a DS Lite tunnel" is displayed. In this case,
+the FRITZ!Box cannot be accessed from the internet over IPv4
+
+FritzBox Interface: Three Dots top right, Advanced View
+Internet, Online Monitor, Ipv4/Ipv6 Addresses (FritzBox uses a DS Lite Tunnel?)
+Browser: https://[2a02:8070:e300:0:3c4d:e882:749c:f059]/ (FritzBox Interface shows)
+CMD: ping 2a02:8070:e300:0:3c4d:e882:749c:f059
+Reach via Ipv6:
+Router AND devices (e.g. Esp32) have to be connected via Ipv6
 */
 void Services::startRestServer()
 {
   // https://www.survivingwithandroid.com/esp32-rest-api-esp32-api-server/
   webServer.on("/", rootEndpoint);
-  webServer.on("/solenoidValve", []() {
+  webServer.on("/solenoidValve", []()
+               {
       // digitalWrite(Relais[0], LOW);
       digitalWrite(Relais[1], LOW);
-      webServer.send(200, "text/plain", "Toggled Solenoid Valve");
-  });
+      webServer.send(200, "text/plain", "Toggled Solenoid Valve"); });
 
   webServer.begin();
 
   Serial.print("Web Server started on Core: ");
   Serial.println(xPortGetCoreID());
 }
+
+/*
+"Passive" Handling of WebButtons
+Read User Commands and Settings, 
+Take Actions later in Action State
+*/
+bool Services::readCommands()
+{
+  DynamicJsonDocument commands(1024);
+  Services::doJSONGetRequest("/commands", commands);
+
+  // Manual Irrigations (Plant or Pump)
+  JsonArray irrigations = commands[0]["Irrigation"];
+  if (!irrigations.isNull())
+  {
+    for (int i = 0; i < irrigations.size(); i++)
+    {
+      const char *subject = irrigations[i][0];
+      int amount = irrigations[i][1];
+      // Call Irrigations Func that finds out relaisChannel etc.
+    }
+  }
+
+  JsonArray statusLights = commands[0]["StatusLight"];
+  if (!irrigations.isNull())
+  {
+    for (int i = 0; i < statusLights.size(); i++)
+    {
+      const char *subject = statusLights[i][0];
+      int content = statusLights[i][1];
+    }
+  }
+
+  // int relaisChannel = settings[0]["SolenoidValve"][0];
+  // bool relaisState = settings[0]["SolenoidValve"][1];
+
+  // Reset
+  // POST, express implements Logic
+  }

@@ -3,10 +3,7 @@
 bool Irrigation::didEvaluate = false;
 int Irrigation::waterLimit2h = 500;
 int Irrigation::waterLimit24h = 5000;
-std::vector<SolenoidMl> Irrigation::vec2h;
-std::vector<SolenoidMl> Irrigation::vec24h;
-// FluxQueryResult Irrigation::cursor2h("empty");
-// FluxQueryResult Irrigation::cursor24h("empty");
+std::vector<SolenoidMl> Irrigation::vec2h, vec24h;
 
 /*
 Do Query only once per timePeriod and not per SolenoidValve
@@ -16,9 +13,9 @@ FluxQueryResult Irrigation::recentIrrigations(uint8_t timePeriod)
 {
     char query[256] = "";
     snprintf(query, 256, "from (bucket: \"messdaten\")|> range(start: -%dh)"
-                   "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"pumpedWaterML\")"
-                   "|> sum()",
-            timePeriod);
+                         "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"pumpedWaterML\")"
+                         "|> sum()",
+             timePeriod);
     Serial.println(query);
 
     FluxQueryResult cursor = influxHelper.doQuery(query);
@@ -34,22 +31,22 @@ bool Irrigation::writeVector(FluxQueryResult &cursor, std::vector<SolenoidMl> &v
         uint16_t waterAmount = cursor.getValueByName("_value").getLong();
         bool exists = false;
 
-        for(auto &s: vec)
+        for (auto &s : vec)
         {
-            if(s.solenoidValve == solenoidValve)
+            if (s.solenoidValve == solenoidValve)
             {
                 s.waterAmountMl += waterAmount;
                 exists = true;
             }
         }
-        if(!exists)
+        if (!exists)
         {
             SolenoidMl sol;
             sol.solenoidValve = solenoidValve;
             sol.waterAmountMl = waterAmount;
             vec.push_back(sol);
         }
-        
+
         if (cursor.getError() != "")
         {
             Serial.println("Vector write Error: ");
@@ -68,19 +65,19 @@ bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit)
 {
     char message[64];
 
-    for(auto const &s : vec2h)
-       {
-           if(s.solenoidValve == solenoidValve)
-           {
-                snprintf(message, 64, "Solenoid: %d, Water: %d, Water Limit: %d", solenoidValve, s.waterAmountMl, waterLimit);
-                Serial.println(message);
+    for (auto const &s : vec2h)
+    {
+        if (s.solenoidValve == solenoidValve)
+        {
+            snprintf(message, 64, "Solenoid: %d, Water: %d, Water Limit: %d", solenoidValve, s.waterAmountMl, waterLimit);
+            Serial.println(message);
 
-                if(s.waterAmountMl > waterLimit)
-                {
-                    return false;
-                }
-           }
-       }
+            if (s.waterAmountMl > waterLimit)
+            {
+                return false;
+            }
+        }
+    }
     // No entry in Vec/InfluxDB or lower than Limit
     return true;
 }
@@ -101,7 +98,7 @@ bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit)
 /*
 strcmp(plantName, name) == 0
 */
-void Irrigation::decideIrrigation()
+void Irrigation::decidePlants()
 {
     char message[64];
     didEvaluate = false;
@@ -118,8 +115,8 @@ void Irrigation::decideIrrigation()
     {
         String plantName = plants[i]["name"];
         int solenoidValve = plants[i]["solenoidValve"].as<int>();
-        
-        if (!validSolenoid(solenoidValve, waterLimit24h)) // Efficient Checks
+
+        if (!validSolenoid(solenoidValve, waterLimit24h)) // Efficient Check
         {
             continue; // skip Plant
         }
@@ -143,26 +140,68 @@ void Irrigation::decideIrrigation()
     actions.add(&pump2);
     actions.add(&pump1);
 
-    // [["Thymian", 350], ["Aloe",280]]
-    // [[1,280]] (both on same Solenoid/relaisChannel)
-    // [[1,3.7]] (pumpTime based on L and % Pwm and L/h of pump)
+    // Output: [["Thymian", 350], ["Aloe",280]]
 
     didEvaluate = true;
 }
 
-void Irrigation::getIrrigationInfo(uint8_t solenoidValve, int irrigationAmount)
+/*
+Called by decideIrrigation and readCommands
+Input: [["Thymian", 350], ["Aloe",280]]
+Output: [[pump1, 0, 4.6],...]
+*/
+void Irrigation::writeInstruction(std::vector<instruction> &instruction)
 {
-    // Access Tables from EEPROM or do Requests if needed
-    DynamicJsonDocument pumps(1024);
+    std::vector<SolenoidMl> sols;
+    DynamicJsonDocument plants(2048), pumps(1024);
+    Services::doJSONGetRequest("/plants/sensors", plants);
     Services::doJSONGetRequest("/pumps", pumps);
 
-    // Get specific Pump
+    for (int i = 0; i < plants.size(); i++)
+    {
+        String plantName = plants[i]["name"];
+        int solenoidValve = plants[i]["solenoidValve"].as<int>();
 
+        if (!validSolenoid(solenoidValve, waterLimit24h)) // Efficient Check
+        {
+            continue; // skip Plant
+        }
+
+        for (auto &s : instruction)
+        {
+            if (plantName.equals(s.plantName))
+            {
+                // Add Solenoid Info
+                s.solenoidValve = solenoidValve;
+
+                // Select correct Pump
+                for (int i = 0; i < pumps.size(); i++)
+                {
+                    JsonArray solenoidValves = pumps[i]["solenoidValve"];
+                    
+                    for(int j = 0; j < solenoidValves.size(); j++)
+                    {
+                        if(solenoidValves[j] == solenoidValve)
+                        {
+                            // Add Pump Info
+                            uint16_t flowRate = pumps[i]["flowRate"][0];
+                            s.pumpTime = s.waterAmountMl/(flowRate*1000.0f);
+                            // s.pump = pump1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Plants -> relaisChannel/Solenoids
+    // Solenoids -> Pump
     /*
     int litersPerHour = pump["flowRate"][1];
     int pwmChannel = pump["pwmChannel"];
 
-    if (litersPerHour == 0) // avoid DivideByZero
+    // avoid DivideByZero if Attr not available
+    if (litersPerHour == 0)
     {
         litersPerHour = 300;
     }
@@ -173,51 +212,7 @@ void Irrigation::getIrrigationInfo(uint8_t solenoidValve, int irrigationAmount)
     Serial.println(pwmChannel);
     Serial.println(pumpTime);
     */
-
-    // Output: [relaisChannel, pumpTime]
-    // [[0, 4.6][1, 3.9]]
-    // [pump1, 4.6]
 }
-
-/*
-Do only 1 InfluxDB Request
-*/
-/*
-void Irrigation::validSolenoids(bool validSolenoids[])
-{
-    int waterLimit1h = 500, waterLimit24h = 1000;
-    int i = 0;
-
-    FluxQueryResult cursor = influxHelper.doQuery(query);
-    while (cursor.next())
-    {
-        int pumpedWaterML = cursor.getValueByName("_value").getLong();
-        Serial.println(pumpedWaterML);
-    }
-    cursor.close();
-
-    while (cursor.next())
-    {
-        uint8_t solenoidValve = cursor.getValueByName("_value").getLong();
-        int pumpedWaterML = cursor.getValueByName("pumpedWaterML").getLong();
-        if (pumpedWaterML > waterLimit1h)
-        {
-            validSolenoids[i] = false;
-        }
-        else
-        {
-            validSolenoids[i] = true;
-        }
-        i++;
-    }
-
-    if (cursor.getError() != "")
-    {
-        Serial.print("Query result error: ");
-        Serial.println(cursor.getError());
-    }
-}
-*/
 
 /*
 char query[32] = "/";

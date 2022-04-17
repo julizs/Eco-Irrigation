@@ -17,11 +17,18 @@ extern ESP8266WiFiMulti wifiMulti;
 #include <main.h>
 #include <WebServer.h>
 #include <Utilities.h>
+#include <lwip/dns.h>
 
 // #define WIFI_SSID "FRITZ!Box 7430 ED"
 // #define WIFI_PASSWORD "49391909776212256241"
 #define WIFI_SSID "FRITZ!Box 6490 Cable"
 #define WIFI_PASSWORD "04623152464666844388"
+#define AP_SSID "esp32-v6"
+
+struct UserSettings
+{
+    
+};
 
 class Services
 {
@@ -31,16 +38,19 @@ class Services
         static WiFiMulti wifiMulti;
         static WiFiServer wifiServer;
         static WebServer webServer;
+        static ip_addr_t ip6_dns;
 
         static void setupWifi();
         static bool wifiConnected();
         static void setupWifiMulti();
         static bool wifiMultiConnected();
+        static void wifiEventHandler(WiFiEvent_t event);
 
         static void doGetRequest(char const url[]);
         static void doPostRequest(char const url[]);
         static void doJSONGetRequest(char const url[], DynamicJsonDocument &doc);
         static void startRestServer();
+        static bool readCommands();
         // static void handleWebButtons();
 
     private:
