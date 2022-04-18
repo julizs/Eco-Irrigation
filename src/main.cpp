@@ -231,15 +231,20 @@ void on_prepState()
       Services::setupWifiMulti();
     }
     */
+   
     if(!Services::wifiConnected())
       Services::setupWifi();
 
-    // Send current own IP for WebButtons
+    /* "Active" Button Handling
+    Send current own IPv4/Ipv6
     Services::doPostRequest("/commands/ip");
-
     // WiFi.begin() before this, or Exception
-    // Restart or ask for Status?
+    // Restart / ask for Status?
     Services::startRestServer();
+    */
+
+    // "Passive" Button Handling
+    Services::readCommands();
 
     // Set before any Connection to InfluxDB
     influxHelper.setParameters();

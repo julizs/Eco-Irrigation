@@ -10,7 +10,7 @@
 
 struct MlPerSolenoid { 
     uint8_t solenoidValve;
-    uint16_t waterAmountMl;  
+    uint16_t waterAmount;
 };
 
 class Utilities

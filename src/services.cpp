@@ -204,13 +204,14 @@ void Services::startRestServer()
   Serial.println(xPortGetCoreID());
 }
 
-/*
-"Passive" Handling of WebButtons
-Read User Commands and Settings, 
-Take Actions later in Action State
+/* "Passive" Handling of WebButtons
+Read User Commands and Settings from MongoDB doc
+Create instructions Vec from Data, pass to Irrigation to add missing Infos
+Take Actions later in Action State (before decidePlants() Evaluation)
 */
 bool Services::readCommands()
 {
+  std::vector<Instruction> instructions;
   DynamicJsonDocument commands(1024);
   Services::doJSONGetRequest("/commands", commands);
 
@@ -222,8 +223,19 @@ bool Services::readCommands()
     {
       const char *subject = irrigations[i][0];
       int amount = irrigations[i][1];
-      // Call Irrigations Func that finds out relaisChannel etc.
+      Instruction instr;
+      snprintf(instr.plantName, 32, subject);
+      instr.waterAmount = amount;
+      instructions.push_back(instr);
     }
+    /*
+    for(auto const &instr: instructions)
+    {
+      Serial.println(instr.plantName);
+      Serial.println(instr.waterAmount);
+    }
+    */
+    Irrigation::writeInstructions(instructions);
   }
 
   JsonArray statusLights = commands[0]["StatusLight"];
@@ -239,6 +251,6 @@ bool Services::readCommands()
   // int relaisChannel = settings[0]["SolenoidValve"][0];
   // bool relaisState = settings[0]["SolenoidValve"][1];
 
-  // Reset
-  // POST, express implements Logic
+  // Reset MongoDB Doc
+  Services::doPostRequest("/commands/reset");
   }

@@ -1,8 +1,8 @@
 #include "Irrigation.h"
 
 bool Irrigation::didEvaluate = false;
-int Irrigation::waterLimit2h = 500;
-int Irrigation::waterLimit24h = 5000;
+// int Irrigation::waterLimit2h = 500;
+// int Irrigation::waterLimit24h = 5000;
 
 /*
 Do Query only once per timePeriod and not per SolenoidValve
@@ -28,11 +28,12 @@ Use (huge) ArduinoJsonDocs only as local Vars that get destroyed if scope ends
 */
 bool Irrigation::prepData()
 {
-  FluxQueryResult cursor2h = recentIrrigations(2);
-  // FluxQueryResult cursor24h = Irrigation::recentIrrigations(24);
-  while(!Utilities::writeVector(cursor2h, Utilities::ml2h));
-  // while(!Irrigation::writeVector(cursor24h, Irrigation::vec24h));
-  return true;
+    FluxQueryResult cursor2h = recentIrrigations(2);
+    // FluxQueryResult cursor24h = Irrigation::recentIrrigations(24);
+    while (!Utilities::writeVector(cursor2h, Utilities::ml2h))
+        ;
+    // while(!Irrigation::writeVector(cursor24h, Irrigation::vec24h));
+    return true;
 }
 
 /*
@@ -47,10 +48,10 @@ bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit)
     {
         if (s.solenoidValve == solenoidValve)
         {
-            snprintf(message, 64, "Solenoid: %d, Water: %d, Water Limit: %d", solenoidValve, s.waterAmountMl, waterLimit);
+            snprintf(message, 64, "Solenoid Valve: %d, Water Amount: %d, Water Limit: %d", solenoidValve, s.waterAmount, waterLimit);
             Serial.println(message);
 
-            if (s.waterAmountMl > waterLimit)
+            if (s.waterAmount > waterLimit)
             {
                 return false;
             }
@@ -128,11 +129,11 @@ Called by decideIrrigation and readCommands
 Input: [["Thymian", 350], ["Aloe",280]]
 Output: [[pump1, 0, 4.6],...]
 */
-void Irrigation::writeInstruction(std::vector<instruction> &instruction)
+void Irrigation::writeInstructions(std::vector<Instruction> &instructions)
 {
     DynamicJsonDocument plants(2048), pumps(1024);
     Services::doJSONGetRequest("/plants/sensors", plants);
-    Services::doJSONGetRequest("/pumps", pumps);
+    Services::doJSONGetRequest("/pumps/json", pumps);
 
     for (int i = 0; i < plants.size(); i++)
     {
@@ -144,59 +145,61 @@ void Irrigation::writeInstruction(std::vector<instruction> &instruction)
             continue; // skip Plant
         }
 
-        for (auto &s : instruction)
+        for (auto &instr : instructions)
         {
-            if (plantName.equals(s.plantName))
+            if (plantName.equals(instr.plantName))
             {
-                // Add Solenoid Info
-                s.solenoidValve = solenoidValve;
+                // Get SolenoidValve/relaisChannel
+                instr.solenoidValve = solenoidValve;
 
-                // Select Pump Pin
+                // Get pwmPin
+                solenoidValve == (0 || 1) ? instr.pump = &pump1 : instr.pump = &pump2;
 
-                // Select Pump Model
+                // Get Pump Model
                 for (int i = 0; i < pumps.size(); i++)
                 {
                     JsonArray solenoidValves = pumps[i]["solenoidValve"];
-                    
-                    for(int j = 0; j < solenoidValves.size(); j++)
+
+                    for (int j = 0; j < solenoidValves.size(); j++)
                     {
-                        if(solenoidValves[j] == solenoidValve)
+                        // Serial.println(solenoidValves[j]);
+                        if (solenoidValves[j] == solenoidValve)
                         {
                             // Add Pump Info
                             uint16_t flowRate = pumps[i]["flowRate"][0];
-                            s.pumpTime = s.waterAmountMl/(flowRate*1000.0f);
+                            Serial.println(flowRate);
+                            constrain(flowRate, 100, 500); // Avoid divide by 0
+                            float pumpTime = (instr.waterAmount / (flowRate * 1000.0f)) * 3600;
+                            instr.pumpTime = constrain(pumpTime, 0.0f, pumpTimeLimit);
                         }
                     }
                 }
             }
         }
     }
-
-    // Plants -> relaisChannel/Solenoids
-    // Solenoids -> Pump
-    /*
-    int litersPerHour = pump["flowRate"][1];
-    int pwmChannel = pump["pwmChannel"];
-
-    // avoid DivideByZero if Attr not available
-    if (litersPerHour == 0)
-    {
-        litersPerHour = 300;
-    }
-
-    float pumpTime = (irrigationAmount / (litersPerHour * 1000.0f)) * 3600;
-
-    // Serial.print("Irrigate: "); Serial.println(plantGroup);
-    Serial.println(pwmChannel);
-    Serial.println(pumpTime);
-    */
+    printInstructions(instructions);
 }
 
-/*
-char query[32] = "/";
-strcat(query, plantName);
-strcat(query, "/needs");
-DynamicJsonDocument needs = Services::doJSONGetRequest(query);
-int currentSize = needs[0]["plantSize"];
-Serial.println(currentSize);
+void Irrigation::printInstructions(std::vector<Instruction> &instructions)
+{
+    char message[128];
+
+    Serial.println("Irrigation Instructions: ");
+
+    for (auto const &instr : instructions)
+    {
+        snprintf(message, 128, "Pump: %d, Pump Time: %0.2f, Solenoid Valve: %d, Water Amount: %d", 
+        instr.pump, instr.pumpTime, instr.solenoidValve, instr.waterAmount);
+        Serial.println(message);
+    }
+}
+
+bool Irrigation::sendReport()
+{
+}
+
+/* Get pwmPin
+(Hardcoded, SolenoidValves/relaisChannels/pinNums 0, 1 are always
+associated with pump1, just as pump_PWM_1 is always assoc. with pump1
+User can only change pumpModel or enable/disable assoc. relaisChannels)
 */

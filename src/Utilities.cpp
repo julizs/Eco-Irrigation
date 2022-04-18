@@ -57,19 +57,22 @@ DynamicJsonDocument Utilities::readDoc(int address, int size)
 /*
 FluxQueryResult to Vector
 */
-bool Utilities::writeVector(FluxQueryResult &cursor, std::vector<MlPerSolenoid> &vec)
+bool Utilities::writeVector(FluxQueryResult &cursor, std::vector<MlPerSolenoid> &solenoids)
 {
+  uint8_t solenoidValve;
+  uint16_t waterAmount;
+
     while (cursor.next())
     {
-        uint8_t solenoidValve = cursor.getValueByName("solenoidValve").getLong();
-        uint16_t waterAmount = cursor.getValueByName("_value").getLong();
+        solenoidValve = cursor.getValueByName("solenoidValve").getLong();
+        waterAmount = cursor.getValueByName("_value").getLong();
         bool exists = false;
 
-        for (auto &s : vec)
+        for (auto &sol : solenoids)
         {
-            if (s.solenoidValve == solenoidValve)
+            if (sol.solenoidValve == solenoidValve)
             {
-                s.waterAmountMl += waterAmount;
+                sol.waterAmount += waterAmount;
                 exists = true;
             }
         }
@@ -77,8 +80,8 @@ bool Utilities::writeVector(FluxQueryResult &cursor, std::vector<MlPerSolenoid> 
         {
             MlPerSolenoid sol;
             sol.solenoidValve = solenoidValve;
-            sol.waterAmountMl = waterAmount;
-            vec.push_back(sol);
+            sol.waterAmount = waterAmount;
+            solenoids.push_back(sol);
         }
 
         if (cursor.getError() != "")

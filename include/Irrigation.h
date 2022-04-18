@@ -12,25 +12,28 @@ class Pump; // Forward Decl
 Infos needed for Irrigation Process
 Also used to write Report
 */
-struct instruction {
-    char plantName[];
+struct Instruction {
+    char plantName[32];
     float pumpTime;
     uint8_t solenoidValve;
-    uint16_t waterAmountMl; 
-    Pump &pump;
+    uint16_t waterAmount;
+    Pump* pump;
 };
 
 class Irrigation
 {
     public:
         static bool didEvaluate;
-        static int waterLimit2h, waterLimit24h, pumpedWater2h, pumpedWater24h;
-        static FluxQueryResult cursor2h, cursor24h;
+        static const uint16_t waterLimit2h = 500, waterLimit24h = 1000;
+        static const float pumpTimeLimit = 10.0f;
+        // static FluxQueryResult ml2h, ml24h;
 
         static void decidePlants();
-        static void writeInstruction(std::vector<instruction> &instruction);
-        static bool validSolenoid(uint8_t solenoidValve, uint16_t waterLimit);
+        static void writeInstructions(std::vector<Instruction> &instructions);
+        static void printInstructions(std::vector<Instruction> &instructions);
         static FluxQueryResult recentIrrigations(uint8_t timePeriod);
+        static bool validSolenoid(uint8_t solenoidValve, uint16_t waterLimit);  
         static bool prepData();
+        static bool sendReport();
 };
 #endif // Irrigation_h

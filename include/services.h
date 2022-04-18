@@ -15,6 +15,7 @@ extern ESP8266WiFiMulti wifiMulti;
 #include <WebServer.h>
 #include <lwip/dns.h>
 #include <Utilities.h>
+#include <Irrigation.h>
 
 // #define WIFI_SSID "FRITZ!Box 7430 ED"
 // #define WIFI_PASSWORD "49391909776212256241"
