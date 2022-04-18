@@ -1,7 +1,6 @@
 #include <main.h>
 #include <LinkedList.h>
 #include <StateMachine.h>
-#include <EEPROM.h>
 #include <ArduinoJson.h>
 #include <Irrigation.h>
 #include <Utilities.h>
@@ -254,7 +253,7 @@ void on_prepState()
 
     #if (GETDATA == 1)
     {
-      didServices = Utilities::prepData();
+      didServices = Irrigation::prepData();
     }
 #endif
   }

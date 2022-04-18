@@ -3,7 +3,6 @@
 bool Irrigation::didEvaluate = false;
 int Irrigation::waterLimit2h = 500;
 int Irrigation::waterLimit24h = 5000;
-std::vector<SolenoidMl> Irrigation::vec2h, vec24h;
 
 /*
 Do Query only once per timePeriod and not per SolenoidValve
@@ -22,39 +21,18 @@ FluxQueryResult Irrigation::recentIrrigations(uint8_t timePeriod)
     return cursor;
 }
 
-bool Irrigation::writeVector(FluxQueryResult &cursor, std::vector<SolenoidMl> &vec)
+/*
+Only do Requests here that take long but require little disc space
+Write InfluxDB Cursors to Vectors so waterLevel Evaluation on Button Press is fast
+Use (huge) ArduinoJsonDocs only as local Vars that get destroyed if scope ends
+*/
+bool Irrigation::prepData()
 {
-    // std::vector<SolenoidMl> vec;
-    while (cursor.next())
-    {
-        uint8_t solenoidValve = cursor.getValueByName("solenoidValve").getLong();
-        uint16_t waterAmount = cursor.getValueByName("_value").getLong();
-        bool exists = false;
-
-        for (auto &s : vec)
-        {
-            if (s.solenoidValve == solenoidValve)
-            {
-                s.waterAmountMl += waterAmount;
-                exists = true;
-            }
-        }
-        if (!exists)
-        {
-            SolenoidMl sol;
-            sol.solenoidValve = solenoidValve;
-            sol.waterAmountMl = waterAmount;
-            vec.push_back(sol);
-        }
-
-        if (cursor.getError() != "")
-        {
-            Serial.println("Vector write Error: ");
-            Serial.println(cursor.getError());
-        }
-    }
-    Serial.println("Vector write Success.");
-    return true;
+  FluxQueryResult cursor2h = recentIrrigations(2);
+  // FluxQueryResult cursor24h = Irrigation::recentIrrigations(24);
+  while(!Utilities::writeVector(cursor2h, Utilities::ml2h));
+  // while(!Irrigation::writeVector(cursor24h, Irrigation::vec24h));
+  return true;
 }
 
 /*
@@ -65,7 +43,7 @@ bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit)
 {
     char message[64];
 
-    for (auto const &s : vec2h)
+    for (auto const &s : Utilities::ml2h)
     {
         if (s.solenoidValve == solenoidValve)
         {
@@ -152,7 +130,6 @@ Output: [[pump1, 0, 4.6],...]
 */
 void Irrigation::writeInstruction(std::vector<instruction> &instruction)
 {
-    std::vector<SolenoidMl> sols;
     DynamicJsonDocument plants(2048), pumps(1024);
     Services::doJSONGetRequest("/plants/sensors", plants);
     Services::doJSONGetRequest("/pumps", pumps);
@@ -174,7 +151,9 @@ void Irrigation::writeInstruction(std::vector<instruction> &instruction)
                 // Add Solenoid Info
                 s.solenoidValve = solenoidValve;
 
-                // Select correct Pump
+                // Select Pump Pin
+
+                // Select Pump Model
                 for (int i = 0; i < pumps.size(); i++)
                 {
                     JsonArray solenoidValves = pumps[i]["solenoidValve"];
@@ -186,7 +165,6 @@ void Irrigation::writeInstruction(std::vector<instruction> &instruction)
                             // Add Pump Info
                             uint16_t flowRate = pumps[i]["flowRate"][0];
                             s.pumpTime = s.waterAmountMl/(flowRate*1000.0f);
-                            // s.pump = pump1;
                         }
                     }
                 }

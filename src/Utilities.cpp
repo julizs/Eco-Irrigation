@@ -1,5 +1,7 @@
 #include "Utilities.h"
 
+std::vector<MlPerSolenoid> Utilities::ml2h, ml24h;
+
 void Utilities::scanI2CBus(TwoWire *wire)
 {
   Serial.println("Scanning I2C Addresses Channel: ");
@@ -53,29 +55,40 @@ DynamicJsonDocument Utilities::readDoc(int address, int size)
 }
 
 /*
-Only do Requests here that take long but require little disc space
-Write InfluxDB Cursors to Vectors so waterLevel Evaluation on Button Press is fast
-Use (huge) ArduinoJsonDocs only as local Vars that get destroyed if scope ends
+FluxQueryResult to Vector
 */
-bool Utilities::prepData()
+bool Utilities::writeVector(FluxQueryResult &cursor, std::vector<MlPerSolenoid> &vec)
 {
-  FluxQueryResult cursor2h = Irrigation::recentIrrigations(2);
-  // FluxQueryResult cursor24h = Irrigation::recentIrrigations(24);
-  while(!Irrigation::writeVector(cursor2h, Irrigation::vec2h));
-  // while(!Irrigation::writeVector(cursor24h, Irrigation::vec24h));
-  return true;
+    while (cursor.next())
+    {
+        uint8_t solenoidValve = cursor.getValueByName("solenoidValve").getLong();
+        uint16_t waterAmount = cursor.getValueByName("_value").getLong();
+        bool exists = false;
 
-  /*
-  moistureSensors = Services::doJSONGetRequest("/moistureSensors");
-  plants = Services::doJSONGetRequest("/plants/sensors");
-  plantNeeds = Services::doJSONGetRequest("/plants/needs");
-  pumps = Services::doJSONGetRequest("/pumps/json");
-  Serial.println(moistureSensors.isNull());
-  Serial.println(plants.isNull());
-  Serial.println(plantNeeds.isNull());
-  Serial.println(pumps.isNull());
-  Serial.println(wroteCursor);
-  */
+        for (auto &s : vec)
+        {
+            if (s.solenoidValve == solenoidValve)
+            {
+                s.waterAmountMl += waterAmount;
+                exists = true;
+            }
+        }
+        if (!exists)
+        {
+            MlPerSolenoid sol;
+            sol.solenoidValve = solenoidValve;
+            sol.waterAmountMl = waterAmount;
+            vec.push_back(sol);
+        }
+
+        if (cursor.getError() != "")
+        {
+            Serial.println("Vector write Error: ");
+            Serial.println(cursor.getError());
+        }
+    }
+    Serial.println("Vector write Success.");
+    return true;
 }
 
 bool Utilities::countTime(long begin, uint8_t duration)
