@@ -135,18 +135,18 @@ void Irrigation::writeInstructions(std::vector<Instruction> &instructions)
     Services::doJSONGetRequest("/plants/sensors", plants);
     Services::doJSONGetRequest("/pumps/json", pumps);
 
-    for (int i = 0; i < plants.size(); i++)
+    for (auto &instr : instructions)
     {
-        String plantName = plants[i]["name"];
-        int solenoidValve = plants[i]["solenoidValve"].as<int>();
-
-        if (!validSolenoid(solenoidValve, waterLimit24h)) // Efficient Check
+        for (int i = 0; i < plants.size(); i++)
         {
-            continue; // skip Plant
-        }
+            String plantName = plants[i]["name"];
+            int solenoidValve = plants[i]["solenoidValve"].as<int>();
 
-        for (auto &instr : instructions)
-        {
+            if (!validSolenoid(solenoidValve, waterLimit24h)) // Efficient Check
+            {
+                continue; // goto next plant
+            }
+
             if (plantName.equals(instr.plantName))
             {
                 // Get SolenoidValve/relaisChannel
@@ -167,17 +167,19 @@ void Irrigation::writeInstructions(std::vector<Instruction> &instructions)
                         {
                             // Add Pump Info
                             uint16_t flowRate = pumps[i]["flowRate"][0];
-                            Serial.println(flowRate);
                             constrain(flowRate, 100, 500); // Avoid divide by 0
                             float pumpTime = (instr.waterAmount / (flowRate * 1000.0f)) * 3600;
                             instr.pumpTime = constrain(pumpTime, 0.0f, pumpTimeLimit);
                         }
                     }
                 }
+                // goto next instr (found match, stop iterating plants for this instr)
+                continue;
             }
         }
     }
-    printInstructions(instructions);
+    reduceInstructions(instructions);
+    printInstructions(instructions);  
 }
 
 void Irrigation::printInstructions(std::vector<Instruction> &instructions)
@@ -188,10 +190,33 @@ void Irrigation::printInstructions(std::vector<Instruction> &instructions)
 
     for (auto const &instr : instructions)
     {
-        snprintf(message, 128, "Pump: %d, Pump Time: %0.2f, Solenoid Valve: %d, Water Amount: %d", 
-        instr.pump, instr.pumpTime, instr.solenoidValve, instr.waterAmount);
+        snprintf(message, 128, "Pump: %d, Pump Time: %0.2f, Solenoid Valve: %d, Water Amount: %d",
+                 instr.pump, instr.pumpTime, instr.solenoidValve, instr.waterAmount);
         Serial.println(message);
     }
+}
+
+/*
+For duplicate Instructions (Plants on same SolenoidValve): Take Min/Max/Avg waterAmount?
+Vec must be sorted first (by SolenoidValve/relaisChannel) for unique to work
+*/
+void Irrigation::reduceInstructions(std::vector<Instruction> &instructions)
+{ 
+    char message[64];
+    sortInstructions(instructions);
+    auto it = std::unique(instructions.begin(), instructions.end());
+    it == instructions.end() ? strcat(message,"No Dups") : strcat(message, "Removed Dups");
+    Serial.println(message);
+}
+
+void Irrigation::sortInstructions(std::vector<Instruction> &instructions)
+{
+    std::sort(instructions.begin(), instructions.end(), compareBySolenoid);
+}
+
+bool Irrigation::compareBySolenoid(const Instruction &a, const Instruction &b)
+{
+    return a.solenoidValve > b.solenoidValve;
 }
 
 bool Irrigation::sendReport()

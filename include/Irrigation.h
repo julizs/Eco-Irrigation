@@ -12,28 +12,37 @@ class Pump; // Forward Decl
 Infos needed for Irrigation Process
 Also used to write Report
 */
-struct Instruction {
+struct Instruction
+{
     char plantName[32];
     float pumpTime;
     uint8_t solenoidValve;
     uint16_t waterAmount;
-    Pump* pump;
+    Pump *pump;
+
+    bool operator==(const Instruction &instr) const
+    {
+        return (solenoidValve == instr.solenoidValve);
+    }
 };
 
 class Irrigation
 {
-    public:
-        static bool didEvaluate;
-        static const uint16_t waterLimit2h = 500, waterLimit24h = 1000;
-        static const float pumpTimeLimit = 10.0f;
-        // static FluxQueryResult ml2h, ml24h;
+public:
+    static bool didEvaluate;
+    static const uint16_t waterLimit2h = 500, waterLimit24h = 1000;
+    static constexpr float pumpTimeLimit = 10.0f;
+    // static FluxQueryResult ml2h, ml24h;
 
-        static void decidePlants();
-        static void writeInstructions(std::vector<Instruction> &instructions);
-        static void printInstructions(std::vector<Instruction> &instructions);
-        static FluxQueryResult recentIrrigations(uint8_t timePeriod);
-        static bool validSolenoid(uint8_t solenoidValve, uint16_t waterLimit);  
-        static bool prepData();
-        static bool sendReport();
+    static void decidePlants();
+    static void writeInstructions(std::vector<Instruction> &instructions);
+    static void printInstructions(std::vector<Instruction> &instructions);
+    static void reduceInstructions(std::vector<Instruction> &instructions);
+    static void sortInstructions(std::vector<Instruction> &instructions);
+    static bool compareBySolenoid(const Instruction &a, const Instruction &b);
+    static FluxQueryResult recentIrrigations(uint8_t timePeriod);
+    static bool validSolenoid(uint8_t solenoidValve, uint16_t waterLimit);
+    static bool prepData();
+    static bool sendReport();
 };
 #endif // Irrigation_h
