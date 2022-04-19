@@ -31,7 +31,8 @@ class Irrigation
 public:
     static bool didEvaluate;
     static const uint16_t waterLimit2h = 500, waterLimit24h = 1000;
-    static constexpr float pumpTimeLimit = 10.0f;
+    static constexpr float pumpTimeLimit = 10.0f;  
+    static std::vector<Instruction> instructions;
     // static FluxQueryResult ml2h, ml24h;
 
     static void decidePlants();
@@ -42,7 +43,7 @@ public:
     static bool compareBySolenoid(const Instruction &a, const Instruction &b);
     static FluxQueryResult recentIrrigations(uint8_t timePeriod);
     static bool validSolenoid(uint8_t solenoidValve, uint16_t waterLimit);
-    static bool prepData();
-    static bool sendReport();
+    static bool sendReport(std::vector<Instruction> &instructions);
+    static bool cursorToVec();
 };
 #endif // Irrigation_h

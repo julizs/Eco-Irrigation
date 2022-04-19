@@ -114,7 +114,11 @@ void Services::doGetRequest(char const url[])
   http.end();
 }
 
-// https://randomnerdtutorials.com/esp32-http-get-post-arduino/
+/*
+Funcs are responsible for packaging data as json
+PostRequest accepts json as input param
+https://randomnerdtutorials.com/esp32-http-get-post-arduino/
+*/
 void Services::doPostRequest(char const endpoint[])
 {
   char url[50] = "", message[128];
@@ -170,8 +174,7 @@ void Services::rootEndpoint()
   webServer.send(200, "text/plain", "200 All is Ok.");
 }
 
-/*
-Active Handling of WebButtons
+/* "Active" Handling of WebButtons
 http://192.168.178.86:443/
 http://192.168.178.86:443/solenoidValve
 http://95.222.24.18:443/solenoidValve (geht nicht)
@@ -187,10 +190,11 @@ Browser: https://[2a02:8070:e300:0:3c4d:e882:749c:f059]/ (FritzBox Interface sho
 CMD: ping 2a02:8070:e300:0:3c4d:e882:749c:f059
 Reach via Ipv6:
 Router AND devices (e.g. Esp32) have to be connected via Ipv6
+
+https://www.survivingwithandroid.com/esp32-rest-api-esp32-api-server/
 */
 void Services::startRestServer()
 {
-  // https://www.survivingwithandroid.com/esp32-rest-api-esp32-api-server/
   webServer.on("/", rootEndpoint);
   webServer.on("/solenoidValve", []()
                {
@@ -211,7 +215,6 @@ Take Actions later in Action State (before decidePlants() Evaluation)
 */
 bool Services::readCommands()
 {
-  std::vector<Instruction> instructions;
   DynamicJsonDocument commands(1024);
   Services::doJSONGetRequest("/commands", commands);
 
@@ -226,16 +229,9 @@ bool Services::readCommands()
       Instruction instr;
       snprintf(instr.plantName, 32, subject);
       instr.waterAmount = amount;
-      instructions.push_back(instr);
+      Irrigation::instructions.push_back(instr);
     }
-    /*
-    for(auto const &instr: instructions)
-    {
-      Serial.println(instr.plantName);
-      Serial.println(instr.waterAmount);
-    }
-    */
-    Irrigation::writeInstructions(instructions);
+    Irrigation::writeInstructions(Irrigation::instructions);
   }
 
   JsonArray statusLights = commands[0]["StatusLight"];
@@ -251,6 +247,7 @@ bool Services::readCommands()
   // int relaisChannel = settings[0]["SolenoidValve"][0];
   // bool relaisState = settings[0]["SolenoidValve"][1];
 
-  // Reset MongoDB Doc
+  // Reset MongoDB Doc and empty Instructions Vector
   Services::doPostRequest("/commands/reset");
+  Irrigation::instructions.clear();
   }

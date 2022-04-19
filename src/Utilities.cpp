@@ -1,6 +1,7 @@
 #include "Utilities.h"
 
-std::vector<MlPerSolenoid> Utilities::ml2h, ml24h;
+std::vector<MlPerSolenoid> Utilities::ml2h;
+std::vector<MlPerSolenoid> Utilities::ml24h;
 
 void Utilities::scanI2CBus(TwoWire *wire)
 {
@@ -62,36 +63,52 @@ bool Utilities::writeVector(FluxQueryResult &cursor, std::vector<MlPerSolenoid> 
   uint8_t solenoidValve;
   uint16_t waterAmount;
 
-    while (cursor.next())
+  while (cursor.next())
+  {
+    solenoidValve = cursor.getValueByName("solenoidValve").getLong();
+    waterAmount = cursor.getValueByName("_value").getLong();
+    bool exists = false;
+
+    for (auto &sol : solenoids)
     {
-        solenoidValve = cursor.getValueByName("solenoidValve").getLong();
-        waterAmount = cursor.getValueByName("_value").getLong();
-        bool exists = false;
-
-        for (auto &sol : solenoids)
-        {
-            if (sol.solenoidValve == solenoidValve)
-            {
-                sol.waterAmount += waterAmount;
-                exists = true;
-            }
-        }
-        if (!exists)
-        {
-            MlPerSolenoid sol;
-            sol.solenoidValve = solenoidValve;
-            sol.waterAmount = waterAmount;
-            solenoids.push_back(sol);
-        }
-
-        if (cursor.getError() != "")
-        {
-            Serial.println("Vector write Error: ");
-            Serial.println(cursor.getError());
-        }
+      if (sol.solenoidValve == solenoidValve)
+      {
+        sol.waterAmount += waterAmount;
+        exists = true;
+      }
     }
-    Serial.println("Vector write Success.");
-    return true;
+    if (!exists)
+    {
+      MlPerSolenoid sol;
+      sol.solenoidValve = solenoidValve;
+      sol.waterAmount = waterAmount;
+      solenoids.push_back(sol);
+    }
+
+    if (cursor.getError() != "")
+    {
+      Serial.println("Vector write Error: ");
+      Serial.println(cursor.getError());
+    }
+  }
+  Serial.println("Vector write Success.");
+  return true;
+}
+
+void Utilities::printMlPerSolenoid(std::vector<MlPerSolenoid> &solenoids)
+{
+  char message[64];
+
+  Serial.print("Recent Irrigations per Solenoid: ");
+  if (solenoids.size() > 0)
+  {
+    for (auto const &sol : solenoids)
+    {
+      snprintf(message, 64, "Solenoid Valve: %d, Water Amount: %d Ml",
+               sol.solenoidValve, sol.waterAmount);
+      Serial.println(message);
+    }
+  } else { Serial.println("None.");}
 }
 
 bool Utilities::countTime(long begin, uint8_t duration)

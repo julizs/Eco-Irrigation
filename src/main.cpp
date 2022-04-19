@@ -40,10 +40,10 @@ StatusDisplay displayController;
 StateMachine fsm = StateMachine();
 State *nextState = nullptr;
 uint8_t critErrCode = 0;
-const char* critErrMessage[] = {"None","Final Fail to connect WiFi","Final Fail to setup ToFs"};
+const char *critErrMessage[] = {"None", "Final Fail to connect WiFi", "Final Fail to setup ToFs"};
 State *idleState, *initState, *prepState, *measureState, *evaluateState, *actionState, *transmitState, *errorState;
 const char *stateNames[] = {"IDLE", "INIT", "PREP", "MEASURE", "EVALUATE", "ACTION", "TRANSMIT", "ERROR"};
-bool didSleep, didServices, didPrepare;
+bool didSleep, didServices, didPrepare, didActions;
 LinkedList<ISubStateMachine *> actions = LinkedList<ISubStateMachine *>();
 uint32_t stateBeginMillis = 0;
 // DynamicJsonDocument moistureSensors(2048), plants(2048), plantNeeds(2048), pumps(2048);
@@ -56,8 +56,10 @@ bool countTime(int durationSec)
 // Always setup both Sensors at once
 void setupToFs()
 {
-  while(!cistern2.setupToF());
-  while(!cistern1.setupToF());
+  while (!cistern2.setupToF())
+    ;
+  while (!cistern1.setupToF())
+    ;
 }
 
 void doMeasurements()
@@ -70,12 +72,12 @@ void doMeasurements()
   }
   p0.clearFields();
 
-  if(cistern1.toF_ready)
+  if (cistern1.toF_ready)
     cistern1.updateWaterLevel();
 
-  if(cistern2.toF_ready)
+  if (cistern2.toF_ready)
     cistern2.updateWaterLevel();
-  
+
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
 
@@ -175,7 +177,7 @@ void on_idleState()
     {
       Serial.println("Entering Light Sleep.");
       esp_sleep_enable_timer_wakeup(SLEEP_DUR * 1000 * 1000); // µs
-      delay(100); // Else no Wakeup
+      delay(100);                                             // Else no Wakeup
       esp_light_sleep_start();
       // Resume Program, Connections and States were kept
       didSleep = true;
@@ -189,7 +191,9 @@ void on_idleState()
   if (SLEEPTYPE == 0) // Simulate Sleep / Idle
   {
     // Serial.println("Idle");
-    while (!countTime(IDLE_DUR)){}
+    while (!countTime(IDLE_DUR))
+    {
+    }
   }
   didSleep = true;
 }
@@ -207,7 +211,7 @@ void on_initState()
     lightSensor2.setupTSL2591(I2Ctwo);
 
     Utilities::scanI2CBus(&I2Cone);
-    Utilities::scanI2CBus(&I2Ctwo); 
+    Utilities::scanI2CBus(&I2Ctwo);
   }
 }
 
@@ -231,8 +235,8 @@ void on_prepState()
       Services::setupWifiMulti();
     }
     */
-   
-    if(!Services::wifiConnected())
+
+    if (!Services::wifiConnected())
       Services::setupWifi();
 
     /* "Active" Button Handling
@@ -250,15 +254,16 @@ void on_prepState()
     influxHelper.setParameters();
 
     /*
+    // Establish and hold InfluxDB Connection open (see Params)
     if (!influxHelper.checkConnection())
     {
       Serial.println("Could not connect to InfluxDB");
     }
     */
 
-    #if (GETDATA == 1)
+#if (GETDATA == 1)
     {
-      didServices = Irrigation::prepData();
+      didServices = Irrigation::cursorToVec();
     }
 #endif
   }
@@ -296,11 +301,33 @@ void on_actionState()
 {
   if (fsm.executeOnce)
   {
+    didActions = false;
     commonStateLogic();
   }
 
 #if (RUNSUBMACHINES == 1)
   {
+    Irrigation::printInstructions(Irrigation::instructions);
+
+    for (auto &instr : Irrigation::instructions)
+    {
+      Pump *pump = instr.pump;
+      // Set back State to idle so that same Pump can run multiple times
+      pump->resetMachine();
+      // machine->setTime(instr.pumpTime);
+      pump->pumpTime = instr.pumpTime;
+      pump->relaisChannel = instr.solenoidValve;
+      while (!pump->isDone())
+      {
+        pump->loop();
+      }
+      // write Report later / leave Vec unmanipulated, dont pop
+      if(&instr == &Irrigation::instructions.back())
+      {
+        didActions = true;
+      }
+    }
+    /*
     // Run Sub-StateMachines (Pump, Fan, ...) one after another and check if isDone()
     for (int i = 0; i < actions.size(); i++)
     {
@@ -316,6 +343,7 @@ void on_actionState()
       // actions.remove(i);
       actions.pop();
     }
+    */
   }
 #endif
 }
@@ -353,7 +381,7 @@ Called by watchDog
 */
 void checkCriticalErrors()
 {
-  if(critErrCode != 0)
+  if (critErrCode != 0)
     nextState = errorState;
 }
 
@@ -402,7 +430,7 @@ bool transitionS3S4()
 // EVALUATE -> TRANSMIT (No Action needed)
 bool transitionS4S6()
 {
-  if (countTime(STATE_MIN_DUR) && Irrigation::didEvaluate && actions.size() == 0)
+  if (countTime(STATE_MIN_DUR) && Irrigation::didEvaluate && Irrigation::instructions.size() == 0)
   {
     return true;
   }
@@ -412,7 +440,7 @@ bool transitionS4S6()
 // EVALUATE -> ACTION (Action Stack not empty)
 bool transitionS4S5()
 {
-  if (countTime(STATE_MIN_DUR) && Irrigation::didEvaluate && actions.size() > 0)
+  if (countTime(STATE_MIN_DUR) && Irrigation::didEvaluate && Irrigation::instructions.size() > 0)
   {
     return true;
   }
@@ -423,7 +451,7 @@ bool transitionS4S5()
 bool transitionS5S6()
 {
   // min State Duration must be over AND Pump done, Fan done, ...
-  if ((countTime(STATE_MIN_DUR) && actions.size() == 0) || RUNSUBMACHINES == 0)
+  if ((countTime(STATE_MIN_DUR) && didActions) || RUNSUBMACHINES == 0)
   {
     return true;
   }
@@ -490,7 +518,7 @@ void setup()
   Multiplexer::setup();
 
   idleState = fsm.addState(&on_idleState);
-  initState = fsm.addState(&on_initState); 
+  initState = fsm.addState(&on_initState);
   prepState = fsm.addState(&on_prepState);
   measureState = fsm.addState(&on_measureState);
   evaluateState = fsm.addState(&on_evaluateState);

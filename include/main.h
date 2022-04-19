@@ -13,7 +13,7 @@
 #define DOMEASURE 1
 #define SENDDATA 1
 #define GETDATA 1
-#define RUNSUBMACHINES 0
+#define RUNSUBMACHINES 1
 extern uint8_t SLEEP_DUR, IDLE_DUR, MIN_STATE_DUR;
 extern TwoWire I2Cone, I2Ctwo;
 extern InfluxHelper influxHelper;

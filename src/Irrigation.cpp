@@ -1,8 +1,7 @@
 #include "Irrigation.h"
 
 bool Irrigation::didEvaluate = false;
-// int Irrigation::waterLimit2h = 500;
-// int Irrigation::waterLimit24h = 5000;
+std::vector<Instruction> Irrigation::instructions;
 
 /*
 Do Query only once per timePeriod and not per SolenoidValve
@@ -26,13 +25,16 @@ Only do Requests here that take long but require little disc space
 Write InfluxDB Cursors to Vectors so waterLevel Evaluation on Button Press is fast
 Use (huge) ArduinoJsonDocs only as local Vars that get destroyed if scope ends
 */
-bool Irrigation::prepData()
+bool Irrigation::cursorToVec()
 {
     FluxQueryResult cursor2h = recentIrrigations(2);
-    // FluxQueryResult cursor24h = Irrigation::recentIrrigations(24);
-    while (!Utilities::writeVector(cursor2h, Utilities::ml2h))
-        ;
-    // while(!Irrigation::writeVector(cursor24h, Irrigation::vec24h));
+    // FluxQueryResult cursor24h = recentIrrigations(24);
+
+    while (!Utilities::writeVector(cursor2h, Utilities::ml2h));
+    // while (!Utilities::writeVector(cursor24h, Utilities::ml24h));
+    Utilities::printMlPerSolenoid(Utilities::ml2h);
+    // Utilities::printMlPerSolenoid(Utilities::ml24h);
+
     return true;
 }
 
@@ -61,24 +63,14 @@ bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit)
     return true;
 }
 
-/* Irrigation Algorithm
-  1.1 Skip if waterAmount released by this Solenoid over last 2h > Threshold
-  1.2 (Ideal: Consider average soilMoisture of every Plant connected to this Solenoid over last 48h,
-  but: 1 InfluxDB Request per Plant, slow)
-  (Quick: Consider waterAmount released by this Solenoid over the last 48h)
-  2. Consider Properties of each Plant in PlantGroup (Size, Dry Roots, ...)
-  3. Decide Subjects (Plants -> same Solenoid/RelaisChannel -> Pump) and Milliliters
-  3. Get necessary Info for Action (PumpModel, PumpTime, RelaisChannel, ...)
-  4. Put ISubStateMachine Pointer on Stack, execute sequentially in ActionState
-  5. Create Irrigation Datapoint for InfluxDB/MongoDB (even if Irrigation fails)
-  (Plants: ..., Reason for Irrigation: ... , Irrigation Amount: ..., Reason for Failure: ...)
-*/
-
 /*
-strcmp(plantName, name) == 0
+Call after processing manual User Irrigations
+Check needs of each Plant in System
 */
 void Irrigation::decidePlants()
 {
+    // instructions.clear();
+
     char message[64];
     didEvaluate = false;
     uint8_t waterNeeds = 1, lightNeeds = 1, plantSize = 1; // e.g. plantSize 1 = 100-200mm
@@ -103,7 +95,7 @@ void Irrigation::decidePlants()
         for (int j = 0; j < plantNeeds.size(); j++)
         {
             const char *name = plantNeeds[j]["name"];
-            if (plantName.equals(name))
+            if (plantName.equals(name)) // strcmp(plantName, name) == 0
             {
                 waterNeeds = plantNeeds[j]["waterNeeds"];
                 lightNeeds = plantNeeds[j]["lightNeeds"];
@@ -115,12 +107,7 @@ void Irrigation::decidePlants()
         }
     }
 
-    actions.add(&pump1);
-    actions.add(&pump2);
-    actions.add(&pump1);
-
     // Output: [["Thymian", 350], ["Aloe",280]]
-
     didEvaluate = true;
 }
 
@@ -179,7 +166,6 @@ void Irrigation::writeInstructions(std::vector<Instruction> &instructions)
         }
     }
     reduceInstructions(instructions);
-    printInstructions(instructions);  
 }
 
 void Irrigation::printInstructions(std::vector<Instruction> &instructions)
@@ -187,7 +173,6 @@ void Irrigation::printInstructions(std::vector<Instruction> &instructions)
     char message[128];
 
     Serial.println("Irrigation Instructions: ");
-
     for (auto const &instr : instructions)
     {
         snprintf(message, 128, "Pump: %d, Pump Time: %0.2f, Solenoid Valve: %d, Water Amount: %d",
@@ -201,11 +186,11 @@ For duplicate Instructions (Plants on same SolenoidValve): Take Min/Max/Avg wate
 Vec must be sorted first (by SolenoidValve/relaisChannel) for unique to work
 */
 void Irrigation::reduceInstructions(std::vector<Instruction> &instructions)
-{ 
+{
     char message[64];
     sortInstructions(instructions);
     auto it = std::unique(instructions.begin(), instructions.end());
-    it == instructions.end() ? strcat(message,"No Dups") : strcat(message, "Removed Dups");
+    it == instructions.end() ? strcat(message, "No Dups") : strcat(message, "Removed Dups");
     Serial.println(message);
 }
 
@@ -214,12 +199,15 @@ void Irrigation::sortInstructions(std::vector<Instruction> &instructions)
     std::sort(instructions.begin(), instructions.end(), compareBySolenoid);
 }
 
+/*
+Also: compareByPumpTime ?
+*/
 bool Irrigation::compareBySolenoid(const Instruction &a, const Instruction &b)
 {
     return a.solenoidValve > b.solenoidValve;
 }
 
-bool Irrigation::sendReport()
+bool Irrigation::sendReport(std::vector<Instruction> &instructions)
 {
 }
 
@@ -227,4 +215,17 @@ bool Irrigation::sendReport()
 (Hardcoded, SolenoidValves/relaisChannels/pinNums 0, 1 are always
 associated with pump1, just as pump_PWM_1 is always assoc. with pump1
 User can only change pumpModel or enable/disable assoc. relaisChannels)
+*/
+
+/* Irrigation Algorithm
+  1.1 Skip if waterAmount released by this Solenoid over last 2h > Threshold
+  1.2 (Ideal: Consider average soilMoisture of every Plant connected to this Solenoid over last 48h,
+  but: 1 InfluxDB Request per Plant, slow)
+  (Quick: Consider waterAmount released by this Solenoid over the last 48h)
+  2. Consider Properties of each Plant in PlantGroup (Size, Dry Roots, ...)
+  3. Decide Subjects (Plants -> same Solenoid/RelaisChannel -> Pump) and Milliliters
+  3. Get necessary Info for Action (PumpModel, PumpTime, RelaisChannel, ...)
+  4. Put ISubStateMachine Pointer on Stack, execute sequentially in ActionState
+  5. Create Irrigation Datapoint for InfluxDB/MongoDB (even if Irrigation fails)
+  (Plants: ..., Reason for Irrigation: ... , Irrigation Amount: ..., Reason for Failure: ...)
 */
