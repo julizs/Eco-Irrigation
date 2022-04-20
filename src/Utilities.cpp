@@ -104,7 +104,7 @@ void Utilities::printMlPerSolenoid(std::vector<MlPerSolenoid> &solenoids)
   {
     for (auto const &sol : solenoids)
     {
-      snprintf(message, 64, "Solenoid Valve: %d, Water Amount: %d Ml",
+      snprintf(message, 64, "Solenoid Valve: %d, Water Amount: %dml",
                sol.solenoidValve, sol.waterAmount);
       Serial.println(message);
     }

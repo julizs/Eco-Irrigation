@@ -119,7 +119,7 @@ Funcs are responsible for packaging data as json
 PostRequest accepts json as input param
 https://randomnerdtutorials.com/esp32-http-get-post-arduino/
 */
-void Services::doPostRequest(char const endpoint[])
+void Services::doPostRequest(char const endpoint[], String payload)
 {
   char url[50] = "", message[128];
   strcat(url, baseUrl);
@@ -129,7 +129,7 @@ void Services::doPostRequest(char const endpoint[])
   http.addHeader("Content-Type", "application/json");
 
   // Send HTTP POST Req
-  int httpResponseCode = http.POST("{}");
+  int httpResponseCode = http.POST(payload);
 
   snprintf(message, 128, "POST %s, HTTP Response code: %d ", url, httpResponseCode);
   Serial.println(message);
@@ -215,6 +215,9 @@ Take Actions later in Action State (before decidePlants() Evaluation)
 */
 bool Services::readCommands()
 {
+  // Empty Vec
+  Irrigation::instructions.clear();
+
   DynamicJsonDocument commands(1024);
   Services::doJSONGetRequest("/commands", commands);
 
@@ -227,13 +230,14 @@ bool Services::readCommands()
       const char *subject = irrigations[i][0];
       int amount = irrigations[i][1];
       Instruction instr;
-      snprintf(instr.plantName, 32, subject);
+      snprintf(instr.reason, 32, subject);
       instr.waterAmount = amount;
       Irrigation::instructions.push_back(instr);
     }
     Irrigation::writeInstructions(Irrigation::instructions);
   }
 
+  // StatusLight and SolenoidValve Actions ... only 1 each per Action State?
   JsonArray statusLights = commands[0]["StatusLight"];
   if (!irrigations.isNull())
   {
@@ -247,7 +251,6 @@ bool Services::readCommands()
   // int relaisChannel = settings[0]["SolenoidValve"][0];
   // bool relaisState = settings[0]["SolenoidValve"][1];
 
-  // Reset MongoDB Doc and empty Instructions Vector
-  Services::doPostRequest("/commands/reset");
-  Irrigation::instructions.clear();
+  // Reset MongoDB Doc
+  Services::doPostRequest("/commands/reset", "{}");
   }

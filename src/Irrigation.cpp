@@ -30,7 +30,8 @@ bool Irrigation::cursorToVec()
     FluxQueryResult cursor2h = recentIrrigations(2);
     // FluxQueryResult cursor24h = recentIrrigations(24);
 
-    while (!Utilities::writeVector(cursor2h, Utilities::ml2h));
+    while (!Utilities::writeVector(cursor2h, Utilities::ml2h))
+        ;
     // while (!Utilities::writeVector(cursor24h, Utilities::ml24h));
     Utilities::printMlPerSolenoid(Utilities::ml2h);
     // Utilities::printMlPerSolenoid(Utilities::ml24h);
@@ -134,7 +135,7 @@ void Irrigation::writeInstructions(std::vector<Instruction> &instructions)
                 continue; // goto next plant
             }
 
-            if (plantName.equals(instr.plantName))
+            if (plantName.equals(instr.reason))
             {
                 // Get SolenoidValve/relaisChannel
                 instr.solenoidValve = solenoidValve;
@@ -153,6 +154,7 @@ void Irrigation::writeInstructions(std::vector<Instruction> &instructions)
                         if (solenoidValves[j] == solenoidValve)
                         {
                             // Add Pump Info
+                            snprintf(instr.pumpModel, 32, pumps[i]["name"]);
                             uint16_t flowRate = pumps[i]["flowRate"][0];
                             constrain(flowRate, 100, 500); // Avoid divide by 0
                             float pumpTime = (instr.waterAmount / (flowRate * 1000.0f)) * 3600;
@@ -168,16 +170,16 @@ void Irrigation::writeInstructions(std::vector<Instruction> &instructions)
     reduceInstructions(instructions);
 }
 
-void Irrigation::printInstructions(std::vector<Instruction> &instructions)
+void Irrigation::printInstructions()
 {
     char message[128];
 
     Serial.println("Irrigation Instructions: ");
     for (auto const &instr : instructions)
     {
-        snprintf(message, 128, "Pump: %d, Pump Time: %0.2f, Solenoid Valve: %d, Water Amount: %d",
-                 instr.pump, instr.pumpTime, instr.solenoidValve, instr.waterAmount);
-        Serial.println(message);
+        snprintf(message, 128, "Reason: %s, Pump: %d, Pump Time: %0.2fs, Solenoid Valve: %d, Water Amount: %dml, ErrorCode. %d",
+                 instr.reason, instr.pumpModel, instr.pumpTime, instr.solenoidValve, instr.waterAmount, instr.errorCode);
+        Serial.println(message); // instr.pump->pwmPin
     }
 }
 
@@ -200,15 +202,51 @@ void Irrigation::sortInstructions(std::vector<Instruction> &instructions)
 }
 
 /*
-Also: compareByPumpTime ?
+Also sort by: pumpTime ?
 */
 bool Irrigation::compareBySolenoid(const Instruction &a, const Instruction &b)
 {
     return a.solenoidValve > b.solenoidValve;
 }
 
-bool Irrigation::sendReport(std::vector<Instruction> &instructions)
+/*
+Report to InfluxDB or MongoDB?
+*/
+bool Irrigation::reportInstructions()
 {
+    /*
+    // MongoDB:
+    DynamicJsonDocument reports(2048);
+
+    for(auto const &instr:instructions)
+    {
+        reports[""] = "world";
+    }
+
+    String payload;
+    serializeJson(reports, payload);
+    Services::doPostRequest("/reports", payload);
+    */
+
+    // InfluxDB:
+    // Reuse Datapoint, create new Row in InfluxDB Irrigations Measurement
+    for (auto const &instr : instructions)
+    {
+        Point p2("Irrigations");
+        // p2.clearTags();
+        // p2.clearFields();
+        char solenoidValve[4], errorCode[4];
+        itoa(instr.solenoidValve, solenoidValve, 10);
+        itoa(instr.errorCode, errorCode, 10);
+
+        p2.addTag("Reason", instr.reason);
+        p2.addTag("Pump", instr.pumpModel);
+        p2.addTag("Solenoid Valve", solenoidValve);
+        p2.addTag("Error Code", errorCode);
+        p2.addField("Water Amount", instr.waterAmount);
+        p2.addField("Pump Time", instr.pumpTime);
+        influxHelper.writeDataPoint(p2);
+    }
 }
 
 /* Get pwmPin

@@ -204,6 +204,9 @@ void on_initState()
   {
     commonStateLogic();
 
+    Serial.print("Main State Machine runs on Core: ");
+    Serial.println(xPortGetCoreID());
+
     // Setup Sensors
     setupToFs();
     pump1.setupIna();
@@ -212,6 +215,11 @@ void on_initState()
 
     Utilities::scanI2CBus(&I2Cone);
     Utilities::scanI2CBus(&I2Ctwo);
+
+    // Clock Esp32 down to help prevent Brownout
+    setCpuFrequencyMhz(80);
+    Serial.print(getCpuFrequencyMhz());
+    Serial.println("Mhz");
   }
 }
 
@@ -221,13 +229,6 @@ void on_prepState()
   {
     didServices = false;
     commonStateLogic();
-
-    // Clock Esp32 down to help prevent Brownout
-    setCpuFrequencyMhz(80);
-    Serial.println(getCpuFrequencyMhz());
-
-    Serial.print("Main State Machine runs on Core: ");
-    Serial.println(xPortGetCoreID());
 
     /*
     while (!Services::wifiMultiConnected())
@@ -261,7 +262,7 @@ void on_prepState()
     }
     */
 
-#if (GETDATA == 1)
+#if (REQUEST_DATA == 1)
     {
       didServices = Irrigation::cursorToVec();
     }
@@ -275,9 +276,10 @@ void on_measureState()
   {
     commonStateLogic();
     setCpuFrequencyMhz(160);
-    Serial.println(getCpuFrequencyMhz());
+    Serial.print(getCpuFrequencyMhz());
+    Serial.println("Mhz");
     // WiFi.disconnect();
-#if (DOMEASURE == 1)
+#if (DO_MEASURE == 1)
     {
       doMeasurements();
     }
@@ -305,9 +307,9 @@ void on_actionState()
     commonStateLogic();
   }
 
-#if (RUNSUBMACHINES == 1)
+#if (RUN_SUBMACHINES == 1)
   {
-    Irrigation::printInstructions(Irrigation::instructions);
+    // Irrigation::printInstructions(Irrigation::instructions);
 
     for (auto &instr : Irrigation::instructions)
     {
@@ -321,29 +323,20 @@ void on_actionState()
       {
         pump->loop();
       }
-      // write Report later / leave Vec unmanipulated, dont pop
+
+      // Set ErrorCode for Report
+      instr.errorCode = pump->errorCode;
+
+      // Leave Vec unmanipulated (for Report)
       if(&instr == &Irrigation::instructions.back())
       {
         didActions = true;
       }
     }
-    /*
-    // Run Sub-StateMachines (Pump, Fan, ...) one after another and check if isDone()
-    for (int i = 0; i < actions.size(); i++)
-    {
-      ISubStateMachine *machine = actions.get(i);
 
-      // Set back State to idle so that same Pump can run multiple times
-      machine->resetMachine();
-
-      while (!machine->isDone())
-      {
-        machine->loop();
-      }
-      // actions.remove(i);
-      actions.pop();
-    }
-    */
+    // Print after errorCodes are set
+    Irrigation::printInstructions();
+    Irrigation::reportInstructions();
   }
 #endif
 }
@@ -354,8 +347,7 @@ void on_transmitState()
   {
     commonStateLogic();
 
-// Send current IP Address, no Tunneling necessary
-#if (SENDDATA == 1)
+#if (TRANSMIT_DATA == 1)
     {
       influxHelper.writeBuffer();
     }
@@ -451,7 +443,7 @@ bool transitionS4S5()
 bool transitionS5S6()
 {
   // min State Duration must be over AND Pump done, Fan done, ...
-  if ((countTime(STATE_MIN_DUR) && didActions) || RUNSUBMACHINES == 0)
+  if ((countTime(STATE_MIN_DUR) && didActions) || RUN_SUBMACHINES == 0)
   {
     return true;
   }

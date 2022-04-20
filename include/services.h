@@ -45,7 +45,7 @@ class Services
         static void wifiEventHandler(WiFiEvent_t event);
 
         static void doGetRequest(char const url[]);
-        static void doPostRequest(char const url[]);
+        static void doPostRequest(char const url[], String payload);
         static void doJSONGetRequest(char const url[], DynamicJsonDocument &doc);
         static void startRestServer();
         static bool readCommands();

@@ -10,10 +10,10 @@
 #include <ISubStateMachine.h>
 
 #define SLEEPTYPE 0 // No/Light/Modem/... Sleep
-#define DOMEASURE 1
-#define SENDDATA 1
-#define GETDATA 1
-#define RUNSUBMACHINES 1
+#define DO_MEASURE 1
+#define TRANSMIT_DATA 1
+#define REQUEST_DATA 1
+#define RUN_SUBMACHINES 1
 extern uint8_t SLEEP_DUR, IDLE_DUR, MIN_STATE_DUR;
 extern TwoWire I2Cone, I2Ctwo;
 extern InfluxHelper influxHelper;

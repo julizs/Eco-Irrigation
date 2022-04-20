@@ -126,20 +126,19 @@ int Cistern::calcMl(float waterDistance)
     return waterAmount;
 }
 
-// Point p2
+/*
+Point p2
+sendReport replaces updateIrrigations
 void Cistern::updateIrrigations(uint8_t relaisChannel)
 {
     int oldWaterDist = currWaterDist;
     int oldWaterAmount = calcMl(oldWaterDist);
     int newWaterDist = updateWaterLevel();
     int newWaterAmount = calcMl(newWaterDist);
-    // Not less than 0ml
-    // int pumpedWaterML = min(oldWaterAmount - newWaterAmount,0);
+    // int pumpedWaterML = min(oldWaterAmount - newWaterAmount,0); // Not less than 0ml
     int pumpedWaterML = rand() % 200 + 100; // Demo, 100-300ml
 
     // Reuse Datapoint, create new Row in InfluxDB Irrigations Measurement
-    // Add affected Plants, SolenoidValve/relaisChannel and Pump as Tags
-    // MongoDb or InfluxDB ? Reason ? Pump ? Pump Time ?
     p2.clearTags();
     p2.clearFields();
     char solenoidValve[4];
@@ -148,6 +147,7 @@ void Cistern::updateIrrigations(uint8_t relaisChannel)
     p2.addField("pumpedWaterML", pumpedWaterML);
     influxHelper.writeDataPoint(p2);
 }
+*/
 
 /*
 Only way to prevent Crash if one or both ToF setup fail:

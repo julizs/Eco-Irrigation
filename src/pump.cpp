@@ -167,14 +167,14 @@ void Pump::loop()
 
             cistern.driveSolenoid(relaisChannel, HIGH);
 
-            #if (SENDDATA == 1)
+            #if (TRANSMIT_DATA == 1)
             {
-            // Write Point P0 (Ina and ToF Data) to Buffer
-            influxHelper.writeDataPoint(p0);
-
-            // Write Point P1 to Buffer
             // If ToF not correctly Setup (but Status == ERROR_NONE) -> Crash
-            cistern.updateIrrigations(relaisChannel);
+            // cistern.updateIrrigations(relaisChannel);
+            cistern.updateWaterLevel();
+
+            // Write Point p0 (Ina and ToF Data) to Buffer
+            influxHelper.writeDataPoint(p0);
             }
             #endif
         }
