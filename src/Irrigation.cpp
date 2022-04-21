@@ -16,7 +16,7 @@ FluxQueryResult Irrigation::recentIrrigations(uint8_t timePeriod)
              timePeriod);
     Serial.println(query);
 
-    FluxQueryResult cursor = influxHelper.doQuery(query);
+    FluxQueryResult cursor = InfluxHelper::doQuery(query);
     return cursor;
 }
 
@@ -25,7 +25,7 @@ Only do Requests here that take long but require little disc space
 Write InfluxDB Cursors to Vectors so waterLevel Evaluation on Button Press is fast
 Use (huge) ArduinoJsonDocs only as local Vars that get destroyed if scope ends
 */
-bool Irrigation::cursorToVec()
+bool Irrigation::requestData()
 {
     FluxQueryResult cursor2h = recentIrrigations(2);
     // FluxQueryResult cursor24h = recentIrrigations(24);
@@ -157,7 +157,7 @@ void Irrigation::writeInstructions(std::vector<Instruction> &instructions)
                             snprintf(instr.pumpModel, 32, pumps[i]["name"]);
                             uint16_t flowRate = pumps[i]["flowRate"][0];
                             constrain(flowRate, 100, 500); // Avoid divide by 0
-                            float pumpTime = (instr.waterAmount / (flowRate * 1000.0f)) * 3600;
+                            float pumpTime = (instr.allocatedWater / (flowRate * 1000.0f)) * 3600;
                             instr.pumpTime = constrain(pumpTime, 0.0f, pumpTimeLimit);
                         }
                     }
@@ -177,8 +177,8 @@ void Irrigation::printInstructions()
     Serial.println("Irrigation Instructions: ");
     for (auto const &instr : instructions)
     {
-        snprintf(message, 128, "Reason: %s, Pump: %d, Pump Time: %0.2fs, Solenoid Valve: %d, Water Amount: %dml, ErrorCode. %d",
-                 instr.reason, instr.pumpModel, instr.pumpTime, instr.solenoidValve, instr.waterAmount, instr.errorCode);
+        snprintf(message, 128, "Reason: %s, Pump: %d, Pump Time: %0.2fs, Solenoid Valve: %d, Allocated Water: %dml, ErrorCode: %d",
+                 instr.reason, instr.pumpModel, instr.pumpTime, instr.solenoidValve, instr.allocatedWater, instr.errorCode);
         Serial.println(message); // instr.pump->pwmPin
     }
 }
@@ -209,27 +209,13 @@ bool Irrigation::compareBySolenoid(const Instruction &a, const Instruction &b)
     return a.solenoidValve > b.solenoidValve;
 }
 
-/*
-Report to InfluxDB or MongoDB?
+/* InfluxDB:
+Reuse Datapoint, create new Row in InfluxDB Irrigations Measurement
+Tags are indexed (unlike Fields), faster Queries
+-> e.g. which Irrigations failed (errorCode != 0) ?
 */
 bool Irrigation::reportInstructions()
 {
-    /*
-    // MongoDB:
-    DynamicJsonDocument reports(2048);
-
-    for(auto const &instr:instructions)
-    {
-        reports[""] = "world";
-    }
-
-    String payload;
-    serializeJson(reports, payload);
-    Services::doPostRequest("/reports", payload);
-    */
-
-    // InfluxDB:
-    // Reuse Datapoint, create new Row in InfluxDB Irrigations Measurement
     for (auto const &instr : instructions)
     {
         Point p2("Irrigations");
@@ -239,13 +225,13 @@ bool Irrigation::reportInstructions()
         itoa(instr.solenoidValve, solenoidValve, 10);
         itoa(instr.errorCode, errorCode, 10);
 
-        p2.addTag("Reason", instr.reason);
-        p2.addTag("Pump", instr.pumpModel);
-        p2.addTag("Solenoid Valve", solenoidValve);
-        p2.addTag("Error Code", errorCode);
-        p2.addField("Water Amount", instr.waterAmount);
-        p2.addField("Pump Time", instr.pumpTime);
-        influxHelper.writeDataPoint(p2);
+        p2.addTag("reason", instr.reason);
+        p2.addTag("pump", instr.pumpModel);
+        p2.addTag("solenoidValve", solenoidValve);
+        p2.addTag("errorCode", errorCode);
+        p2.addField("waterAmount", instr.allocatedWater);
+        p2.addField("pumpTime", instr.pumpTime);
+        InfluxHelper::writeDataPoint(p2);
     }
 }
 

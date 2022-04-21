@@ -16,9 +16,11 @@ struct Instruction
 {
     char reason[32], pumpModel[32];
     Pump *pump;
-    float pumpTime;  
+    float pumpTime;
     uint8_t errorCode, solenoidValve;
-    uint16_t waterAmount;
+    // allocated and actual distributed Water (measured by waterFlow Sensor)
+    uint16_t allocatedWater, distributedWater;
+
 
     bool operator==(const Instruction &instr) const
     {
@@ -44,6 +46,6 @@ public:
     static bool compareBySolenoid(const Instruction &a, const Instruction &b);
     static FluxQueryResult recentIrrigations(uint8_t timePeriod);
     static bool validSolenoid(uint8_t solenoidValve, uint16_t waterLimit);
-    static bool cursorToVec();
+    static bool requestData();
 };
 #endif // Irrigation_h

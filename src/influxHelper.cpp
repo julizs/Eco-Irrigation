@@ -1,37 +1,39 @@
 #include <influxHelper.h>
 #include <services.h>
 
-// Use full param constructor to set certificate or fingerprint to trust server
-// https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#secure-connection
-InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
+/*
+Use full param constructor to set fingerprint certificate to trust server
+https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#secure-connection
+InfluxDBClient InfluxHelper::client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
+InfluxDBClient InfluxHelper::client;
+Empty Constructor, create InfluxDBClient unconfigured instance, 
+calling setConnectionParams is required (see Library), AFTER timeSync
+*/
+InfluxDBClient InfluxHelper::client;
 Point p0("Environment Data");
 Point p1("Plant Data");
 Point p2("Irrigations");
 
-void InfluxHelper::setParameters()
+/* Params
+Timestamp (set by client) necessary to write data in Batches
+If writePrecision is configured, client sets timestamps instead of server
+Number of DataPoints varies, if User adds/removes Plants
+Prevent automatic Flush by setting bufferSize and flushInterval high
+Flush manually in TRANSMIT State
+*/
+bool InfluxHelper::setParameters()
 {
-  /* Params
-  Timestamp (set by client) necessary to write data in Batches
-  If writePrecision is configured, client sets timestamps instead of server
-  Number of DataPoints varies, if User adds/removes Plants
-  Prevent automatic Flush by setting bufferSize and flushInterval high
-  Flush manually in TRANSMIT State
-  */
-  timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
-  client.setWriteOptions(WriteOptions().writePrecision(WritePrecision::MS));
-  client.setWriteOptions(WriteOptions().batchSize(64).bufferSize(128).retryInterval(5).maxRetryAttempts(10).flushInterval(180));
+  timeSync(TZ_INFO, "pool.ntp.org", "0.de.pool.ntp.org"); // time.nis.gov
+  // Must be done AFTER timeSync
+  client.setConnectionParams(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
+  client.setWriteOptions(WriteOptions().writePrecision(WritePrecision::MS).batchSize(64).bufferSize(128).retryInterval(5).maxRetryAttempts(10).flushInterval(180));
   client.setHTTPOptions(HTTPOptions().httpReadTimeout(10000).connectionReuse(true));
-
   Serial.println("Did Set Influx Options.");
+  return true;
 }
 
 bool InfluxHelper::checkConnection()
 {
-  if (!Services::wifiMultiConnected())
-  {
-    Services::setupWifiMulti();
-  }
-
   if (client.validateConnection())
   {
     Serial.print("Connected to InfluxDB at: ");
@@ -69,19 +71,19 @@ void InfluxHelper::writeDataPoint(Point &p)
 Write all Datapoints from Buffer to InfluxDB, Critical
 Try to reconnect if Fail since Datapoints in Buffer will be lost after Sleep
 */
-void InfluxHelper::writeBuffer()
+bool InfluxHelper::writeBuffer()
 {
   if (client.flushBuffer())
   {
     Serial.println("Successfully Wrote Buffer to InfluxDB.");
-    client.resetBuffer();
-    return;
+    // client.resetBuffer();
+    return true;
   }
   else
   {
-    // Only call if inital Attempt fails, validateConnection takes long
     Serial.println("Failed to write Buffer to InfluxDB.");
     // influxHelper.checkConnection();
+    return false;
   }
 }
 

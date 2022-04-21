@@ -51,12 +51,11 @@ void Services::setupWifi()
   long begin = millis();
   // WiFi.mode(WIFI_MODE_APSTA);
   // WiFi.softAP(AP_SSID);
+  WiFi.mode(WIFI_MODE_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  WiFi.onEvent(wifiEventHandler);
+  // WiFi.onEvent(wifiEventHandler);
   Serial.println("Connecting to WiFi...");
-  while (!Utilities::countTime(begin, 4))
-  {
-  }
+  while (!Utilities::countTime(begin, 4));
 
   if (WiFi.status() == WL_CONNECTED)
   {
@@ -66,10 +65,16 @@ void Services::setupWifi()
   Serial.println("Could not connect to WiFi.");
 }
 
+bool Services::wifiConnected()
+{
+  return WiFi.status() == WL_CONNECTED;
+}
+
 void Services::setupWifiMulti()
 {
   long begin = millis();
-  WiFi.mode(WIFI_STA);
+  // WiFi.mode(WIFI_STA);
+  WiFi.mode(WIFI_MODE_AP);
   wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
 
   Serial.print("Connecting to Wifi...");
@@ -82,11 +87,6 @@ void Services::setupWifiMulti()
   {
     critErrCode = 1;
   }
-}
-
-bool Services::wifiConnected()
-{
-  return WiFi.status() == WL_CONNECTED;
 }
 
 bool Services::wifiMultiConnected()
@@ -231,7 +231,7 @@ bool Services::readCommands()
       int amount = irrigations[i][1];
       Instruction instr;
       snprintf(instr.reason, 32, subject);
-      instr.waterAmount = amount;
+      instr.allocatedWater = amount;
       Irrigation::instructions.push_back(instr);
     }
     Irrigation::writeInstructions(Irrigation::instructions);

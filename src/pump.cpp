@@ -174,7 +174,7 @@ void Pump::loop()
             cistern.updateWaterLevel();
 
             // Write Point p0 (Ina and ToF Data) to Buffer
-            influxHelper.writeDataPoint(p0);
+            InfluxHelper::writeDataPoint(p0);
             }
             #endif
         }

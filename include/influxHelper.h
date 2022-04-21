@@ -14,17 +14,18 @@
 class InfluxHelper
 {
     public:
-    // InfluxDBClient client;
+    // InfluxHelper();
+    static bool setParameters();
+    static bool checkConnection();
+    static void writeDataPoint(Point &p);
+    static bool writeBuffer();
+    static FluxQueryResult doQuery(const char query[]);
 
-    void setParameters();
-    bool checkConnection();
-    void writeDataPoint(Point &p);
-    void writeBuffer();
-    FluxQueryResult doQuery(const char query[]);
-    int solenoidReleasedWater(uint8_t relaisChannel);
+    private:
+    static InfluxDBClient client;
 };
 
-extern InfluxDBClient client;
+// extern InfluxDBClient client;
 extern Point p0, p1, p2;
 
 #endif // InfluxHelper_h

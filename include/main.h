@@ -16,7 +16,7 @@
 #define RUN_SUBMACHINES 1
 extern uint8_t SLEEP_DUR, IDLE_DUR, MIN_STATE_DUR;
 extern TwoWire I2Cone, I2Ctwo;
-extern InfluxHelper influxHelper;
+// extern InfluxHelper influxHelper;
 extern LinkedList<ISubStateMachine*> actions;
 // extern DynamicJsonDocument moistureSensors, plants, plantNeeds, pumps;
 

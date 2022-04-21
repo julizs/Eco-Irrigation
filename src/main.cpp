@@ -16,10 +16,9 @@
 const char baseUrl[] = "https://juli.uber.space/node";
 uint8_t IDLE_DUR = 4;
 uint8_t SLEEP_DUR = 16;
-uint8_t STATE_MIN_DUR = 3;
+uint8_t STATE_MIN_DUR = 4;
 
 TaskHandle_t Task1, Task2;
-InfluxHelper influxHelper;
 
 TwoWire I2Cone = TwoWire(0);
 TwoWire I2Ctwo = TwoWire(1);
@@ -27,6 +26,8 @@ TwoWire I2Ctwo = TwoWire(1);
 AmbientClimate climate1(500, 2);
 AmbientLight lightSensor1(1);
 AmbientLight lightSensor2(2);
+StatusDisplay displayController;
+
 // Pumps and associated solenoids/relaisChannels and ToF Sensor never change,
 // only associated Pump Model (if User switches Pumps)
 uint8_t solenoids1[] = {0, 1};
@@ -35,16 +36,15 @@ Cistern cistern1(0x51, solenoids1, 300, 53.0f);
 Cistern cistern2(0x52, solenoids2, 450, 42.0f);
 Pump pump1(0, pump_PWM_1, cistern1);
 Pump pump2(1, pump_PWM_2, cistern2);
-StatusDisplay displayController;
 
 StateMachine fsm = StateMachine();
 State *nextState = nullptr;
 uint8_t critErrCode = 0;
-const char *critErrMessage[] = {"None", "Final Fail to connect WiFi", "Final Fail to setup ToFs"};
+const char *critErrMessage[] = {"None", "Final Fail to connect WiFi", "Final Fail to setup ToFs", "Final Fail to send Buffer"};
 State *idleState, *initState, *prepState, *measureState, *evaluateState, *actionState, *transmitState, *errorState;
 const char *stateNames[] = {"IDLE", "INIT", "PREP", "MEASURE", "EVALUATE", "ACTION", "TRANSMIT", "ERROR"};
-bool didSleep, didServices, didPrepare, didActions;
-LinkedList<ISubStateMachine *> actions = LinkedList<ISubStateMachine *>();
+bool didSleep, didServices, didPrepare, didActions, didTransmit;
+uint8_t transmitionAttempts = 0;
 uint32_t stateBeginMillis = 0;
 // DynamicJsonDocument moistureSensors(2048), plants(2048), plantNeeds(2048), pumps(2048);
 
@@ -81,7 +81,7 @@ void doMeasurements()
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
 
-  influxHelper.writeDataPoint(p0);
+  InfluxHelper::writeDataPoint(p0);
 
   // PLANT-SPECIFIC MEASUREMENTS
   // Advantage: Local DynamicJsonDocs (big) get destroyed after leaving Scope
@@ -139,7 +139,7 @@ void doMeasurements()
     p.addField("Infrared Light", data.infraRed);
     p.addField("Visible Light", data.visibleLight);
 
-    influxHelper.writeDataPoint(p);
+    InfluxHelper::writeDataPoint(p);
   }
   // Serial.printf_P(PSTR("free heap memory: %d\n"), ESP.getFreeHeap());
 }
@@ -248,23 +248,20 @@ void on_prepState()
     Services::startRestServer();
     */
 
-    // "Passive" Button Handling
-    Services::readCommands();
+    // Set before establishing any Connection to InfluxDB
+    while (!InfluxHelper::setParameters())
+      ;
 
-    // Set before any Connection to InfluxDB
-    influxHelper.setParameters();
-
-    /*
-    // Establish and hold InfluxDB Connection open (see Params)
-    if (!influxHelper.checkConnection())
-    {
-      Serial.println("Could not connect to InfluxDB");
-    }
-    */
+    // Establish and hold InfluxDB Connection open
+    while (!InfluxHelper::checkConnection())
+      ;
 
 #if (REQUEST_DATA == 1)
     {
-      didServices = Irrigation::cursorToVec();
+      // "Passive" Button Handling, do AFTER InfluxConnection Check or ssl -1
+      Services::readCommands();
+
+      didServices = Irrigation::requestData(); 
     }
 #endif
   }
@@ -328,34 +325,48 @@ void on_actionState()
       instr.errorCode = pump->errorCode;
 
       // Leave Vec unmanipulated (for Report)
-      if(&instr == &Irrigation::instructions.back())
+      if (&instr == &Irrigation::instructions.back())
       {
+        // Print after errorCodes are set
+        Irrigation::printInstructions();
+        Irrigation::reportInstructions();
         didActions = true;
       }
     }
-
-    // Print after errorCodes are set
-    Irrigation::printInstructions();
-    Irrigation::reportInstructions();
   }
 #endif
 }
 
+/*
+After 3 Attempts go to ERROR State
+Or ignore and continue to IDLE State
+*/
 void on_transmitState()
 {
   if (fsm.executeOnce)
   {
     commonStateLogic();
 
-#if (TRANSMIT_DATA == 1)
+    transmitionAttempts++;
+    if (!InfluxHelper::writeBuffer())
     {
-      influxHelper.writeBuffer();
+      if (transmitionAttempts < 3)
+      {
+        nextState = transmitState;
+      }
+      else
+      {
+        // CritErr, goto ERROR State
+        critErrCode = 3;
+      }
     }
-#endif
+    else
+    {
+      transmitionAttempts = 0;
+    }
   }
 }
 
-// Multiple failed Wifi Connects
 void on_errorState()
 {
   if (fsm.executeOnce)
@@ -368,12 +379,12 @@ void on_errorState()
 }
 
 /*
-Replaces bugged fsm.transitionTo()
-Called by watchDog
+
 */
 void checkCriticalErrors()
 {
   if (critErrCode != 0)
+    // Replaces bugged fsm.transitionTo()
     nextState = errorState;
 }
 
@@ -459,6 +470,18 @@ bool transitionS6S0()
   }
   return false;
 }
+
+/*
+// TRANSMIT -> TRANSMIT
+bool transitionS6S6()
+{
+  if (!didTransmit && transmitionAttempts < 2)
+  {
+    return true;
+  }
+  return false;
+}
+*/
 
 void runStateMachine(void *pvParameters)
 {
