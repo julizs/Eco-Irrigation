@@ -41,10 +41,10 @@ StateMachine fsm = StateMachine();
 State *nextState = nullptr;
 uint8_t critErrCode = 0;
 const char *critErrMessage[] = {"None", "Final Fail to connect WiFi", "Final Fail to setup ToFs", "Final Fail to send Buffer"};
-State *idleState, *initState, *prepState, *measureState, *evaluateState, *actionState, *transmitState, *errorState;
-const char *stateNames[] = {"IDLE", "INIT", "PREP", "MEASURE", "EVALUATE", "ACTION", "TRANSMIT", "ERROR"};
-bool didSleep, didServices, didPrepare, didActions, didTransmit;
-uint8_t transmitionAttempts = 0;
+State *idleState, *initState, *prepState, *requestState, *measureState, *evaluateState, *actionState, *transmitState, *errorState;
+const char *stateNames[] = {"IDLE", "INIT", "PREP", "REQUEST", "MEASURE", "EVALUATE", "ACTION", "TRANSMIT", "ERROR"};
+bool didSleep, didServices, didRequest, didPrepare, didActions, didTransmit;
+uint8_t selfTrans = 0, maxSelfTrans = 3;
 uint32_t stateBeginMillis = 0;
 // DynamicJsonDocument moistureSensors(2048), plants(2048), plantNeeds(2048), pumps(2048);
 
@@ -180,7 +180,8 @@ void on_idleState()
       delay(100);                                             // Else no Wakeup
       esp_light_sleep_start();
       // Resume Program, Connections and States were kept
-      didSleep = true;
+      // didSleep = true;
+      nextState = initState;
     }
     else if (SLEEPTYPE == 2)
     {
@@ -195,7 +196,8 @@ void on_idleState()
     {
     }
   }
-  didSleep = true;
+  // didSleep = true;
+  nextState = initState;
 }
 
 void on_initState()
@@ -220,6 +222,8 @@ void on_initState()
     setCpuFrequencyMhz(80);
     Serial.print(getCpuFrequencyMhz());
     Serial.println("Mhz");
+
+    nextState = prepState;
   }
 }
 
@@ -227,9 +231,9 @@ void on_prepState()
 {
   if (fsm.executeOnce)
   {
-    didServices = false;
+    didPrepare = false;
     commonStateLogic();
-
+    selfTrans++;
     /*
     while (!Services::wifiMultiConnected())
     {
@@ -249,22 +253,48 @@ void on_prepState()
     */
 
     // Set before establishing any Connection to InfluxDB
-    while (!InfluxHelper::setParameters())
-      ;
-
+    if(!InfluxHelper::checkConnection())
+      while (!InfluxHelper::setParameters());
+      // didPrepare = InfluxHelper::setParameters();
+    
     // Establish and hold InfluxDB Connection open
-    while (!InfluxHelper::checkConnection())
-      ;
-
-#if (REQUEST_DATA == 1)
-    {
-      // "Passive" Button Handling, do AFTER InfluxConnection Check or ssl -1
-      Services::readCommands();
-
-      didServices = Irrigation::requestData(); 
-    }
-#endif
+    // If true then both WiFi and InfluxDB Connection are ok
+    didPrepare = InfluxHelper::checkConnection();
+    // while (!InfluxHelper::checkConnection());
+    
   }
+ 
+  if(countTime(STATE_MIN_DUR))
+  {
+    if(didPrepare) // Only Begin checking after min time up
+    {
+        selfTrans = 0;
+        nextState = requestState;  
+    }
+    else if(selfTrans < maxSelfTrans)
+    {
+        nextState = prepState;
+    }
+    else
+    {
+        critErrCode = 3; // CritErr, goto ERROR State
+    }
+  }
+}
+
+void on_requestState()
+{
+  if (fsm.executeOnce)
+  {
+    commonStateLogic();
+    didRequest = Irrigation::requestData();
+
+    // "Passive" Button Handling, do AFTER Influx checkConnection or ssl -1
+    didRequest = Services::readCommands();
+    
+  }
+  
+  countTime(STATE_MIN_DUR) && didRequest ? nextState = measureState : nextState = requestState;
 }
 
 void on_measureState()
@@ -347,10 +377,10 @@ void on_transmitState()
   {
     commonStateLogic();
 
-    transmitionAttempts++;
+    selfTrans++;
     if (!InfluxHelper::writeBuffer())
     {
-      if (transmitionAttempts < 3)
+      if (selfTrans < maxSelfTrans)
       {
         nextState = transmitState;
       }
@@ -362,7 +392,7 @@ void on_transmitState()
     }
     else
     {
-      transmitionAttempts = 0;
+      selfTrans = 0;
     }
   }
 }
@@ -535,15 +565,16 @@ void setup()
   idleState = fsm.addState(&on_idleState);
   initState = fsm.addState(&on_initState);
   prepState = fsm.addState(&on_prepState);
+  requestState = fsm.addState(&on_requestState);
   measureState = fsm.addState(&on_measureState);
   evaluateState = fsm.addState(&on_evaluateState);
   actionState = fsm.addState(&on_actionState);
   transmitState = fsm.addState(&on_transmitState);
   errorState = fsm.addState(&on_errorState);
 
-  idleState->addTransition(&transitionS0S1, initState);
-  initState->addTransition(&transitionS1S2, prepState);
-  prepState->addTransition(&transitionS2S3, measureState);
+  // idleState->addTransition(&transitionS0S1, initState);
+  // initState->addTransition(&transitionS1S2, prepState);
+  // prepState->addTransition(&transitionS2S3, measureState);
   measureState->addTransition(&transitionS3S4, evaluateState);
   evaluateState->addTransition(&transitionS4S5, actionState);
   evaluateState->addTransition(&transitionS4S6, transmitState);

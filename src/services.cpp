@@ -49,7 +49,6 @@ void Services::wifiEventHandler(WiFiEvent_t event)
 void Services::setupWifi()
 {
   long begin = millis();
-  // WiFi.mode(WIFI_MODE_APSTA);
   // WiFi.softAP(AP_SSID);
   WiFi.mode(WIFI_MODE_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -70,18 +69,19 @@ bool Services::wifiConnected()
   return WiFi.status() == WL_CONNECTED;
 }
 
+/*
+WifiMulti: Multiple Wifi Hotspots in Fh
+APSTA: Esp32Cam connect to main Esp32
+*/
 void Services::setupWifiMulti()
 {
   long begin = millis();
-  // WiFi.mode(WIFI_STA);
-  WiFi.mode(WIFI_MODE_AP);
+  WiFi.mode(WIFI_MODE_APSTA);
   wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
 
   Serial.print("Connecting to Wifi...");
   wifiMulti.run();
-  while (!Utilities::countTime(begin, 4))
-  {
-  }
+  while (!Utilities::countTime(begin, 4));
 
   if (!wifiMulti.run())
   {

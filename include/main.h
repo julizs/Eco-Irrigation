@@ -14,7 +14,7 @@
 #define TRANSMIT_DATA 1
 #define REQUEST_DATA 1
 #define RUN_SUBMACHINES 1
-extern uint8_t SLEEP_DUR, IDLE_DUR, MIN_STATE_DUR;
+extern uint8_t SLEEP_DUR, IDLE_DUR, STATE_MIN_DUR;
 extern TwoWire I2Cone, I2Ctwo;
 // extern InfluxHelper influxHelper;
 extern LinkedList<ISubStateMachine*> actions;
