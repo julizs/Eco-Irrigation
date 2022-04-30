@@ -212,33 +212,58 @@ void Services::startRestServer()
 Read User Commands and Settings from MongoDB doc
 Create instructions Vec from Data, pass to Irrigation to add missing Infos
 Take Actions later in Action State (before decidePlants() Evaluation)
+Properly use ArduinoJson:
+https://arduinojson.org/v6/how-to/reuse-a-json-document/
+IMPORTANT: differentiate as/to<JsonArray> and as/to<JsonObject>
+Look closely at settings (mongoose) nested datastructure to check if 
+Attributes are JsonObject {}, e.g. "actions" or JsonArray []
 */
-bool Services::readCommands()
+bool Services::readSettings()
 {
   // Empty Vec
   Irrigation::instructions.clear();
 
-  DynamicJsonDocument commands(1024);
-  Services::doJSONGetRequest("/commands", commands);
+  DynamicJsonDocument settings(2048);
+  Services::doJSONGetRequest("/settings", settings);
+  Serial.println(settings[0]["sleepDuration"].as<int>());
 
-  // Manual Irrigations (Plant or Pump)
-  JsonArray irrigations = commands[0]["Irrigation"];
+  // Settings is a Collection with only 1 Document inside [{}]
+  JsonArray arr = settings.as<JsonArray>();
+  JsonObject obj = arr.getElement(0).as<JsonObject>();
+  JsonObject actions = obj["actions"].as<JsonObject>();
+  JsonArray irrigations = actions["irrigations"].as<JsonArray>();
+  /*
+  Serial.println(obj["sleepDuration"].as<int>());
+  for (JsonPair keyValue : obj) {
+    Serial.println(keyValue.key().c_str()); 
+  } 
+  */
+
+  // Create manual Irrigations Instructions (Plant or Pump)
   if (!irrigations.isNull())
   {
     for (int i = 0; i < irrigations.size(); i++)
     {
+      Instruction instr;
+      JsonObject irr = irrigations.getElement(i);
+      /*
       const char *subject = irrigations[i][0];
       int amount = irrigations[i][1];
-      Instruction instr;
       snprintf(instr.reason, 32, subject);
       instr.allocatedWater = amount;
       Irrigation::instructions.push_back(instr);
+      */
     }
     Irrigation::writeInstructions(Irrigation::instructions);
   }
+  else
+  {
+    Serial.println("irrigations is null");
+  }
 
+  /*
   // StatusLight and SolenoidValve Actions ... only 1 each per Action State?
-  JsonArray statusLights = commands[0]["StatusLight"];
+  JsonArray statusLights = settings[0]["actions"]["statusLights"];
   if (!irrigations.isNull())
   {
     for (int i = 0; i < statusLights.size(); i++)
@@ -247,10 +272,11 @@ bool Services::readCommands()
       int content = statusLights[i][1];
     }
   }
+  */
 
   // int relaisChannel = settings[0]["SolenoidValve"][0];
   // bool relaisState = settings[0]["SolenoidValve"][1];
 
   // Reset MongoDB Doc
-  Services::doPostRequest("/commands/reset", "{}");
+  Services::doPostRequest("/settings/reset", "{}");
   }

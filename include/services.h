@@ -17,10 +17,10 @@ extern ESP8266WiFiMulti wifiMulti;
 #include <Utilities.h>
 #include <Irrigation.h>
 
-// #define WIFI_SSID "FRITZ!Box 7430 ED"
-// #define WIFI_PASSWORD "49391909776212256241"
-#define WIFI_SSID "FRITZ!Box 6490 Cable"
-#define WIFI_PASSWORD "04623152464666844388"
+#define WIFI_SSID "FRITZ!Box 7430 ED"
+#define WIFI_PASSWORD "49391909776212256241"
+// #define WIFI_SSID "FRITZ!Box 6490 Cable"
+// #define WIFI_PASSWORD "04623152464666844388"
 #define AP_SSID "esp32-v6"
 
 struct UserSettings
@@ -48,7 +48,7 @@ class Services
         static void doPostRequest(char const url[], String payload);
         static void doJSONGetRequest(char const url[], DynamicJsonDocument &doc);
         static void startRestServer();
-        static bool readCommands();
+        static bool readSettings();
         // static void handleWebButtons();
 
     private:

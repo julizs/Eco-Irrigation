@@ -44,7 +44,7 @@ const char *critErrMessage[] = {"None", "Final Fail to connect WiFi", "Final Fai
 State *idleState, *initState, *prepState, *requestState, *measureState, *evaluateState, *actionState, *transmitState, *errorState;
 const char *stateNames[] = {"IDLE", "INIT", "PREP", "REQUEST", "MEASURE", "EVALUATE", "ACTION", "TRANSMIT", "ERROR"};
 bool didSleep, didServices, didRequest, didPrepare, didActions, didTransmit;
-uint8_t selfTrans = 0, maxSelfTrans = 3;
+uint8_t selfTrans = 0, maxSelfTrans = 3, waitTime = 2;
 uint32_t stateBeginMillis = 0;
 // DynamicJsonDocument moistureSensors(2048), plants(2048), plantNeeds(2048), pumps(2048);
 
@@ -259,6 +259,7 @@ void on_prepState()
     
     // Establish and hold InfluxDB Connection open
     // If true then both WiFi and InfluxDB Connection are ok
+    // Blocking while not needed
     didPrepare = InfluxHelper::checkConnection();
     // while (!InfluxHelper::checkConnection());
     
@@ -290,11 +291,30 @@ void on_requestState()
     didRequest = Irrigation::requestData();
 
     // "Passive" Button Handling, do AFTER Influx checkConnection or ssl -1
-    didRequest = Services::readCommands();
-    
+    didRequest = Services::readSettings();
+    selfTrans++;
   }
   
-  countTime(STATE_MIN_DUR) && didRequest ? nextState = measureState : nextState = requestState;
+  // countTime(STATE_MIN_DUR) && didRequest ? nextState = measureState : nextState = requestState;
+  if(countTime(STATE_MIN_DUR))
+  {
+    if(didRequest)
+    {
+        selfTrans = 0;
+        waitTime = 1;
+        nextState = measureState;
+    }
+    else if(selfTrans < maxSelfTrans)
+    {     
+        while(!countTime(waitTime)); // Wait non-blocking
+        waitTime *= 2; // (Seconds)
+        nextState = requestState;
+    }
+    else
+    {
+        critErrCode = 3;
+    }
+  }
 }
 
 void on_measureState()
