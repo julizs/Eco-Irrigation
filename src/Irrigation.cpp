@@ -113,11 +113,31 @@ void Irrigation::decidePlants()
 }
 
 /*
-Called by decideIrrigation and readCommands
-Input: [["Thymian", 350], ["Aloe",280]]
-Output: [[pump1, 0, 4.6],...]
+Convert JsonObjects/JsonArrays to local Datastructures, Deallocate Memory
+irrActions and pumpActions are pushed on different Vecs
+pumpInstructions need NO sorting, reducing etc.
 */
-void Irrigation::writeInstructions(std::vector<Instruction> &instructions)
+void Irrigation::createInstructions(JsonArray &actions, std::vector<Instruction> &instructions)
+{
+    if (!actions.isNull())
+    {
+        for (int i = 0; i < actions.size(); i++)
+        {
+            Instruction instr;
+            JsonObject action = actions.getElement(i);
+            const char *subject = action["subject"];
+            snprintf(instr.reason, 32, subject);
+            instr.allocatedWater = action["amount"];
+            instructions.push_back(instr);
+        }
+    }
+}
+
+/*
+Enrich Instructions with neccessary Infos for an Irrigation
+Do Requests only once each
+*/
+void Irrigation::writeInstructions()
 {
     DynamicJsonDocument plants(2048), pumps(1024);
     Services::doJSONGetRequest("/plants/sensors", plants);
@@ -125,49 +145,99 @@ void Irrigation::writeInstructions(std::vector<Instruction> &instructions)
 
     for (auto &instr : instructions)
     {
-        for (int i = 0; i < plants.size(); i++)
+        // handlePumpActions(instr, pumps);
+        handleIrrigationActions(instr, plants);
+        setPumpModel(instr, pumps);
+    }
+
+    reduceInstructions(instructions);
+}
+
+/*
+Difference actions.pump to actions.irrigation:
+No checking of plants Table needed
+No reduce needed
+!isNull() Only write Instruction if PumpModel (that User picked in Grafana)
+has relaisChannels in Array = Model is currently active/assigned
+Do validSolenoid Check?
+Select random relaisChannel (if multiple), if no solenoidAction set by User?
+instr.pump = (solenoidValve == (0 || 1)) ? &pump1 : &pump2; // pump1: 0 || 1
+*/
+void Irrigation::handlePumpActions(Instruction &instr, DynamicJsonDocument &pumps)
+{
+    for (int i = 0; i < pumps.size(); i++)
+    {
+        String pumpModel = pumps[i]["name"];
+
+        if (pumpModel.equals(instr.reason))
         {
-            String plantName = plants[i]["name"];
-            int solenoidValve = plants[i]["solenoidValve"].as<int>();
+            JsonArray solenoidValves = pumps[i]["solenoidValve"];
 
-            if (!validSolenoid(solenoidValve, waterLimit24h)) // Efficient Check
+            if (!solenoidValves.isNull())
             {
-                continue; // goto next plant
-            }
+                // Select random
+                instr.solenoidValve = solenoidValves[0];
 
-            if (plantName.equals(instr.reason))
-            {
-                // Get SolenoidValve/relaisChannel
-                instr.solenoidValve = solenoidValve;
-
-                // Get pwmPin
-                solenoidValve == (0 || 1) ? instr.pump = &pump1 : instr.pump = &pump2;
-
-                // Get Pump Model
-                for (int i = 0; i < pumps.size(); i++)
-                {
-                    JsonArray solenoidValves = pumps[i]["solenoidValve"];
-
-                    for (int j = 0; j < solenoidValves.size(); j++)
-                    {
-                        // Serial.println(solenoidValves[j]);
-                        if (solenoidValves[j] == solenoidValve)
-                        {
-                            // Add Pump Info
-                            snprintf(instr.pumpModel, 32, pumps[i]["name"]);
-                            uint16_t flowRate = pumps[i]["flowRate"][0];
-                            constrain(flowRate, 100, 500); // Avoid divide by 0
-                            float pumpTime = (instr.allocatedWater / (flowRate * 1000.0f)) * 3600;
-                            instr.pumpTime = constrain(pumpTime, 0.0f, pumpTimeLimit);
-                        }
-                    }
-                }
-                // goto next instr (found match, stop iterating plants for this instr)
-                continue;
+                // Set pwmPin (relaisChannels are "hardwired" to pumps)          
+                instr.pump = (instr.solenoidValve == 0) ? &pump1 : &pump2; // pump1: 0, pump2: 1, 2
             }
         }
     }
-    reduceInstructions(instructions);
+}
+
+/*
+Create Instruction Vec and fill with necessary Infos
+Called by decideIrrigation and readCommands
+Input: [["Thymian", 350], ["Aloe",280]]  (both on same solenoidValve)
+Output: [[pump1, 0, 4.6],...]
+*/
+void Irrigation::handleIrrigationActions(Instruction &instr, DynamicJsonDocument &plants)
+{
+    for (int i = 0; i < plants.size(); i++)
+    {
+        String plantName = plants[i]["name"];
+        int solenoidValve = plants[i]["solenoidValve"].as<int>();
+
+        if (!validSolenoid(solenoidValve, waterLimit24h)) // Efficient Check
+        {
+            continue; // goto next plant / dont't write Instruction
+        }
+
+        if (plantName.equals(instr.reason))
+        {
+            // Set SolenoidValve/relaisChannel
+            instr.solenoidValve = solenoidValve;
+
+            instr.pump = (solenoidValve == 0) ? &pump1 : &pump2;
+        }
+    }
+}
+
+/*
+Get Pump Infos by solenoidValve of Instruction
+(NOT by pumpModel name, since this Model could be inactive but User can still choose it via Grafana)
+Do AFTER setting the solenoidValve
+*/
+void Irrigation::setPumpModel(Instruction &instr, DynamicJsonDocument &pumps)
+{
+    for (int i = 0; i < pumps.size(); i++)
+    {
+        JsonArray solenoidValves = pumps[i]["solenoidValve"];
+
+        for (int j = 0; j < solenoidValves.size(); j++)
+        {
+            // Serial.println(solenoidValves[j]);
+            if (solenoidValves[j] == instr.solenoidValve)
+            {
+                // Add Pump Info
+                snprintf(instr.pumpModel, 32, pumps[i]["name"]);
+                uint16_t flowRate = pumps[i]["flowRate"][0];
+                constrain(flowRate, 100, 500); // Avoid divide by 0
+                float pumpTime = (instr.allocatedWater / (flowRate * 1000.0f)) * 3600;
+                instr.pumpTime = constrain(pumpTime, 0.0f, pumpTimeLimit);
+            }
+        }
+    }
 }
 
 void Irrigation::printInstructions()
@@ -216,8 +286,12 @@ Tags are indexed (unlike Fields), faster Queries
 */
 bool Irrigation::reportInstructions()
 {
+    StaticJsonDocument<1024> reports;
+    String output;
+
     for (auto const &instr : instructions)
     {
+        // Write to InfluxDB
         Point p2("Irrigations");
         // p2.clearTags();
         // p2.clearFields();
@@ -232,7 +306,23 @@ bool Irrigation::reportInstructions()
         p2.addField("waterAmount", instr.allocatedWater);
         p2.addField("pumpTime", instr.pumpTime);
         InfluxHelper::writeDataPoint(p2);
+
+        // Write to MongoDB
+        // https://arduinojson.org/v6/api/json/serializejson/
+        JsonObject report;
+        report["reason"] = instr.reason;
+        report["pump"] = instr.pumpModel;
+        report["solenoidValve"] = instr.solenoidValve;
+        report["errorCode"] = instr.errorCode;
+        report["allocatedWater"] = instr.allocatedWater; // Planned
+        // report["distributedWater"] = instr.allocatedWater; // Actual
+        // report["timeStamp"] = ...
+        report["pumpTime"] = instr.pumpTime;
+        reports.add(report);
     }
+
+    serializeJson(reports, output);
+    Services::doPostRequest("/settings/report", output);
 }
 
 /* Get pwmPin

@@ -38,7 +38,12 @@ public:
     // static FluxQueryResult ml2h, ml24h;
 
     static void decidePlants();
-    static void writeInstructions(std::vector<Instruction> &instructions);
+    static void createInstructions(JsonArray &actions, std::vector<Instruction> &instructions);
+    static void writeInstructions();
+    static void handleIrrigationActions(Instruction &instr, DynamicJsonDocument &plants);
+    static void handlePumpActions(Instruction &instr, DynamicJsonDocument &pumps);
+    static void setPumpModel(Instruction &instr, DynamicJsonDocument &pumps);
+
     static void reduceInstructions(std::vector<Instruction> &instructions);
     static void sortInstructions(std::vector<Instruction> &instructions);
     static void printInstructions();
@@ -47,5 +52,6 @@ public:
     static FluxQueryResult recentIrrigations(uint8_t timePeriod);
     static bool validSolenoid(uint8_t solenoidValve, uint16_t waterLimit);
     static bool requestData();
+    
 };
 #endif // Irrigation_h

@@ -225,13 +225,13 @@ bool Services::readSettings()
 
   DynamicJsonDocument settings(2048);
   Services::doJSONGetRequest("/settings", settings);
-  Serial.println(settings[0]["sleepDuration"].as<int>());
+  // Serial.println(settings[0]["sleepDuration"].as<int>());
 
   // Settings is a Collection with only 1 Document inside [{}]
   JsonArray arr = settings.as<JsonArray>();
   JsonObject obj = arr.getElement(0).as<JsonObject>();
   JsonObject actions = obj["actions"].as<JsonObject>();
-  JsonArray irrigations = actions["irrigations"].as<JsonArray>();
+  
   /*
   Serial.println(obj["sleepDuration"].as<int>());
   for (JsonPair keyValue : obj) {
@@ -239,43 +239,27 @@ bool Services::readSettings()
   } 
   */
 
-  // Create manual Irrigations Instructions (Plant or Pump)
-  if (!irrigations.isNull())
-  {
-    for (int i = 0; i < irrigations.size(); i++)
-    {
-      Instruction instr;
-      JsonObject irr = irrigations.getElement(i);
-      /*
-      const char *subject = irrigations[i][0];
-      int amount = irrigations[i][1];
-      snprintf(instr.reason, 32, subject);
-      instr.allocatedWater = amount;
-      Irrigation::instructions.push_back(instr);
-      */
-    }
-    Irrigation::writeInstructions(Irrigation::instructions);
-  }
-  else
-  {
-    Serial.println("irrigations is null");
-  }
+  // Plants or Pump are handled the same, since both need same Infos and produce Reports (?)
+  JsonArray irrigationActions = actions["irrigations"].as<JsonArray>();
+  Irrigation::createInstructions(irrigationActions, Irrigation::instructions);
+  // Irrigation::createInstructions(pumpActions, Irrigations::pumpInstructions);
+  Irrigation::writeInstructions();
 
   /*
-  // StatusLight and SolenoidValve Actions ... only 1 each per Action State?
-  JsonArray statusLights = settings[0]["actions"]["statusLights"];
-  if (!irrigations.isNull())
+  // StatusLight, SolenoidValves, ...
+  JsonArray statusLights = actions["statusLights"].as<JsonArray>();
+  StatusDisplay::handleActions();
+
+  if (!statusLights.isNull())
   {
     for (int i = 0; i < statusLights.size(); i++)
     {
-      const char *subject = statusLights[i][0];
-      int content = statusLights[i][1];
+      JsonObject sL = irrigations.getElement(i);
+      const char *subject = sL["subject"];
+      int info = sL["info"]; // Info to Display
     }
   }
   */
-
-  // int relaisChannel = settings[0]["SolenoidValve"][0];
-  // bool relaisState = settings[0]["SolenoidValve"][1];
 
   // Reset MongoDB Doc
   Services::doPostRequest("/settings/reset", "{}");
