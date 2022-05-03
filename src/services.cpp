@@ -221,7 +221,8 @@ Attributes are JsonObject {}, e.g. "actions" or JsonArray []
 bool Services::readSettings()
 {
   // Empty Vec
-  Irrigation::instructions.clear();
+  Irrigation::irrInstructions.clear();
+  Irrigation::pumpInstructions.clear();
 
   DynamicJsonDocument settings(2048);
   Services::doJSONGetRequest("/settings", settings);
@@ -239,10 +240,11 @@ bool Services::readSettings()
   } 
   */
 
-  // Plants or Pump are handled the same, since both need same Infos and produce Reports (?)
+  // Handle Plant/Pump Irrigations the same, since both need same Infos and produce Reports (?)
   JsonArray irrigationActions = actions["irrigations"].as<JsonArray>();
-  Irrigation::createInstructions(irrigationActions, Irrigation::instructions);
-  // Irrigation::createInstructions(pumpActions, Irrigations::pumpInstructions);
+  JsonArray pumpActions = actions["pumps"].as<JsonArray>();
+  Irrigation::createInstructions(irrigationActions, Irrigation::irrInstructions);
+  Irrigation::createInstructions(pumpActions, Irrigation::pumpInstructions);
   Irrigation::writeInstructions();
 
   /*

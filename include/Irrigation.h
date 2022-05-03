@@ -34,15 +34,17 @@ public:
     static bool didEvaluate;
     static const uint16_t waterLimit2h = 500, waterLimit24h = 1000;
     static constexpr float pumpTimeLimit = 10.0f;  
-    static std::vector<Instruction> instructions;
+    static std::vector<Instruction> irrInstructions, pumpInstructions;
     // static FluxQueryResult ml2h, ml24h;
 
     static void decidePlants();
     static void createInstructions(JsonArray &actions, std::vector<Instruction> &instructions);
     static void writeInstructions();
-    static void handleIrrigationActions(Instruction &instr, DynamicJsonDocument &plants);
-    static void handlePumpActions(Instruction &instr, DynamicJsonDocument &pumps);
-    static void setPumpModel(Instruction &instr, DynamicJsonDocument &pumps);
+    static bool pickSolenoidValve(Instruction &instr, JsonObject pumpModel);
+    static uint8_t getSolenoidByPlant(Instruction &instr, DynamicJsonDocument &plants);
+    static bool handlePumpActions(DynamicJsonDocument &pumps);
+    static JsonObject findPumpModel(DynamicJsonDocument &pumps, uint8_t solenoidValve, const char pumpName[]);
+    static void setPumpDetails(Instruction &instr, JsonObject pumpModel);
 
     static void reduceInstructions(std::vector<Instruction> &instructions);
     static void sortInstructions(std::vector<Instruction> &instructions);

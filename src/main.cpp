@@ -358,7 +358,7 @@ void on_actionState()
   {
     // Irrigation::printInstructions(Irrigation::instructions);
 
-    for (auto &instr : Irrigation::instructions)
+    for (auto &instr : Irrigation::irrInstructions)
     {
       Pump *pump = instr.pump;
       // Set back State to idle so that same Pump can run multiple times
@@ -375,7 +375,7 @@ void on_actionState()
       instr.errorCode = pump->errorCode;
 
       // Leave Vec unmanipulated (for Report)
-      if (&instr == &Irrigation::instructions.back())
+      if (&instr == &Irrigation::irrInstructions.back())
       {
         // Print after errorCodes are set
         Irrigation::printInstructions();
@@ -483,7 +483,7 @@ bool transitionS3S4()
 // EVALUATE -> TRANSMIT (No Action needed)
 bool transitionS4S6()
 {
-  if (countTime(STATE_MIN_DUR) && Irrigation::didEvaluate && Irrigation::instructions.size() == 0)
+  if (countTime(STATE_MIN_DUR) && Irrigation::didEvaluate && Irrigation::irrInstructions.size() == 0)
   {
     return true;
   }
@@ -493,7 +493,7 @@ bool transitionS4S6()
 // EVALUATE -> ACTION (Action Stack not empty)
 bool transitionS4S5()
 {
-  if (countTime(STATE_MIN_DUR) && Irrigation::didEvaluate && Irrigation::instructions.size() > 0)
+  if (countTime(STATE_MIN_DUR) && Irrigation::didEvaluate && Irrigation::irrInstructions.size() > 0)
   {
     return true;
   }
