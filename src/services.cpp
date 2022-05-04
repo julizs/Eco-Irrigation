@@ -224,7 +224,7 @@ Put on same Vec?
 */
 bool Services::readSettings()
 {
-  DynamicJsonDocument settings(2048);
+  DynamicJsonDocument settings(1024);
   Services::doJSONGetRequest("/settings", settings);
 
   // Settings is a Collection with only 1 Document inside [{}]

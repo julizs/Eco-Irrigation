@@ -39,8 +39,8 @@ public:
     static void decidePlants();
     static void createInstructions(JsonArray &actions, std::vector<Instruction> &instructions);
     static void writeInstructions();
-    static uint8_t solenoidByPlant(Instruction &instr, DynamicJsonDocument &plants);
-    static uint8_t solenoidByPump(Instruction &instr, JsonObject &pumpModel);
+    static int8_t solenoidByPlant(Instruction &instr, DynamicJsonDocument &plants);
+    static int8_t solenoidByPump(Instruction &instr, JsonObject &pumpModel);
     static JsonObject pumpModelBySolenoid(DynamicJsonDocument &pumps, uint8_t solenoidValve);
     static JsonObject pumpModelByName(DynamicJsonDocument &pumps, const char pumpName[]);
     static void setPumpTime(Instruction &instr, JsonObject &pumpModel);

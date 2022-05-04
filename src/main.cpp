@@ -221,19 +221,29 @@ void on_initState()
     // Clock Esp32 down to help prevent Brownout
     setCpuFrequencyMhz(80);
     Serial.print(getCpuFrequencyMhz());
-    Serial.println("Mhz");
-
-    nextState = prepState;
+    Serial.println("Mhz"); 
   }
+
+  if(countTime(STATE_MIN_DUR))
+  {
+    nextState = prepState;
+  } 
 }
 
+/* "Active" Button Handling
+Send current own IPv4/Ipv6
+Services::doPostRequest("/commands/ip");
+// WiFi.begin() before this, or Exception
+// Restart / ask for Status?
+Services::startRestServer();
+*/
 void on_prepState()
 {
   if (fsm.executeOnce)
   {
     didPrepare = false;
     commonStateLogic();
-    selfTrans++;
+
     /*
     while (!Services::wifiMultiConnected())
     {
@@ -244,22 +254,14 @@ void on_prepState()
     if (!Services::wifiConnected())
       Services::setupWifi();
 
-    /* "Active" Button Handling
-    Send current own IPv4/Ipv6
-    Services::doPostRequest("/commands/ip");
-    // WiFi.begin() before this, or Exception
-    // Restart / ask for Status?
-    Services::startRestServer();
-    */
-
     // Set before establishing any Connection to InfluxDB
     if(!InfluxHelper::checkConnection())
       while (!InfluxHelper::setParameters());
       // didPrepare = InfluxHelper::setParameters();
     
     // Establish and hold InfluxDB Connection open
-    // If true then both WiFi and InfluxDB Connection are ok
-    // Blocking while not needed
+    // If true then InfluxDB Connectio (and ofc Wifi) are ok
+    // Blocking while isn't needed
     didPrepare = InfluxHelper::checkConnection();
     // while (!InfluxHelper::checkConnection());
     
@@ -274,6 +276,7 @@ void on_prepState()
     }
     else if(selfTrans < maxSelfTrans)
     {
+        selfTrans++;
         nextState = prepState;
     }
     else
@@ -377,11 +380,6 @@ void on_actionState()
       // Leave Vec unmanipulated (for Report)
       if (&instr == &Irrigation::irrInstructions.back())
       {
-        // Print after errorCodes are set, e.g. Pump Process manually stopped
-        // Irrigation::printInstructions(Irrigation::pumpInstructions);
-        // Irrigation::printInstructions(Irrigation::irrInstructions);
-        // Irrigation::reportInstructions();
-        // Irrigation::clearInstructions();
         didActions = true;
       }
     }
@@ -402,6 +400,7 @@ void on_transmitState()
     bool didTramsmit;
 
     didTransmit = InfluxHelper::writeBuffer();
+    
     didTransmit = Irrigation::reportInstructions(Irrigation::pumpInstructions);
     Irrigation::clearInstructions();
 

@@ -123,34 +123,27 @@ pumpInstructions need NO sorting, reducing etc.
 */
 void Irrigation::createInstructions(JsonArray &actions, std::vector<Instruction> &instructions)
 {
+    JsonObject action;
+    Instruction instr;
+
     if (!actions.isNull())
     {
         for (int i = 0; i < actions.size(); i++)
         {
-            JsonObject action = actions.getElement(i);
+            action = actions.getElement(i);
             const char *subject = action["subject"];
             uint16_t allocatedWater = action["amount"];
 
-            Instruction instr;
             snprintf(instr.reason, 32, subject);
-            instr.allocatedWater = action["amount"];
+            instr.allocatedWater = allocatedWater;
             instructions.push_back(instr);
         }
     }
 }
 
 /*
-Call after reportInstructions
-*/
-void Irrigation::clearInstructions()
-{
-    irrInstructions.clear();
-    pumpInstructions.clear();
-}
-
-/*
-Enrich Instructions with neccessary Infos for an Irrigation
-Do Requests only once each
+Write all neccessary Infos for an Irrigation into Instr
+Do Requests only once
 */
 void Irrigation::writeInstructions()
 {
@@ -182,9 +175,9 @@ Create Instruction Vec and fill with necessary Infos
 Called by decideIrrigation and readCommands
 Input: [["Thymian", 350], ["Aloe",280]]  (both on same solenoidValve)
 Output: [[pump1, 0, 4.6],...]
-break: found matching solenoid (valid or invalid), break for loop
+break: found matching solenoid for plant (valid or invalid), break for loop
 */
-uint8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &plants)
+int8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &plants)
 {
     // 1: found no matching plant for instr.reason
     int8_t solenoid = -1, errorCode = 1;
@@ -218,12 +211,11 @@ uint8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &pla
 Check if any of the solenoidValve of pumpModel (= pumpModel) are valid
 Pick the first valid one, set pwmPin accordingly
 Set Error Codes
-instr.pump = (solenoidValve == (0 || 1)) ? &pump1 : &pump2; // pump1: 0 || 1, pump2: 2
 break: found the first valid solenoid for model, break for loop
 */
-uint8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject &pumpModel)
+int8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject &pumpModel)
 {
-    int8_t solenoid = -1, errorCode = 1;
+    int8_t solenoid = -1, errorCode = 1; // pumpModel has no Solenoids at all (= model not active)
 
     if (!pumpModel.isNull())
     {
@@ -239,14 +231,14 @@ uint8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject &pumpModel)
                     break;
                 }
                 else
-                {
-                    // pumpModel has no valid solenoids
-                    errorCode = 2;
+                {          
+                    // Solenoid not valid, keep Searching
+                    errorCode = 2; 
                 }
             }
         }
     }
-    // pumpModel has no solenoids at all (= model not active)
+    
     instr.errorCode = errorCode;
     instr.solenoidValve = solenoid;
     return solenoid;
@@ -259,6 +251,7 @@ Found pumpModel is active in System (has solenoids)
 JsonObject Irrigation::pumpModelBySolenoid(DynamicJsonDocument &pumps, uint8_t solenoidValve)
 {
     JsonObject pumpModel;
+
     for (int i = 0; i < pumps.size(); i++)
     {
         JsonArray solenoidValves = pumps[i]["solenoidValve"];
@@ -270,7 +263,7 @@ JsonObject Irrigation::pumpModelBySolenoid(DynamicJsonDocument &pumps, uint8_t s
             {
                 // pumpModel is active
                 pumpModel = pumps[i].as<JsonObject>();
-                return pumpModel;
+                break;
             }
         }
     }
@@ -280,6 +273,7 @@ JsonObject Irrigation::pumpModelBySolenoid(DynamicJsonDocument &pumps, uint8_t s
 JsonObject Irrigation::pumpModelByName(DynamicJsonDocument &pumps, const char pumpName[])
 {
     JsonObject pumpModel;
+
     for (int i = 0; i < pumps.size(); i++)
     {
         JsonArray solenoidValves = pumps[i]["solenoidValve"];
@@ -289,21 +283,22 @@ JsonObject Irrigation::pumpModelByName(DynamicJsonDocument &pumps, const char pu
         {
             // if (!solenoidValves.isNull()) // pumpModel is active
             pumpModel = pumps[i].as<JsonObject>();
-            return pumpModel; // Stop searching
+            break; // Stop searching
         }
     }
     return pumpModel;
 }
 
 /*
-Set pwmPin (pump) and pumpTime
-SolenoidValves/relaisChannels/pinNums 0, 1 are hardcoded/always
-associated with pump1, just as pump_PWM_1 is always assoc. with pump1
-User can only change pumpModel or enable/disable assoc. relaisChannels)
+SolenoidValves/relaisChannels/pinNums 0, 1 are assoc. with pump1,
+and pump_PWM_1 is assoc. with pump1 
+(depends on Hw Config of Watertank/Pump/Solenoids : n: n: n)
+User can only change pumpModel or enable/disable assoc. relaisChannels on the Fly)
+instr.pump = (solenoidValve == (0 || 1)) ? &pump1 : &pump2; // pump1: 0 || 1, pump2: 2
 */
 void Irrigation::setPumpTime(Instruction &instr, JsonObject &pumpModel)
 {
-    instr.pump = (instr.solenoidValve == 0) ? &pump1 : &pump2;
+    instr.pump = (instr.solenoidValve == 0) ? &pump1 : &pump2; // Set pwmPin
 
     snprintf(instr.pumpModel, 32, pumpModel["name"]);
     uint16_t flowRate = pumpModel["flowRate"][0];
@@ -314,7 +309,7 @@ void Irrigation::setPumpTime(Instruction &instr, JsonObject &pumpModel)
 }
 
 /*
-Print to Serial
+Print Vec to Serial
 */
 void Irrigation::printInstructions(std::vector<Instruction> &instructions)
 {
@@ -327,6 +322,8 @@ void Irrigation::printInstructions(std::vector<Instruction> &instructions)
                  instr.reason, instr.pumpModel, instr.pumpTime, instr.solenoidValve, instr.allocatedWater, instr.errorCode);
         Serial.println(message); // instr.pump->pwmPin
     }
+    if(instructions.size() == 0)
+        Serial.println("None");
 }
 
 /*
@@ -357,7 +354,9 @@ bool Irrigation::compareBySolenoid(const Instruction &a, const Instruction &b)
 
 /* Report to InfluxDB:
 Tags are indexed (unlike Fields), faster Queries
--> e.g. which Irrigations failed (errorCode != 0) ?
+-> Use Tags instead of Fields for often queried Attr
+Tags can only be Strings
+e.g. which Irrigations failed (errorCode != 0) ?
 Check (as Table): influx query
 from(bucket: "messdaten")
 |> range(start: -24h)
@@ -379,16 +378,24 @@ bool Irrigation::reportInstructions(std::vector<Instruction> &instructions)
         p2.addField("allocatedWater", instr.allocatedWater);
         // p2.addField("pumpTime", instr.pumpTime);
         p2.addTag("errorCode", errorCode);
-        // Write every point into Buffer
-        InfluxHelper::writeDataPoint(p2);
+        InfluxHelper::writeDataPoint(p2); // Write to Buffer
     }
     return true;
 }
 
 /*
+Call after reportInstructions
+*/
+void Irrigation::clearInstructions()
+{
+    irrInstructions.clear();
+    pumpInstructions.clear();
+}
+
+/*
 Report to MongoDB
 https://arduinojson.org/v6/api/json/serializejson/
-*/
+
 bool Irrigation::reportToMongo(std::vector<Instruction> &instructions)
 {
     StaticJsonDocument<2048> reports;
@@ -413,6 +420,7 @@ bool Irrigation::reportToMongo(std::vector<Instruction> &instructions)
     Services::doPostRequest("/settings/report", output);
     return true;
 }
+*/
 
 /* Irrigation Algorithm
   1.1 Skip if waterAmount released by this Solenoid over last 2h > Threshold
