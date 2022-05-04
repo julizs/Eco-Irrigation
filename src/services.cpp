@@ -119,7 +119,7 @@ Funcs are responsible for packaging data as json
 PostRequest accepts json as input param
 https://randomnerdtutorials.com/esp32-http-get-post-arduino/
 */
-void Services::doPostRequest(char const endpoint[], String payload)
+void Services::doPostRequest(char const endpoint[], String &payload)
 {
   char url[50] = "", message[128];
   strcat(url, baseUrl);
@@ -240,8 +240,8 @@ bool Services::readSettings()
 
   JsonArray irrActions = actions["irrigations"].as<JsonArray>();
   JsonArray pumpActions = actions["pumps"].as<JsonArray>();
+  Irrigation::createInstructions(pumpActions, Irrigation::pumpInstructions);
   Irrigation::createInstructions(irrActions, Irrigation::irrInstructions);
-  // Irrigation::createInstructions(pumpActions, Irrigation::pumpInstructions);
   Irrigation::writeInstructions();
 
   /*
@@ -250,5 +250,6 @@ bool Services::readSettings()
   */
 
   // Reset MongoDB Doc
-  Services::doPostRequest("/settings/reset", "{}");
+  String emptyDoc = "{}";
+  Services::doPostRequest("/settings/reset", emptyDoc);
   }

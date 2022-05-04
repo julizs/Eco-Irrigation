@@ -17,7 +17,7 @@ struct Instruction
     char reason[32], pumpModel[32];
     Pump *pump;
     float pumpTime;
-    uint8_t errorCode, solenoidValve;
+    int8_t errorCode, solenoidValve;
     // allocated and actual distributed Water (measured by waterFlow Sensor)
     uint16_t allocatedWater, distributedWater;
 
@@ -40,15 +40,16 @@ public:
     static void createInstructions(JsonArray &actions, std::vector<Instruction> &instructions);
     static void writeInstructions();
     static uint8_t solenoidByPlant(Instruction &instr, DynamicJsonDocument &plants);
-    static uint8_t solenoidByPump(Instruction &instr, JsonObject pumpModel);
+    static uint8_t solenoidByPump(Instruction &instr, JsonObject &pumpModel);
     static JsonObject pumpModelBySolenoid(DynamicJsonDocument &pumps, uint8_t solenoidValve);
     static JsonObject pumpModelByName(DynamicJsonDocument &pumps, const char pumpName[]);
-    static void setPumpTime(Instruction &instr, JsonObject pumpModel);
+    static void setPumpTime(Instruction &instr, JsonObject &pumpModel);
 
     static void reduceInstructions(std::vector<Instruction> &instructions);
     static void sortInstructions(std::vector<Instruction> &instructions);
     static void printInstructions(std::vector<Instruction> &instructions);
-    static bool reportInstructions();
+    static bool reportInstructions(std::vector<Instruction> &instructions);
+    static bool reportToMongo(std::vector<Instruction> &instructions);
     static void clearInstructions();
     static bool compareBySolenoid(const Instruction &a, const Instruction &b);
     static FluxQueryResult recentIrrigations(uint8_t timePeriod);

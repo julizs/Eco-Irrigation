@@ -377,8 +377,9 @@ void on_actionState()
       // Leave Vec unmanipulated (for Report)
       if (&instr == &Irrigation::irrInstructions.back())
       {
-        // Print after errorCodes are set
-        Irrigation::printInstructions(Irrigation::irrInstructions);
+        // Print after errorCodes are set, e.g. Pump Process manually stopped
+        // Irrigation::printInstructions(Irrigation::pumpInstructions);
+        // Irrigation::printInstructions(Irrigation::irrInstructions);
         // Irrigation::reportInstructions();
         // Irrigation::clearInstructions();
         didActions = true;
@@ -401,8 +402,8 @@ void on_transmitState()
     bool didTramsmit;
 
     didTransmit = InfluxHelper::writeBuffer();
-    // didTransmit = Irrigation::reportInstructions();
-    // Irrigation::clearInstructions();
+    didTransmit = Irrigation::reportInstructions(Irrigation::pumpInstructions);
+    Irrigation::clearInstructions();
 
     if (!didTransmit)
     {
