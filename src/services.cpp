@@ -209,7 +209,8 @@ void Services::startRestServer()
 }
 
 /* "Passive" Handling of WebButtons
-Read User Commands and Settings from MongoDB doc
+Serial.println(settings[0]["sleepDuration"].as<int>());
+Read User Actions and Settings from MongoDB doc
 Create instructions Vec from Data, pass to Irrigation to add missing Infos
 Take Actions later in Action State (before decidePlants() Evaluation)
 Properly use ArduinoJson:
@@ -217,22 +218,19 @@ https://arduinojson.org/v6/how-to/reuse-a-json-document/
 IMPORTANT: differentiate as/to<JsonArray> and as/to<JsonObject>
 Look closely at settings (mongoose) nested datastructure to check if 
 Attributes are JsonObject {}, e.g. "actions" or JsonArray []
+
+Both irr/pump Actions need same Infos and produce Reports
+Put on same Vec?
 */
 bool Services::readSettings()
 {
-  // Empty Vec
-  Irrigation::irrInstructions.clear();
-  Irrigation::pumpInstructions.clear();
-
   DynamicJsonDocument settings(2048);
   Services::doJSONGetRequest("/settings", settings);
-  // Serial.println(settings[0]["sleepDuration"].as<int>());
 
   // Settings is a Collection with only 1 Document inside [{}]
-  JsonArray arr = settings.as<JsonArray>();
-  JsonObject obj = arr.getElement(0).as<JsonObject>();
-  JsonObject actions = obj["actions"].as<JsonObject>();
-  
+  JsonArray collection = settings.as<JsonArray>();
+  JsonObject doc = collection.getElement(0).as<JsonObject>();
+  JsonObject actions = doc["actions"].as<JsonObject>();
   /*
   Serial.println(obj["sleepDuration"].as<int>());
   for (JsonPair keyValue : obj) {
@@ -240,27 +238,15 @@ bool Services::readSettings()
   } 
   */
 
-  // Handle Plant/Pump Irrigations the same, since both need same Infos and produce Reports (?)
-  JsonArray irrigationActions = actions["irrigations"].as<JsonArray>();
+  JsonArray irrActions = actions["irrigations"].as<JsonArray>();
   JsonArray pumpActions = actions["pumps"].as<JsonArray>();
-  Irrigation::createInstructions(irrigationActions, Irrigation::irrInstructions);
-  Irrigation::createInstructions(pumpActions, Irrigation::pumpInstructions);
+  Irrigation::createInstructions(irrActions, Irrigation::irrInstructions);
+  // Irrigation::createInstructions(pumpActions, Irrigation::pumpInstructions);
   Irrigation::writeInstructions();
 
   /*
-  // StatusLight, SolenoidValves, ...
   JsonArray statusLights = actions["statusLights"].as<JsonArray>();
-  StatusDisplay::handleActions();
-
-  if (!statusLights.isNull())
-  {
-    for (int i = 0; i < statusLights.size(); i++)
-    {
-      JsonObject sL = irrigations.getElement(i);
-      const char *subject = sL["subject"];
-      int info = sL["info"]; // Info to Display
-    }
-  }
+  StatusDisplay::handleActions(statusLights);
   */
 
   // Reset MongoDB Doc

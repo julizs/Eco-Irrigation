@@ -109,7 +109,9 @@ void Irrigation::decidePlants()
         }
     }
 
-    // Output: [["Thymian", 350], ["Aloe",280]]
+    // Output: createInstructions, same as incoming User Actions
+    // [["Thymian", 350], ["Aloe",280]]
+    // writeInstructions();
     didEvaluate = true;
 }
 
@@ -138,6 +140,15 @@ void Irrigation::createInstructions(JsonArray &actions, std::vector<Instruction>
 }
 
 /*
+Call after reportInstructions
+*/
+void Irrigation::clearInstructions()
+{
+    irrInstructions.clear();
+    pumpInstructions.clear();
+}
+
+/*
 Enrich Instructions with neccessary Infos for an Irrigation
 Do Requests only once each
 */
@@ -147,23 +158,25 @@ void Irrigation::writeInstructions()
     Services::doJSONGetRequest("/plants/sensors", plants);
     Services::doJSONGetRequest("/pumps/json", pumps);
 
-    for(auto &instr: irrInstructions)
+    for (auto &instr : irrInstructions)
     {
-        uint8_t solenoidValve = getSolenoidByPlant(instr, plants);
-        JsonObject pumpModel = findPumpModel(pumps, solenoidValve, "");
-        pickSolenoidValve(instr, pumpModel);
-        setPumpDetails(instr, pumpModel);
+        solenoidByPlant(instr, plants);
+        JsonObject pumpModel = pumpModelBySolenoid(pumps, instr.solenoidValve);
+        setPumpTime(instr, pumpModel);
     }
 
+    /*
     for(auto &instr: pumpInstructions)
     {
-        JsonObject pumpModel = findPumpModel(pumps, -1, instr.reason);
-        // JsonArray solenoidValves = pumpModel["solenoidValves"];
-        pickSolenoidValve(instr, pumpModel);
-        setPumpDetails(instr, pumpModel);
+        JsonObject pumpModel = pumpModelByName(pumps, instr.reason);
+        solenoidByPump(instr, pumpModel);
+        setPumpTime(instr, pumpModel);
     }
+    */
+    Serial.println("Wrote Instructions.");
 
     reduceInstructions(irrInstructions);
+    printInstructions(irrInstructions);
 }
 
 /*
@@ -171,20 +184,36 @@ Create Instruction Vec and fill with necessary Infos
 Called by decideIrrigation and readCommands
 Input: [["Thymian", 350], ["Aloe",280]]  (both on same solenoidValve)
 Output: [[pump1, 0, 4.6],...]
+break: found matching solenoid (valid or invalid), break for loop
 */
-uint8_t Irrigation::getSolenoidByPlant(Instruction &instr, DynamicJsonDocument &plants)
+uint8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &plants)
 {
+    // 1: found no matching plant for instr.reason
+    uint8_t solenoid = -1, errorCode = 1;
+
     for (int i = 0; i < plants.size(); i++)
     {
         String plantName = plants[i]["name"];
-        uint8_t solenoidValve = plants[i]["solenoidValve"].as<int>();
 
         if (plantName.equals(instr.reason))
-        {
-            return solenoidValve;
+        {        
+            if (validSolenoid(solenoid, waterLimit24h))
+            {
+                solenoid = plants[i]["solenoidValve"].as<int>();
+                errorCode = 0;
+            }
+            else
+            {
+                errorCode = 2;
+            }
+            break;
         }
     }
-    return -1;
+
+    instr.errorCode = errorCode;
+    instr.solenoidValve = solenoid;
+
+    return solenoid;
 }
 
 /*
@@ -192,84 +221,89 @@ Check if soleonoidValve or any of the solenoidValves (= pumpModel) are valid
 Pick the first valid one, set pwmPin accordingly
 Set Error Codes
 instr.pump = (solenoidValve == (0 || 1)) ? &pump1 : &pump2; // pump1: 0 || 1, pump2: 2
+break: found the first valid solenoid for model, break for loop
 */
-bool Irrigation::pickSolenoidValve(Instruction &instr, JsonObject pumpModel) // uint8_t solenoidValves[]
+uint8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject pumpModel)
 {
-    if(!pumpModel.isNull())
+    uint8_t solenoid = -1, errorCode = 1;
+
+    if (!pumpModel.isNull())
     {
         JsonArray solenoidValves = pumpModel["solenoidValve"];
-        if(!solenoidValves.isNull())
+        if (!solenoidValves.isNull())
         {
-            for(auto sol : solenoidValves)
+            for (auto sol : solenoidValves)
             {
-                if(validSolenoid(sol, waterLimit24h))
+                if (validSolenoid(sol, waterLimit24h))
                 {
-                    instr.solenoidValve = sol;
-                    instr.pump = (instr.solenoidValve == 0) ? &pump1 : &pump2;
-                    instr.errorCode = 0;
-                    return true;
+                    solenoid = sol;
+                    errorCode = 0;
+                    break;
                 }
-                // No valid solenoidValve for found pumpModel
-                instr.errorCode = 1;
-                return false;
+                else
+                {
+                    // pumpModel has no valid solenoids
+                    errorCode = 2;
+                }
             }
         }
     }
-    // No active pumpModel for given solenoidValve
-    instr.errorCode = 2;
-    return false;
-
-    /*
-    int size_t = sizeof(solenoidValves) / sizeof(solenoidValves[0]);
-
-    for(int i = 0; i < size_t; i++)
-    {
-        if(validSolenoid(solenoidValves[i], waterLimit24h))
-        {
-            instr.solenoidValve = solenoidValves[i];
-            instr.pump = (instr.solenoidValve == 0) ? &pump1 : &pump2; // pwmPin
-            instr.errorCode = 0;
-            return true;
-        }
-    }
-    instr.errorCode = 1;
-    return false;
-    */
+    // pumpModel has no solenoids at all (= model not active) 
+    instr.errorCode = errorCode;
+    instr.solenoidValve = solenoid;
+    return solenoid;
 }
 
 /*
 Find pumpModel by solenoid or by name and make sure they are active
 */
-JsonObject Irrigation::findPumpModel(DynamicJsonDocument &pumps, uint8_t solenoidValve, const char pumpName[])
+JsonObject Irrigation::pumpModelBySolenoid(DynamicJsonDocument &pumps, uint8_t solenoidValve)
 {
+    JsonObject pumpModel;
     for (int i = 0; i < pumps.size(); i++)
     {
         JsonArray solenoidValves = pumps[i]["solenoidValve"];
-        String modelName = pumps[i]["name"];
+        String modelName = pumps[i]["name"].as<String>();
 
-        if (sizeof(pumpName) == 0)
+        for (int j = 0; j < solenoidValves.size(); j++)
         {
-            for (int j = 0; j < solenoidValves.size(); j++)
+            if (solenoidValves[j] == solenoidValve)
             {
-                if (solenoidValves[j] == solenoidValve)
-                {
-                    return pumps[i];
-                }
+                pumpModel = pumps[i].as<JsonObject>();
+                return pumpModel;
             }
         }
-        else
-        {
-            if(modelName.equals(pumpName))
-            {
-                if(!solenoidValves.isNull())
-                    return pumps[i];
-            }
-        }
-    }   
+    }
+    return pumpModel;
 }
 
-void Irrigation::setPumpDetails(Instruction &instr, JsonObject pumpModel)
+JsonObject Irrigation::pumpModelByName(DynamicJsonDocument &pumps, const char pumpName[])
 {
+    JsonObject pumpModel;
+    for (int i = 0; i < pumps.size(); i++)
+    {
+        JsonArray solenoidValves = pumps[i]["solenoidValve"];
+        String modelName = pumps[i]["name"].as<String>();
+
+        if (modelName.equals(pumpName))
+        {
+            if (!solenoidValves.isNull())
+            {
+                pumpModel = pumps[i].as<JsonObject>();
+                return pumpModel; // Stop searching
+            }
+        }
+    }
+    return pumpModel;
+}
+
+/*
+Set pwmPin (pump) and pumpTime
+*/
+void Irrigation::setPumpTime(Instruction &instr, JsonObject pumpModel)
+{
+    instr.pump = (instr.solenoidValve == 0) ? &pump1 : &pump2;
+    
     snprintf(instr.pumpModel, 32, pumpModel["name"]);
     uint16_t flowRate = pumpModel["flowRate"][0];
     constrain(flowRate, 100, 500); // Avoid divide by 0
@@ -278,12 +312,12 @@ void Irrigation::setPumpDetails(Instruction &instr, JsonObject pumpModel)
     instr.pumpTime = constrain(pumpTime, 0.0f, pumpTimeLimit);
 }
 
-void Irrigation::printInstructions()
+void Irrigation::printInstructions(std::vector<Instruction> &instructions)
 {
     char message[128];
 
     Serial.println("Irrigation Instructions: ");
-    for (auto const &instr : irrInstructions)
+    for (auto const &instr : instructions)
     {
         snprintf(message, 128, "Reason: %s, Pump: %d, Pump Time: %0.2fs, Solenoid Valve: %d, Allocated Water: %dml, ErrorCode: %d",
                  instr.reason, instr.pumpModel, instr.pumpTime, instr.solenoidValve, instr.allocatedWater, instr.errorCode);
@@ -297,7 +331,7 @@ Vec must be sorted first (by SolenoidValve/relaisChannel) for unique to work
 */
 void Irrigation::reduceInstructions(std::vector<Instruction> &instructions)
 {
-    char message[64];
+    char message[16] = "";
     sortInstructions(instructions);
     auto it = std::unique(instructions.begin(), instructions.end());
     it == instructions.end() ? strcat(message, "No Dups") : strcat(message, "Removed Dups");
@@ -324,8 +358,8 @@ Tags are indexed (unlike Fields), faster Queries
 */
 bool Irrigation::reportInstructions()
 {
-    StaticJsonDocument<1024> reports;
-    String output;
+    // StaticJsonDocument<1024> reports;
+    // String output;
 
     for (auto const &instr : irrInstructions)
     {
@@ -345,6 +379,7 @@ bool Irrigation::reportInstructions()
         p2.addField("pumpTime", instr.pumpTime);
         InfluxHelper::writeDataPoint(p2);
 
+        /*
         // Write to MongoDB
         // https://arduinojson.org/v6/api/json/serializejson/
         JsonObject report;
@@ -357,10 +392,13 @@ bool Irrigation::reportInstructions()
         // report["timeStamp"] = ...
         report["pumpTime"] = instr.pumpTime;
         reports.add(report);
+        */
     }
 
-    serializeJson(reports, output);
-    Services::doPostRequest("/settings/report", output);
+    // serializeJson(reports, output);
+    // Services::doPostRequest("/settings/report", output);
+
+    return true;
 }
 
 /* Get pwmPin

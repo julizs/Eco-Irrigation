@@ -378,8 +378,9 @@ void on_actionState()
       if (&instr == &Irrigation::irrInstructions.back())
       {
         // Print after errorCodes are set
-        Irrigation::printInstructions();
-        Irrigation::reportInstructions();
+        Irrigation::printInstructions(Irrigation::irrInstructions);
+        // Irrigation::reportInstructions();
+        // Irrigation::clearInstructions();
         didActions = true;
       }
     }
@@ -396,17 +397,22 @@ void on_transmitState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
+   
+    bool didTramsmit;
 
-    selfTrans++;
-    if (!InfluxHelper::writeBuffer())
+    didTransmit = InfluxHelper::writeBuffer();
+    // didTransmit = Irrigation::reportInstructions();
+    // Irrigation::clearInstructions();
+
+    if (!didTransmit)
     {
       if (selfTrans < maxSelfTrans)
       {
+        selfTrans++;
         nextState = transmitState;
       }
       else
       {
-        // CritErr, goto ERROR State
         critErrCode = 3;
       }
     }

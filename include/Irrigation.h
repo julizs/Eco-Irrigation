@@ -21,7 +21,6 @@ struct Instruction
     // allocated and actual distributed Water (measured by waterFlow Sensor)
     uint16_t allocatedWater, distributedWater;
 
-
     bool operator==(const Instruction &instr) const
     {
         return (solenoidValve == instr.solenoidValve);
@@ -40,16 +39,17 @@ public:
     static void decidePlants();
     static void createInstructions(JsonArray &actions, std::vector<Instruction> &instructions);
     static void writeInstructions();
-    static bool pickSolenoidValve(Instruction &instr, JsonObject pumpModel);
-    static uint8_t getSolenoidByPlant(Instruction &instr, DynamicJsonDocument &plants);
-    static bool handlePumpActions(DynamicJsonDocument &pumps);
-    static JsonObject findPumpModel(DynamicJsonDocument &pumps, uint8_t solenoidValve, const char pumpName[]);
-    static void setPumpDetails(Instruction &instr, JsonObject pumpModel);
+    static uint8_t solenoidByPlant(Instruction &instr, DynamicJsonDocument &plants);
+    static uint8_t solenoidByPump(Instruction &instr, JsonObject pumpModel);
+    static JsonObject pumpModelBySolenoid(DynamicJsonDocument &pumps, uint8_t solenoidValve);
+    static JsonObject pumpModelByName(DynamicJsonDocument &pumps, const char pumpName[]);
+    static void setPumpTime(Instruction &instr, JsonObject pumpModel);
 
     static void reduceInstructions(std::vector<Instruction> &instructions);
     static void sortInstructions(std::vector<Instruction> &instructions);
-    static void printInstructions();
+    static void printInstructions(std::vector<Instruction> &instructions);
     static bool reportInstructions();
+    static void clearInstructions();
     static bool compareBySolenoid(const Instruction &a, const Instruction &b);
     static FluxQueryResult recentIrrigations(uint8_t timePeriod);
     static bool validSolenoid(uint8_t solenoidValve, uint16_t waterLimit);
