@@ -231,14 +231,14 @@ int8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject &pumpModel)
                     break;
                 }
                 else
-                {          
+                {
                     // Solenoid not valid, keep Searching
-                    errorCode = 2; 
+                    errorCode = 2;
                 }
             }
         }
     }
-    
+
     instr.errorCode = errorCode;
     instr.solenoidValve = solenoid;
     return solenoid;
@@ -291,7 +291,7 @@ JsonObject Irrigation::pumpModelByName(DynamicJsonDocument &pumps, const char pu
 
 /*
 SolenoidValves/relaisChannels/pinNums 0, 1 are assoc. with pump1,
-and pump_PWM_1 is assoc. with pump1 
+and pump_PWM_1 is assoc. with pump1
 (depends on Hw Config of Watertank/Pump/Solenoids : n: n: n)
 User can only change pumpModel or enable/disable assoc. relaisChannels on the Fly)
 instr.pump = (solenoidValve == (0 || 1)) ? &pump1 : &pump2; // pump1: 0 || 1, pump2: 2
@@ -315,27 +315,32 @@ void Irrigation::printInstructions(std::vector<Instruction> &instructions)
 {
     char message[128];
 
-    Serial.println("Irrigation Instructions: ");
-    for (auto const &instr : instructions)
+    Serial.print("Irrigation Instructions: ");
+    if (instructions.size() == 0)
+        Serial.println("None.");
+    else
     {
-        snprintf(message, 128, "Reason: %s, Pump Model: %s, Pump Time: %0.2fs, Solenoid Valve: %d, Allocated Water: %dml, ErrorCode: %d",
-                 instr.reason, instr.pumpModel, instr.pumpTime, instr.solenoidValve, instr.allocatedWater, instr.errorCode);
-        Serial.println(message); // instr.pump->pwmPin
+        Serial.println();
+        for (auto const &instr : instructions)
+        {
+            snprintf(message, 128, "Reason: %s, Pump Model: %s, Pump Time: %0.2fs, Solenoid Valve: %d, Allocated Water: %dml, ErrorCode: %d",
+                     instr.reason, instr.pumpModel, instr.pumpTime, instr.solenoidValve, instr.allocatedWater, instr.errorCode);
+            Serial.println(message); // instr.pump->pwmPin
+        }
     }
-    if(instructions.size() == 0)
-        Serial.println("None");
 }
 
 /*
 For duplicate Instructions (Plants on same SolenoidValve): Take Min/Max/Avg waterAmount?
 Vec must be sorted first (by SolenoidValve/relaisChannel) for unique to work
+strcat is unsafe, stack smashing crash if char[] too small
 */
 void Irrigation::reduceInstructions(std::vector<Instruction> &instructions)
 {
-    char message[16] = "";
+    char message[32] = "";
     sortInstructions(instructions);
     auto it = std::unique(instructions.begin(), instructions.end());
-    it == instructions.end() ? strcat(message, "No Dups") : strcat(message, "Removed Dups");
+    it == instructions.end() ? strcat(message, "No Duplicate Instructions") : strcat(message, "Removed Duplicate Instructions");
     Serial.println(message);
 }
 
@@ -402,7 +407,7 @@ bool Irrigation::reportToMongo(std::vector<Instruction> &instructions)
     String output;
 
     for (auto const &instr : instructions)
-    {  
+    {
         JsonObject report;
         report["reason"] = instr.reason;
         report["pump"] = instr.pumpModel;

@@ -14,9 +14,8 @@ Cistern::Cistern(uint8_t toF_address, uint8_t relaisChannels[], int cisternHeigh
 }
 
 /*
-Wrong Readings if spadCount after (re)Setup is different
-than before (e.g. 3 instead of 4 spads)
-(Check while debug mode true)
+Wrong Readings if spadCount after (re)Setup is different (e.g. 3 instead of 4 spads)
+(Check while sensor debug mode true)
 https://wolles-elektronikkiste.de/vl53l0x-und-vl53l1x-tof-abstandssensoren
 toF.status is 0 even if not correctly setup
 toF.rangingTest for current ErrCode crashes if toF not setup before

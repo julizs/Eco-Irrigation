@@ -53,6 +53,7 @@ public:
 
     void switchOff();
     bool setupIna();
+    bool inaReady();
     void add_callback(callback act);
     virtual bool isDone();
     virtual void resetMachine();

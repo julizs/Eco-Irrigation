@@ -16,7 +16,7 @@
 const char baseUrl[] = "https://juli.uber.space/node";
 uint8_t IDLE_DUR = 4;
 uint8_t SLEEP_DUR = 16;
-uint8_t STATE_MIN_DUR = 4;
+uint8_t STATE_MIN_DUR = 6;
 
 TaskHandle_t Task1, Task2;
 
@@ -41,9 +41,9 @@ StateMachine fsm = StateMachine();
 State *nextState = nullptr;
 uint8_t critErrCode = 0;
 const char *critErrMessage[] = {"None", "Final Fail to connect WiFi", "Final Fail to setup ToFs", "Final Fail to send Buffer"};
-State *idleState, *initState, *prepState, *requestState, *measureState, *evaluateState, *actionState, *transmitState, *errorState;
-const char *stateNames[] = {"IDLE", "INIT", "PREP", "REQUEST", "MEASURE", "EVALUATE", "ACTION", "TRANSMIT", "ERROR"};
-bool didSleep, didServices, didRequest, didPrepare, didActions, didTransmit;
+State *idleState, *initState, *connectState, *requestState, *measureState, *evaluateState, *actionState, *transmitState, *errorState;
+const char *stateNames[] = {"IDLE", "INIT", "CONNECT", "REQUEST", "MEASURE", "EVALUATE", "ACTION", "TRANSMIT", "ERROR"};
+bool didSleep, sensorsReady, didConnect, didRequest,  didActions, didTransmit;
 uint8_t selfTrans = 0, maxSelfTrans = 3, waitTime = 2;
 uint32_t stateBeginMillis = 0;
 // DynamicJsonDocument moistureSensors(2048), plants(2048), plantNeeds(2048), pumps(2048);
@@ -151,10 +151,9 @@ void commonStateLogic()
   Serial.println();
   Serial.println(stateNames[fsm.currentState]);
 
-  // checkWebButtons();
-
   // Safety
   pump1.switchOff();
+  pump2.switchOff();
   digitalWrite(Relais[0], HIGH);
   digitalWrite(Relais[1], HIGH);
 }
@@ -164,12 +163,12 @@ https://lastminuteengineers.com/esp32-sleep-modes-power-consumption/
 https://m1cr0lab-esp32.github.io/sleep-modes/
 1 = Low to High, 0 = High to Low. Pin pulled HIGH
 esp_sleep_enable_ext0_wakeup(GPIO_NUM_34, 0);
+Sleep (whatever Type) happened in executeOnce, no need to wait for MIN_STATE_DUR
 */
 void on_idleState()
 {
   if (fsm.executeOnce)
   {
-    didSleep = false;
     commonStateLogic();
     // ESP.deepSleep(30e6);
 
@@ -180,7 +179,6 @@ void on_idleState()
       delay(100);                                             // Else no Wakeup
       esp_light_sleep_start();
       // Resume Program, Connections and States were kept
-      // didSleep = true;
       nextState = initState;
     }
     else if (SLEEPTYPE == 2)
@@ -196,16 +194,20 @@ void on_idleState()
     {
     }
   }
-  // didSleep = true;
   nextState = initState;
 }
 
+/*
+Run setups, wait for MIN_STATE_DUR (non-blocking), check if ready
+TODO: improve ToF Setup
+*/
 void on_initState()
 {
   if (fsm.executeOnce)
   {
     commonStateLogic();
-
+    sensorsReady = false;
+    
     Serial.print("Main State Machine runs on Core: ");
     Serial.println(xPortGetCoreID());
 
@@ -214,20 +216,34 @@ void on_initState()
     pump1.setupIna();
     lightSensor1.setupTSL2591(I2Cone);
     lightSensor2.setupTSL2591(I2Ctwo);
+    // sensorsReady = lightSensor1.isReady();
 
     Utilities::scanI2CBus(&I2Cone);
     Utilities::scanI2CBus(&I2Ctwo);
 
-    // Clock Esp32 down to help prevent Brownout
-    setCpuFrequencyMhz(80);
-    Serial.print(getCpuFrequencyMhz());
-    Serial.println("Mhz"); 
+    setCpuFrequencyMhz(80); // Clock down, prevent Brownout
   }
 
   if(countTime(STATE_MIN_DUR))
   {
-    nextState = prepState;
-  } 
+    sensorsReady = pump1.inaReady();
+    sensorsReady = lightSensor2.isReady();
+
+    if(sensorsReady)
+    {
+        selfTrans = 0;
+        nextState = connectState;  
+    }
+    else if(selfTrans < maxSelfTrans)
+    {
+        selfTrans++;
+        nextState = initState;
+    }
+    else
+    {
+        critErrCode = 3;
+    }
+  }
 }
 
 /* "Active" Button Handling
@@ -236,40 +252,29 @@ Services::doPostRequest("/commands/ip");
 // WiFi.begin() before this, or Exception
 // Restart / ask for Status?
 Services::startRestServer();
+Influx Params must be set before sending Data to InfluxDB, or
+Buffer Settings etc. won't be applied
 */
-void on_prepState()
+void on_connectState()
 {
   if (fsm.executeOnce)
   {
-    didPrepare = false;
+    didConnect = false;
     commonStateLogic();
-
-    /*
-    while (!Services::wifiMultiConnected())
-    {
-      Services::setupWifiMulti();
-    }
-    */
 
     if (!Services::wifiConnected())
       Services::setupWifi();
 
-    // Set before establishing any Connection to InfluxDB
-    if(!InfluxHelper::checkConnection())
-      while (!InfluxHelper::setParameters());
-      // didPrepare = InfluxHelper::setParameters();
-    
     // Establish and hold InfluxDB Connection open
-    // If true then InfluxDB Connectio (and ofc Wifi) are ok
-    // Blocking while isn't needed
-    didPrepare = InfluxHelper::checkConnection();
-    // while (!InfluxHelper::checkConnection());
-    
+    didConnect = InfluxHelper::checkConnection();
+    if(!didConnect)
+      while (!InfluxHelper::setParameters()); 
   }
  
   if(countTime(STATE_MIN_DUR))
   {
-    if(didPrepare) // Only Begin checking after min time up
+    // If true then InfluxDB Connection (and ofc Wifi) are established
+    if(didConnect)
     {
         selfTrans = 0;
         nextState = requestState;  
@@ -277,7 +282,7 @@ void on_prepState()
     else if(selfTrans < maxSelfTrans)
     {
         selfTrans++;
-        nextState = prepState;
+        nextState = connectState;
     }
     else
     {
@@ -286,19 +291,19 @@ void on_prepState()
   }
 }
 
+/*
+readSettings: "Passive" Button Handling, do AFTER Influx checkConnection or ssl -1
+countTime(STATE_MIN_DUR) && didRequest ? nextState = measureState : nextState = requestState;
+*/
 void on_requestState()
 {
   if (fsm.executeOnce)
   {
     commonStateLogic();
     didRequest = Irrigation::requestData();
-
-    // "Passive" Button Handling, do AFTER Influx checkConnection or ssl -1
     didRequest = Services::readSettings();
-    selfTrans++;
   }
   
-  // countTime(STATE_MIN_DUR) && didRequest ? nextState = measureState : nextState = requestState;
   if(countTime(STATE_MIN_DUR))
   {
     if(didRequest)
@@ -309,7 +314,9 @@ void on_requestState()
     }
     else if(selfTrans < maxSelfTrans)
     {     
-        while(!countTime(waitTime)); // Wait non-blocking
+        selfTrans++;
+        // Wait longer than Standard MIN_STATE_DUR
+        while(!countTime(waitTime)); 
         waitTime *= 2; // (Seconds)
         nextState = requestState;
     }
@@ -326,8 +333,7 @@ void on_measureState()
   {
     commonStateLogic();
     setCpuFrequencyMhz(160);
-    Serial.print(getCpuFrequencyMhz());
-    Serial.println("Mhz");
+
     // WiFi.disconnect();
 #if (DO_MEASURE == 1)
     {
@@ -388,8 +394,7 @@ void on_actionState()
 }
 
 /*
-After 3 Attempts go to ERROR State
-Or ignore and continue to IDLE State
+
 */
 void on_transmitState()
 {
@@ -468,7 +473,7 @@ bool transitionS1S2()
 // PREP-> MEASURE
 bool transitionS2S3()
 {
-  if (countTime(STATE_MIN_DUR) && didServices)
+  if (countTime(STATE_MIN_DUR) && didConnect)
   {
     return true;
   }
@@ -564,7 +569,7 @@ void setup()
   }
 
   // Wire.begin();
-  I2Cone.begin(SDA1, SCL1, 200000);
+  I2Cone.begin(SDA1, SCL1, 150000);
   I2Ctwo.begin(SDA2, SCL2, 100000);
 
   // Immediately Shut down 2nd ToF so no Init at 0x29
@@ -590,7 +595,7 @@ void setup()
 
   idleState = fsm.addState(&on_idleState);
   initState = fsm.addState(&on_initState);
-  prepState = fsm.addState(&on_prepState);
+  connectState = fsm.addState(&on_connectState);
   requestState = fsm.addState(&on_requestState);
   measureState = fsm.addState(&on_measureState);
   evaluateState = fsm.addState(&on_evaluateState);

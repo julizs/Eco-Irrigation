@@ -18,6 +18,8 @@ public:
 
     AmbientLight(int sensorId);
     void setupTSL2591(TwoWire &bus);
+    void printSensorInfo();
+    bool isReady();
     TSL2591data measureLight();
 
 private:

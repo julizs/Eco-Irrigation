@@ -41,7 +41,17 @@ bool Pump::setupIna()
         Serial.println(F("Failed to boot Ina219_1"));
         return false;
     }
+
     return true;
+}
+
+bool Pump::inaReady()
+{
+    ina219.setCalibration_32V_2A();
+    bool ready = ina219.success();
+    if(ready)
+        Serial.println("INA 219 is ready.");
+    return ready;
 }
 
 INAdata Pump::readIna()

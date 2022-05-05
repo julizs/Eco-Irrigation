@@ -3,10 +3,11 @@
 std::vector<MlPerSolenoid> Utilities::ml2h;
 std::vector<MlPerSolenoid> Utilities::ml24h;
 
-void Utilities::scanI2CBus(TwoWire *wire)
+uint8_t Utilities::scanI2CBus(TwoWire *wire)
 {
-  Serial.println("Scanning I2C Addresses Channel: ");
+  char message[64];
   uint8_t cnt = 0;
+
   for (uint8_t i = 0; i < 128; i++)
   {
     wire->beginTransmission(i);
@@ -24,9 +25,12 @@ void Utilities::scanI2CBus(TwoWire *wire)
     if ((i & 0x0f) == 0x0f)
       Serial.println();
   }
-  Serial.print("Scan Completed, ");
-  Serial.print(cnt);
-  Serial.println(" I2C Devices found.");
+
+  snprintf(message, 64, "Clock: %d, Num of Devices: %d, Error:%s",
+                     wire->getClock(), cnt, wire->getErrorText(wire->lastError()));
+  Serial.println(message);
+
+  return cnt;
 }
 
 /*
@@ -91,7 +95,7 @@ bool Utilities::writeVector(FluxQueryResult &cursor, std::vector<MlPerSolenoid> 
       Serial.println(cursor.getError());
     }
   }
-  Serial.println("Vector write Success.");
+  Serial.println("Wrote FluxCursor to Vector.");
   return true;
 }
 
