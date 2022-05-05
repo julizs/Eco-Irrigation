@@ -1,8 +1,5 @@
 #include "Utilities.h"
 
-std::vector<MlPerSolenoid> Utilities::ml2h;
-std::vector<MlPerSolenoid> Utilities::ml24h;
-
 uint8_t Utilities::scanI2CBus(TwoWire *wire)
 {
   char message[64];
@@ -61,31 +58,38 @@ DynamicJsonDocument Utilities::readDoc(int address, int size)
 
 /*
 FluxQueryResult to Vector
+CAREFUL with FluxQueryResult, if printed before this Function then Cursor is empty
+close() must be called after end of reading
+Check reportInstructions() if Value is _field or _tag (String!)
+This Vector is built based on Reports and used for checking waterLimits per Solenoid,
+so do not include "failed Irrigations" / Reports with invalid Solenoids (-1)
 */
-bool Utilities::writeVector(FluxQueryResult &cursor, std::vector<MlPerSolenoid> &solenoids)
+bool Utilities::cursorToVec(FluxQueryResult &cursor, std::vector<WaterPerSolenoid> &solenoids, uint8_t timePeriod)
 {
-  uint8_t solenoidValve;
+  int solenoidValve; // -1 if not valid
   uint16_t waterAmount;
 
   while (cursor.next())
   {
-    solenoidValve = cursor.getValueByName("solenoidValve").getLong();
+    String solenoidValveTag = cursor.getValueByName("solenoidValve").getString(); // Tag
+    solenoidValve = solenoidValveTag.toInt();
     waterAmount = cursor.getValueByName("_value").getLong();
     bool exists = false;
 
     for (auto &sol : solenoids)
     {
-      if (sol.solenoidValve == solenoidValve)
+      if (sol.solenoidValve == solenoidValve && sol.timePeriod == timePeriod)
       {
         sol.waterAmount += waterAmount;
         exists = true;
       }
     }
-    if (!exists)
+    if (!exists && solenoidValve != -1)
     {
-      MlPerSolenoid sol;
+      WaterPerSolenoid sol;
       sol.solenoidValve = solenoidValve;
       sol.waterAmount = waterAmount;
+      sol.timePeriod = timePeriod;
       solenoids.push_back(sol);
     }
 
@@ -96,20 +100,42 @@ bool Utilities::writeVector(FluxQueryResult &cursor, std::vector<MlPerSolenoid> 
     }
   }
   Serial.println("Wrote FluxCursor to Vector.");
+  cursor.close();
+
   return true;
 }
 
-void Utilities::printMlPerSolenoid(std::vector<MlPerSolenoid> &solenoids)
+/*
+How to print all Tags/Fields?
+*/
+void Utilities::printCursor(FluxQueryResult &cursor)
+{
+  Serial.println("Printing Cursor");
+
+  while (cursor.next())
+  {
+    Serial.println(cursor.getValueByName("solenoidValve").getLong());
+    Serial.println(cursor.getValueByName("_value").getLong());
+
+    if (cursor.getError() != "")
+    {
+      Serial.println("Vector write Error: ");
+      Serial.println(cursor.getError());
+    }
+  }
+}
+
+void Utilities::printVector(std::vector<WaterPerSolenoid> &solenoids)
 {
   char message[64];
 
-  Serial.print("Recent Irrigations per Solenoid: ");
+  Serial.print("Recent Irrigations: ");
   if (solenoids.size() > 0)
   {
     for (auto const &sol : solenoids)
     {
-      snprintf(message, 64, "Solenoid Valve: %d, Water Amount: %dml",
-               sol.solenoidValve, sol.waterAmount);
+      snprintf(message, 64, "Solenoid Valve: %d, Water Amount: %dml, Time Period: %dh",
+               sol.solenoidValve, sol.waterAmount, sol.timePeriod);
       Serial.println(message);
     }
   } else { Serial.println("None.");}

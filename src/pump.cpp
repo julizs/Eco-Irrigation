@@ -107,7 +107,7 @@ void Pump::loop()
                 errorCode = 1;
                 currentState = PumpState::ABORT;
             }
-            else if(!Irrigation::validSolenoid(relaisChannel, Irrigation::waterLimit24h))
+            else if(!Irrigation::validSolenoid(relaisChannel, Irrigation::waterLimit24h, 24))
             {
                 // Check waterLimits per SolenoidValve (on Button Press by User)
                 // Data needs to be provided first (Utilities::provideData())

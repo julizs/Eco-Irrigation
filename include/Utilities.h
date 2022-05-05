@@ -8,22 +8,22 @@
 #include <StreamUtils.h>
 #include <InfluxHelper.h>
 
-struct MlPerSolenoid { 
-    uint8_t solenoidValve;
-    uint16_t waterAmount;
+struct WaterPerSolenoid { 
+    int solenoidValve; // -1 to 4
+    uint8_t timePeriod; // h
+    uint16_t waterAmount; // ml
 };
 
 class Utilities
 {
     public:
-        static std::vector<MlPerSolenoid> ml2h, ml24h;
-
         static uint8_t scanI2CBus(TwoWire *wire);
         static DynamicJsonDocument readDoc(int address, int size);
         static void writeDoc(int address, DynamicJsonDocument &doc, int size);
         static bool countTime(long begin, uint8_t duration);
-        static bool writeVector(FluxQueryResult &cursor, std::vector<MlPerSolenoid> &vec);
-        static void printMlPerSolenoid(std::vector<MlPerSolenoid> &solenoids);
+        static bool cursorToVec(FluxQueryResult &cursor, std::vector<WaterPerSolenoid> &vec, uint8_t timePeriod);
+        static void printCursor(FluxQueryResult &cursor);
+        static void printVector(std::vector<WaterPerSolenoid> &solenoids);
 };
 
 #endif // Utilities_h

@@ -265,10 +265,17 @@ void on_connectState()
     if (!Services::wifiConnected())
       Services::setupWifi();
 
+    /*
     // Establish and hold InfluxDB Connection open
     didConnect = InfluxHelper::checkConnection();
     if(!didConnect)
-      while (!InfluxHelper::setParameters()); 
+      while (!InfluxHelper::setParameters());
+    */
+   // Set before establishing any Connection to InfluxDB
+    if(!InfluxHelper::checkConnection())
+      while (!InfluxHelper::setParameters());
+     
+    didConnect = InfluxHelper::checkConnection();
   }
  
   if(countTime(STATE_MIN_DUR))
@@ -404,9 +411,9 @@ void on_transmitState()
    
     bool didTramsmit;
 
-    didTransmit = InfluxHelper::writeBuffer();
-    
+    // Chronology important
     didTransmit = Irrigation::reportInstructions(Irrigation::pumpInstructions);
+    didTransmit = InfluxHelper::writeBuffer();
     Irrigation::clearInstructions();
 
     if (!didTransmit)
