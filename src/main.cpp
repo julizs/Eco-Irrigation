@@ -37,16 +37,16 @@ Cistern cistern2(0x52, solenoids2, 450, 42.0f);
 Pump pump1(0, pump_PWM_1, cistern1);
 Pump pump2(1, pump_PWM_2, cistern2);
 
-StateMachine fsm = StateMachine();
-State *nextState = nullptr;
 uint8_t critErrCode = 0;
-const char *critErrMessage[] = {"None", "Final Fail to connect WiFi", "Final Fail to setup ToFs", "Final Fail to send Buffer"};
+const char *critErrMessage[] = {"None", "Final Fail to connect WiFi", "Final Fail to connect to InfluxDB", "Final Fail to setup ToFs"};
+
+StateMachine fsm = StateMachine();
+State *currentState = nullptr;
+State *nextState = nullptr;
 State *idleState, *initState, *connectState, *requestState, *measureState, *evaluateState, *actionState, *transmitState, *errorState;
 const char *stateNames[] = {"IDLE", "INIT", "CONNECT", "REQUEST", "MEASURE", "EVALUATE", "ACTION", "TRANSMIT", "ERROR"};
-bool didSleep, sensorsReady, didConnect, didRequest,  didActions, didTransmit;
 uint8_t selfTrans = 0, maxSelfTrans = 3, waitTime = 2;
 uint32_t stateBeginMillis = 0;
-// DynamicJsonDocument moistureSensors(2048), plants(2048), plantNeeds(2048), pumps(2048);
 
 bool countTime(int durationSec)
 {
@@ -62,7 +62,7 @@ void setupToFs()
     ;
 }
 
-void doMeasurements()
+bool doMeasurements()
 {
   // ESP32 GLOBAL MEASUREMENTS
   if (!p0.hasTags()) // Reuse Datapoint
@@ -141,12 +141,14 @@ void doMeasurements()
 
     InfluxHelper::writeDataPoint(p);
   }
-  // Serial.printf_P(PSTR("free heap memory: %d\n"), ESP.getFreeHeap());
+  return true;
 }
 
 void commonStateLogic()
 {
   stateBeginMillis = millis();
+  currentState = currentState = fsm.stateList->get(fsm.currentState);
+  currentState->didSucceed = false;
 
   Serial.println();
   Serial.println(stateNames[fsm.currentState]);
@@ -163,38 +165,44 @@ https://lastminuteengineers.com/esp32-sleep-modes-power-consumption/
 https://m1cr0lab-esp32.github.io/sleep-modes/
 1 = Low to High, 0 = High to Low. Pin pulled HIGH
 esp_sleep_enable_ext0_wakeup(GPIO_NUM_34, 0);
-Sleep (whatever Type) happened in executeOnce, no need to wait for MIN_STATE_DUR
 */
 void on_idleState()
 {
   if (fsm.executeOnce)
   {
-    commonStateLogic();
-    // ESP.deepSleep(30e6);
+    commonStateLogic();  
 
     if (SLEEPTYPE == 1) // Light Sleep
     {
       Serial.println("Entering Light Sleep.");
       esp_sleep_enable_timer_wakeup(SLEEP_DUR * 1000 * 1000); // µs
-      delay(100);                                             // Else no Wakeup
+      delay(100); // Else no Wakeup
       esp_light_sleep_start();
       // Resume Program, Connections and States were kept
-      nextState = initState;
+      idleState->didSucceed = true;
     }
     else if (SLEEPTYPE == 2)
     {
-      // Deep Sleep
+      // ESP.deepSleep(30e6);
     }
   }
-
+  /*
   if (SLEEPTYPE == 0) // Simulate Sleep / Idle
   {
-    // Serial.println("Idle");
-    while (!countTime(IDLE_DUR))
-    {
-    }
+    while (!countTime(IDLE_DUR)){}
+    // idleState->didSucceed = true;
   }
-  nextState = initState;
+  */
+
+  // Stay in Idle if Machine cycled once already, do periodic checks for User Actions
+  if(!initState->didSucceed || !connectState->didSucceed || !requestState->didSucceed)
+  {
+    nextState = initState;
+  } 
+  else if(countTime(STATE_MIN_DUR*2))
+    {
+      nextState = requestState;
+    } 
 }
 
 /*
@@ -206,7 +214,6 @@ void on_initState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    sensorsReady = false;
     
     Serial.print("Main State Machine runs on Core: ");
     Serial.println(xPortGetCoreID());
@@ -224,25 +231,11 @@ void on_initState()
     setCpuFrequencyMhz(80); // Clock down, prevent Brownout
   }
 
-  if(countTime(STATE_MIN_DUR))
+  // Wait some before check, but do before minStateTime up
+  if(countTime(initState->minStateTime/2.0f))
   {
-    sensorsReady = pump1.inaReady();
-    sensorsReady = lightSensor2.isReady();
-
-    if(sensorsReady)
-    {
-        selfTrans = 0;
-        nextState = connectState;  
-    }
-    else if(selfTrans < maxSelfTrans)
-    {
-        selfTrans++;
-        nextState = initState;
-    }
-    else
-    {
-        critErrCode = 3;
-    }
+    initState->didSucceed = pump1.inaReady();
+    initState->didSucceed = lightSensor2.isReady();
   }
 }
 
@@ -259,42 +252,17 @@ void on_connectState()
 {
   if (fsm.executeOnce)
   {
-    didConnect = false;
     commonStateLogic();
 
     if (!Services::wifiConnected())
       Services::setupWifi();
 
-    /*
-    // Establish and hold InfluxDB Connection open
-    didConnect = InfluxHelper::checkConnection();
-    if(!didConnect)
-      while (!InfluxHelper::setParameters());
-    */
-   // Set before establishing any Connection to InfluxDB
+    // Set before establishing any Connection to InfluxDB
     if(!InfluxHelper::checkConnection())
       while (!InfluxHelper::setParameters());
      
-    didConnect = InfluxHelper::checkConnection();
-  }
- 
-  if(countTime(STATE_MIN_DUR))
-  {
     // If true then InfluxDB Connection (and ofc Wifi) are established
-    if(didConnect)
-    {
-        selfTrans = 0;
-        nextState = requestState;  
-    }
-    else if(selfTrans < maxSelfTrans)
-    {
-        selfTrans++;
-        nextState = connectState;
-    }
-    else
-    {
-        critErrCode = 3; // CritErr, goto ERROR State
-    }
+    connectState->didSucceed = InfluxHelper::checkConnection();
   }
 }
 
@@ -307,8 +275,9 @@ void on_requestState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    didRequest = Irrigation::requestData();
-    didRequest = Services::readSettings();
+    if(didSleep) // || didPump
+      didRequest = Irrigation::updateData(); // Renew Vector of Irrs
+    didRequest = Services::readSettings(); // Quick Check, Back to Idle
   }
   
   if(countTime(STATE_MIN_DUR))
@@ -317,19 +286,21 @@ void on_requestState()
     {
         selfTrans = 0;
         waitTime = 1;
-        nextState = measureState;
+        if(didSleep) // !idleState->didSucceed
+          nextState = measureState;
+        nextState = idleState;
     }
     else if(selfTrans < maxSelfTrans)
     {     
         selfTrans++;
         // Wait longer than Standard MIN_STATE_DUR
-        while(!countTime(waitTime)); 
+        while(!countTime(waitTime));
         waitTime *= 2; // (Seconds)
         nextState = requestState;
     }
     else
     {
-        critErrCode = 3;
+        critErrCode = 1;
     }
   }
 }
@@ -344,9 +315,17 @@ void on_measureState()
     // WiFi.disconnect();
 #if (DO_MEASURE == 1)
     {
-      doMeasurements();
+      measureState->didSucceed = doMeasurements();
     }
 #endif
+  }
+
+  if(countTime(STATE_MIN_DUR))
+  {
+    if(measureState->didSucceed)
+    {
+      nextState = evaluateState;
+    }
   }
 }
 
@@ -355,25 +334,49 @@ void on_evaluateState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    Irrigation::decidePlants();
+    evaluateState->didSucceed = Irrigation::decidePlants();
   }
+
+  /*
+  if(countTime(STATE_MIN_DUR))
+  {
+    if(didEvaluate)
+    {
+      if(Irrigation::pumpInstructions.size() || Irrigation::irrInstructions.size() > 0)
+      {
+         nextState = actionState;
+      }
+      else
+      {
+        nextState = transmitState;
+      }    
+    }
+    else if(selfTrans < maxSelfTrans)
+    {
+        selfTrans++;
+        nextState = evaluateState;
+    }
+    else
+    {
+        critErrCode = 3;
+    }
+  }
+  */
 }
 
-// Pump, Fan, Heater, ...
-// Linked List of ISubStateMachine Pointers, each Machine runs till DONE State
-// (Same Pump Obj. runs twice with either SolenoidValve 0 or 1 active, 3.2 and 5.6 Seconds)
+/*
+Pump, Fan, Heater, ...
+For each Instruction, run SubStateMachine until it reaches DONE State
+*/
 void on_actionState()
 {
   if (fsm.executeOnce)
   {
-    didActions = false;
     commonStateLogic();
   }
 
 #if (RUN_SUBMACHINES == 1)
   {
-    // Irrigation::printInstructions(Irrigation::instructions);
-
     for (auto &instr : Irrigation::irrInstructions)
     {
       Pump *pump = instr.pump;
@@ -400,9 +403,6 @@ void on_actionState()
 #endif
 }
 
-/*
-
-*/
 void on_transmitState()
 {
   if (fsm.executeOnce)
@@ -412,26 +412,8 @@ void on_transmitState()
     bool didTramsmit;
 
     // Chronology important
-    didTransmit = Irrigation::reportInstructions(Irrigation::pumpInstructions);
-    didTransmit = InfluxHelper::writeBuffer();
-    Irrigation::clearInstructions();
-
-    if (!didTransmit)
-    {
-      if (selfTrans < maxSelfTrans)
-      {
-        selfTrans++;
-        nextState = transmitState;
-      }
-      else
-      {
-        critErrCode = 3;
-      }
-    }
-    else
-    {
-      selfTrans = 0;
-    }
+    transmitState->didSucceed = Irrigation::reportInstructions(Irrigation::pumpInstructions);
+    transmitState->didSucceed = InfluxHelper::writeBuffer();
   }
 }
 
@@ -446,110 +428,43 @@ void on_errorState()
   }
 }
 
-/*
-
-*/
-void checkCriticalErrors()
-{
-  if (critErrCode != 0)
-    // Replaces bugged fsm.transitionTo()
-    nextState = errorState;
-}
-
 // TRANSITION LOGIC
-// IDLE -> INIT
-bool transitionS0S1()
-{
-  if (countTime(STATE_MIN_DUR) && didSleep)
-  {
-    return true;
-  }
-  return false;
-}
-
-// INIT -> PREP
-bool transitionS1S2()
+void transitionToNext()
 {
   if (countTime(STATE_MIN_DUR))
   {
-    return true;
+    uint8_t current = fsm.currentState;
+    uint8_t next = current < fsm.stateList->size() ? current++ : 0;
+    // State *currentState = fsm.stateList->get(current);
+
+    if(currentState->didSucceed)
+    {
+      currentState->selfTrans = 0;
+      waitTime = 1;
+      nextState = fsm.stateList->get(next);
+    }
   }
-  return false;
 }
 
-// PREP-> MEASURE
-bool transitionS2S3()
-{
-  if (countTime(STATE_MIN_DUR) && didConnect)
-  {
-    return true;
-  }
-  return false;
-}
-
-// MEASURE -> EVALUATE
-bool transitionS3S4()
-{
-  // Wait till max Measure time is up || dht11.didMeasure && aht10.didMeasure && ... (Sensors ready before)
-  if (countTime(STATE_MIN_DUR) || climate1.measurementsComplete)
-  {
-    return true;
-  }
-  return false;
-}
-
-// EVALUATE -> TRANSMIT (No Action needed)
-bool transitionS4S6()
-{
-  if (countTime(STATE_MIN_DUR) && Irrigation::didEvaluate && Irrigation::irrInstructions.size() == 0)
-  {
-    return true;
-  }
-  return false;
-}
-
-// EVALUATE -> ACTION (Action Stack not empty)
-bool transitionS4S5()
-{
-  if (countTime(STATE_MIN_DUR) && Irrigation::didEvaluate && Irrigation::irrInstructions.size() > 0)
-  {
-    return true;
-  }
-  return false;
-}
-
-// ACTION -> TRANSMIT (Pop actions until actionStack empty)
-bool transitionS5S6()
-{
-  // min State Duration must be over AND Pump done, Fan done, ...
-  if ((countTime(STATE_MIN_DUR) && didActions) || RUN_SUBMACHINES == 0)
-  {
-    return true;
-  }
-  return false;
-}
-
-// TRANSMIT -> IDLE
-bool transitionS6S0()
+void transitionToSelf()
 {
   if (countTime(STATE_MIN_DUR))
   {
-    return true;
+    // State *currentState = fsm.stateList->get(fsm.currentState);
+    if(currentState->selfTrans < currentState->maxSelfTrans)
+    {
+      currentState->selfTrans++;
+      while(!countTime(waitTime));
+      waitTime *= 2; // sec
+      nextState = currentState;
+    }
+    else
+    {
+      critErrCode = currentState->critErrCode;
+      nextState = errorState;
+    }
   }
-  return false;
 }
-
-/*
-// TRANSMIT -> TRANSMIT
-bool transitionS6S6()
-{
-  if (!didTransmit && transmitionAttempts < 2)
-  {
-    return true;
-  }
-  return false;
-}
-*/
 
 void runStateMachine(void *pvParameters)
 {
@@ -610,15 +525,6 @@ void setup()
   transmitState = fsm.addState(&on_transmitState);
   errorState = fsm.addState(&on_errorState);
 
-  // idleState->addTransition(&transitionS0S1, initState);
-  // initState->addTransition(&transitionS1S2, prepState);
-  // prepState->addTransition(&transitionS2S3, measureState);
-  measureState->addTransition(&transitionS3S4, evaluateState);
-  evaluateState->addTransition(&transitionS4S5, actionState);
-  evaluateState->addTransition(&transitionS4S6, transmitState);
-  actionState->addTransition(&transitionS5S6, transmitState);
-  transmitState->addTransition(&transitionS6S0, idleState);
-
   // https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
   xTaskCreatePinnedToCore(
       runStateMachine, // Function to implement the Task
@@ -629,6 +535,9 @@ void setup()
       &Task2, // Task handle
       0       // Core running the Task
   );
+
+  // Disable Brownout Warnings (Occurs when on Usb...)
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 }
 
 void loop()
@@ -641,7 +550,7 @@ void loop()
 
   ButtonHandler::handleHardwareButtons();
 
-  checkCriticalErrors();
+  // checkCriticalErrors();
 
   // delay(100);
 }

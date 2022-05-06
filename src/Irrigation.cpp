@@ -1,6 +1,5 @@
 #include "Irrigation.h"
 
-bool Irrigation::didEvaluate = false;
 std::vector<Instruction> Irrigation::irrInstructions;
 std::vector<Instruction> Irrigation::pumpInstructions;
 std::vector<WaterPerSolenoid> Irrigation::waterPerSol;
@@ -28,7 +27,7 @@ FluxQueryResult Irrigation::recentIrrigations(uint8_t timePeriod)
 Get all recent Irrigations (in ml) per Solenoid
 Write InfluxDB Cursors to Vecs so waterLimit Evaluation is fast
 */
-bool Irrigation::requestData()
+bool Irrigation::updateData()
 {
     uint8_t timePeriod = 24;
     FluxQueryResult cursor = recentIrrigations(timePeriod);
@@ -76,10 +75,9 @@ bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit, uint8
 Call after processing manual User Irrigations
 Check needs of each Plant in System
 */
-void Irrigation::decidePlants()
+bool Irrigation::decidePlants()
 {
     char message[64];
-    didEvaluate = false;
     uint8_t waterNeeds = 1, lightNeeds = 1, plantSize = 1; // e.g. plantSize 1 = 100-200mm
 
     // Do only 1 Request each
@@ -115,7 +113,7 @@ void Irrigation::decidePlants()
     // Output: createInstructions, same as incoming User Actions
     // [["Thymian", 350], ["Aloe",280]]
     // writeInstructions();
-    didEvaluate = true;
+    return true;
 }
 
 /*

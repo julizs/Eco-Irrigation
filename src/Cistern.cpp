@@ -50,7 +50,7 @@ bool Cistern::setupToF()
     else
     {
         toF_ready = false;
-        critErrCode = 2;
+        critErrCode = 3;
     }
 
     return true;

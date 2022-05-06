@@ -9,6 +9,10 @@
 #include <LinkedList.h>
 #include <ISubStateMachine.h>
 
+// Disable Brownout Warnings
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
+
 #define SLEEPTYPE 0 // No/Light/Modem/... Sleep
 #define DO_MEASURE 1
 #define TRANSMIT_DATA 1

@@ -240,16 +240,21 @@ bool Services::readSettings()
 
   JsonArray irrActions = actions["irrigations"].as<JsonArray>();
   JsonArray pumpActions = actions["pumps"].as<JsonArray>();
-  Irrigation::createInstructions(pumpActions, Irrigation::pumpInstructions);
-  Irrigation::createInstructions(irrActions, Irrigation::irrInstructions);
-  Irrigation::writeInstructions();
-
+  if(pumpActions.size() > 0)
+    Irrigation::createInstructions(pumpActions, Irrigation::pumpInstructions);
+  if(irrActions.size() > 0)
+    Irrigation::createInstructions(irrActions, Irrigation::irrInstructions);
+  if(pumpActions.size() > 0 || irrActions.size() > 0)
+  {
+    Irrigation::clearInstructions();
+    Irrigation::writeInstructions();
+    String emptyDoc = "{}";
+    Services::doPostRequest("/settings/reset", emptyDoc);
+  }
+    
   /*
   JsonArray statusLights = actions["statusLights"].as<JsonArray>();
   StatusDisplay::handleActions(statusLights);
   */
-
-  // Reset MongoDB Doc
-  String emptyDoc = "{}";
-  Services::doPostRequest("/settings/reset", emptyDoc);
+  return true;
   }
