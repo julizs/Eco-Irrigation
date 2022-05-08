@@ -17,6 +17,8 @@ struct WaterPerSolenoid {
 class Utilities
 {
     public:
+        static uint32_t stateBeginMillis;
+
         static uint8_t scanI2CBus(TwoWire *wire);
         static DynamicJsonDocument readDoc(int address, int size);
         static void writeDoc(int address, DynamicJsonDocument &doc, int size);

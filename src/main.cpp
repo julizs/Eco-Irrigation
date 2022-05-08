@@ -14,39 +14,28 @@
 #include <ISubStateMachine.h>
 
 const char baseUrl[] = "https://juli.uber.space/node";
-uint8_t IDLE_DUR = 4;
-uint8_t SLEEP_DUR = 16;
-uint8_t STATE_MIN_DUR = 6;
+uint8_t IDLE_DUR = 4, SLEEP_DUR = 16, STATE_MIN_DUR = 6;
+uint32_t stateBeginMillis = 0;
 
 TaskHandle_t Task1, Task2;
-
-TwoWire I2Cone = TwoWire(0);
-TwoWire I2Ctwo = TwoWire(1);
+TwoWire I2Cone = TwoWire(0), I2Ctwo = TwoWire(1);
 
 AmbientClimate climate1(500, 2);
-AmbientLight lightSensor1(1);
-AmbientLight lightSensor2(2);
+AmbientLight lightSensor1(1), lightSensor2(2);
 StatusDisplay displayController;
 
-// Pumps and associated solenoids/relaisChannels and ToF Sensor never change,
-// only associated Pump Model (if User switches Pumps)
-uint8_t solenoids1[] = {0, 1};
-uint8_t solenoids2[] = {};
-Cistern cistern1(0x51, solenoids1, 300, 53.0f);
-Cistern cistern2(0x52, solenoids2, 450, 42.0f);
-Pump pump1(0, pump_PWM_1, cistern1);
-Pump pump2(1, pump_PWM_2, cistern2);
-
-uint8_t critErrCode = 0;
-const char *critErrMessage[] = {"None", "Final Fail to connect WiFi", "Final Fail to connect to InfluxDB", "Final Fail to setup ToFs"};
+uint8_t solenoids1[] = {0, 1}, solenoids2[] = {}; // Pump/Solenoid/relaisChannels/ToFs are hardwired, User can only change pumpModel
+Cistern cistern1(0x51, solenoids1, 300, 53.0f), cistern2(0x52, solenoids2, 450, 42.0f);
+Pump pump1(0, pump_PWM_1, cistern1), pump2(1, pump_PWM_2, cistern2);
 
 StateMachine fsm = StateMachine();
-State *currentState = nullptr;
-State *nextState = nullptr;
+State *currentState = nullptr, *nextState = nullptr;
 State *idleState, *initState, *connectState, *requestState, *measureState, *evaluateState, *actionState, *transmitState, *errorState;
-const char *stateNames[] = {"IDLE", "INIT", "CONNECT", "REQUEST", "MEASURE", "EVALUATE", "ACTION", "TRANSMIT", "ERROR"};
-uint8_t selfTrans = 0, maxSelfTrans = 3, waitTime = 2;
-uint32_t stateBeginMillis = 0;
+uint8_t critErrCode = 0;
+char *critErrMessage = "";
+// const char *critErrMessage[] = {"None", "Final Fail to connect WiFi", "Final Fail to connect to InfluxDB", "Final Fail to setup ToFs"};
+// const char *stateNames[] = {"IDLE", "INIT", "CONNECT", "REQUEST", "MEASURE", "EVALUATE", "ACTION", "TRANSMIT", "ERROR"};
+String manualTransition = "";
 
 bool countTime(int durationSec)
 {
@@ -144,14 +133,24 @@ bool doMeasurements()
   return true;
 }
 
+/*
+Logic at StateBegin, evaluated only once
+Do Stuff like check Connection/Sensors, transition back to State if needed
+Clock down in CONNECT and TRANSMIT States
+*/
 void commonStateLogic()
 {
   stateBeginMillis = millis();
-  currentState = currentState = fsm.stateList->get(fsm.currentState);
-  currentState->didSucceed = false;
+  Utilities::stateBeginMillis = millis();
+
+  // setCpuFrequencyMhz(currentState->clockSpeed);
+
+  currentState = fsm.stateList->get(fsm.currentState);
+  currentState->didSucceed = false; // "Reset" States
 
   Serial.println();
-  Serial.println(stateNames[fsm.currentState]);
+  // Serial.println(stateNames[fsm.currentState]);
+  Serial.println(currentState->name);
 
   // Safety
   pump1.switchOff();
@@ -161,48 +160,115 @@ void commonStateLogic()
 }
 
 /*
+State Index of manual Transition reached, go Back to Idle
+Evaluate this Transition first, if State has it
+Make as extra Trans so not every State has it
+*/
+void transitionToIdle()
+{
+  if (currentState->didSucceed)
+  {
+    if (manualTransition.equals(currentState->name) && SLEEPTYPE == 0)
+      nextState = idleState;
+  }
+}
+
+/*
+Generalized Transition Funcs, evaluated continously
+Evaluation Order important
+(...When a state has multiple transitions, they are evaluated in the order they were added to the state)
+If manualTransitin == currentStateIndex and didSucceed, go back to Idle
+*/
+void transitionToNext()
+{
+  uint8_t current = fsm.currentState;
+  uint8_t next = current < fsm.stateList->size() ? current+1 : 0;
+
+  if (currentState->didSucceed)
+  {
+    if(!manualTransition.equals(currentState->name))
+    {
+      currentState->selfTrans = 0;
+      nextState = fsm.stateList->get(next);
+    }  
+  }
+}
+
+/*
+Increase waitTime?
+*/
+void transitionToSelf()
+{
+  if (!currentState->didSucceed)
+  {
+    Serial.println("Self Transition");
+    if (currentState->selfTrans < currentState->maxSelfTrans)
+    {
+      currentState->selfTrans++;
+      // while(!Utilities::countTime(currentState->beginTime, currentState->minStateTime*currentState->selfTrans));
+      nextState = currentState;
+    }
+    else
+    {
+      // critErrMessage = currentState->name;
+      nextState = errorState;
+    }
+  }
+}
+
+/*
 https://lastminuteengineers.com/esp32-sleep-modes-power-consumption/
 https://m1cr0lab-esp32.github.io/sleep-modes/
 1 = Low to High, 0 = High to Low. Pin pulled HIGH
 esp_sleep_enable_ext0_wakeup(GPIO_NUM_34, 0);
+
+SLEEPTYPE == 0
+Simulate Sleep/Idle
+Keep on transitioning to Self, no blocking while or countTime needed
+Go to CONNECT,REQUEST State periodically to check if User set manualTransition
 */
 void on_idleState()
 {
   if (fsm.executeOnce)
   {
-    commonStateLogic();  
+    commonStateLogic();
 
     if (SLEEPTYPE == 1) // Light Sleep
     {
       Serial.println("Entering Light Sleep.");
       esp_sleep_enable_timer_wakeup(SLEEP_DUR * 1000 * 1000); // µs
-      delay(100); // Else no Wakeup
+      delay(100);                                             // Else no Wakeup
       esp_light_sleep_start();
-      // Resume Program, Connections and States were kept
-      idleState->didSucceed = true;
+      // Resume Program, Connections and States were kept, go to INIT
+      currentState->didSucceed = true;
     }
     else if (SLEEPTYPE == 2)
     {
       // ESP.deepSleep(30e6);
     }
-  }
-  /*
-  if (SLEEPTYPE == 0) // Simulate Sleep / Idle
-  {
-    while (!countTime(IDLE_DUR)){}
-    // idleState->didSucceed = true;
-  }
-  */
-
-  // Stay in Idle if Machine cycled once already, do periodic checks for User Actions
-  if(!initState->didSucceed || !connectState->didSucceed || !requestState->didSucceed)
-  {
-    nextState = initState;
-  } 
-  else if(countTime(STATE_MIN_DUR*2))
+    else if (SLEEPTYPE == 0)
     {
-      nextState = requestState;
-    } 
+      // User has set manualTransition, stop idling , go to INIT and until manualTransition State
+      // currentState->didSucceed == manualTransition.length() > 0;
+      currentState->didSucceed = true;
+    }
+  }
+
+  if (countTime(currentState->minStateTime))
+  {
+    // Valid on 0 (Beginning), 4, 8, ... 
+    // go to CONNECT,REQUEST, back to IDLE to check User Actions
+    if (currentState->selfTrans > 0 && currentState->selfTrans % 4 == 0)
+    {
+      manualTransition = "REQUEST";
+      nextState = connectState;
+    }
+    else
+    {
+      transitionToSelf();
+      transitionToNext();
+    }    
+  }
 }
 
 /*
@@ -214,7 +280,7 @@ void on_initState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    
+
     Serial.print("Main State Machine runs on Core: ");
     Serial.println(xPortGetCoreID());
 
@@ -227,15 +293,16 @@ void on_initState()
 
     Utilities::scanI2CBus(&I2Cone);
     Utilities::scanI2CBus(&I2Ctwo);
-
-    setCpuFrequencyMhz(80); // Clock down, prevent Brownout
   }
 
-  // Wait some before check, but do before minStateTime up
-  if(countTime(initState->minStateTime/2.0f))
+  // Start checking bool after minStateTime, Give Sensors time to init
+  if (countTime(currentState->minStateTime))
   {
     initState->didSucceed = pump1.inaReady();
     initState->didSucceed = lightSensor2.isReady();
+    // transitionToIdle();
+    transitionToSelf();
+    transitionToNext();
   }
 }
 
@@ -254,15 +321,24 @@ void on_connectState()
   {
     commonStateLogic();
 
-    if (!Services::wifiConnected())
+    setCpuFrequencyMhz(80); // Clock down, prevent Brownout
+
+    while (!Services::wifiConnected())
       Services::setupWifi();
 
     // Set before establishing any Connection to InfluxDB
-    if(!InfluxHelper::checkConnection())
-      while (!InfluxHelper::setParameters());
-     
+    if (!InfluxHelper::checkConnection())
+      while (!InfluxHelper::setParameters())
+        ;
+
     // If true then InfluxDB Connection (and ofc Wifi) are established
     connectState->didSucceed = InfluxHelper::checkConnection();
+  }
+
+  if (countTime(currentState->minStateTime))
+  {
+    transitionToSelf();
+    transitionToNext();
   }
 }
 
@@ -275,33 +351,16 @@ void on_requestState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    if(didSleep) // || didPump
-      didRequest = Irrigation::updateData(); // Renew Vector of Irrs
-    didRequest = Services::readSettings(); // Quick Check, Back to Idle
+    if (!SLEEPTYPE == 0) // update Vector of Irrigations? (Expensive, only Check if real Sleep enabled)
+      requestState->didSucceed = Irrigation::updateData();
+    requestState->didSucceed = Services::readSettings(); // Quick Check
   }
-  
-  if(countTime(STATE_MIN_DUR))
+
+  if (countTime(currentState->minStateTime))
   {
-    if(didRequest)
-    {
-        selfTrans = 0;
-        waitTime = 1;
-        if(didSleep) // !idleState->didSucceed
-          nextState = measureState;
-        nextState = idleState;
-    }
-    else if(selfTrans < maxSelfTrans)
-    {     
-        selfTrans++;
-        // Wait longer than Standard MIN_STATE_DUR
-        while(!countTime(waitTime));
-        waitTime *= 2; // (Seconds)
-        nextState = requestState;
-    }
-    else
-    {
-        critErrCode = 1;
-    }
+    transitionToIdle();
+    // transitionToSelf();
+    // transitionToNext();
   }
 }
 
@@ -320,9 +379,9 @@ void on_measureState()
 #endif
   }
 
-  if(countTime(STATE_MIN_DUR))
+  if (countTime(STATE_MIN_DUR))
   {
-    if(measureState->didSucceed)
+    if (measureState->didSucceed)
     {
       nextState = evaluateState;
     }
@@ -349,7 +408,7 @@ void on_evaluateState()
       else
       {
         nextState = transmitState;
-      }    
+      }
     }
     else if(selfTrans < maxSelfTrans)
     {
@@ -396,7 +455,7 @@ void on_actionState()
       // Leave Vec unmanipulated (for Report)
       if (&instr == &Irrigation::irrInstructions.back())
       {
-        didActions = true;
+        actionState->didSucceed = true;
       }
     }
   }
@@ -408,7 +467,7 @@ void on_transmitState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-   
+
     bool didTramsmit;
 
     // Chronology important
@@ -425,44 +484,6 @@ void on_errorState()
     Serial.println(critErrMessage[critErrCode]);
     delay(2000);
     ESP.restart();
-  }
-}
-
-// TRANSITION LOGIC
-void transitionToNext()
-{
-  if (countTime(STATE_MIN_DUR))
-  {
-    uint8_t current = fsm.currentState;
-    uint8_t next = current < fsm.stateList->size() ? current++ : 0;
-    // State *currentState = fsm.stateList->get(current);
-
-    if(currentState->didSucceed)
-    {
-      currentState->selfTrans = 0;
-      waitTime = 1;
-      nextState = fsm.stateList->get(next);
-    }
-  }
-}
-
-void transitionToSelf()
-{
-  if (countTime(STATE_MIN_DUR))
-  {
-    // State *currentState = fsm.stateList->get(fsm.currentState);
-    if(currentState->selfTrans < currentState->maxSelfTrans)
-    {
-      currentState->selfTrans++;
-      while(!countTime(waitTime));
-      waitTime *= 2; // sec
-      nextState = currentState;
-    }
-    else
-    {
-      critErrCode = currentState->critErrCode;
-      nextState = errorState;
-    }
   }
 }
 
@@ -525,6 +546,16 @@ void setup()
   transmitState = fsm.addState(&on_transmitState);
   errorState = fsm.addState(&on_errorState);
 
+  // Write another Constructor for State?
+  idleState->name = "IDLE";
+  initState->name = "INIT";
+  connectState->name = "CONNECT";
+  requestState->name = "REQUEST";
+  measureState->name = "MEASURE";
+  initState->minStateTime = 6;
+
+  currentState = idleState;
+
   // https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
   xTaskCreatePinnedToCore(
       runStateMachine, // Function to implement the Task
@@ -536,8 +567,11 @@ void setup()
       0       // Core running the Task
   );
 
-  // Disable Brownout Warnings (Occurs when on Usb...)
+  /*
+  Disable Brownout Warnings (Occurs when on Usb...)
+  then instead: ClearCommError failed, Crash
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+  */
 }
 
 void loop()

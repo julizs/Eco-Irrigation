@@ -1,5 +1,7 @@
 #include "Utilities.h"
 
+uint32_t Utilities::stateBeginMillis = 0;
+
 uint8_t Utilities::scanI2CBus(TwoWire *wire)
 {
   char message[64];

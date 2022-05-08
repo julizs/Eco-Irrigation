@@ -50,6 +50,7 @@ bool Cistern::setupToF()
     else
     {
         toF_ready = false;
+        // critErrMessage = "Final fail to setup ToFs.";
         critErrCode = 3;
     }
 

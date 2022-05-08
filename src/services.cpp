@@ -49,16 +49,24 @@ void Services::wifiEventHandler(WiFiEvent_t event)
 void Services::setupWifi()
 {
   long begin = millis();
+
+  Serial.println("Called WiFi Setup");
   // WiFi.softAP(AP_SSID);
   WiFi.mode(WIFI_MODE_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
   // WiFi.onEvent(wifiEventHandler);
+
   Serial.println("Connecting to WiFi...");
   while (!Utilities::countTime(begin, 4));
 
   if (WiFi.status() == WL_CONNECTED)
   {
     Serial.println("Connected to WiFi.");
+    // wifi_power_t power = WIFI_POWER_8_5dBm;
+    WiFi.setTxPower(WIFI_POWER_8_5dBm);
+    Serial.print("Wifi Power: ");
+    Serial.println(WiFi.getTxPower());
     return;
   }
   Serial.println("Could not connect to WiFi.");
@@ -85,6 +93,7 @@ void Services::setupWifiMulti()
 
   if (!wifiMulti.run())
   {
+    // critErrMessage = "Final fail to connect to WiFi.";
     critErrCode = 1;
   }
 }
@@ -230,7 +239,10 @@ bool Services::readSettings()
   // Settings is a Collection with only 1 Document inside [{}]
   JsonArray collection = settings.as<JsonArray>();
   JsonObject doc = collection.getElement(0).as<JsonObject>();
-  JsonObject actions = doc["actions"].as<JsonObject>();
+
+  // e.g. User wants Connection/Sensor Status
+  manualTransition = doc["transitionTo"].as<String>();
+
   /*
   Serial.println(obj["sleepDuration"].as<int>());
   for (JsonPair keyValue : obj) {
@@ -238,6 +250,7 @@ bool Services::readSettings()
   } 
   */
 
+  JsonObject actions = doc["actions"].as<JsonObject>();
   JsonArray irrActions = actions["irrigations"].as<JsonArray>();
   JsonArray pumpActions = actions["pumps"].as<JsonArray>();
   if(pumpActions.size() > 0)
@@ -247,10 +260,11 @@ bool Services::readSettings()
   if(pumpActions.size() > 0 || irrActions.size() > 0)
   {
     Irrigation::clearInstructions();
-    Irrigation::writeInstructions();
-    String emptyDoc = "{}";
-    Services::doPostRequest("/settings/reset", emptyDoc);
+    Irrigation::writeInstructions();  
   }
+
+  String emptyDoc = "{}";
+  Services::doPostRequest("/settings/reset", emptyDoc);
     
   /*
   JsonArray statusLights = actions["statusLights"].as<JsonArray>();
