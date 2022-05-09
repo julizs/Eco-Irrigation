@@ -50,7 +50,6 @@ void Services::setupWifi()
 {
   long begin = millis();
 
-  Serial.println("Called WiFi Setup");
   // WiFi.softAP(AP_SSID);
   WiFi.mode(WIFI_MODE_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -63,8 +62,9 @@ void Services::setupWifi()
   if (WiFi.status() == WL_CONNECTED)
   {
     Serial.println("Connected to WiFi.");
+    // https://forum.arduino.cc/t/unable-to-change-esp32-s2-power/857338
     // wifi_power_t power = WIFI_POWER_8_5dBm;
-    WiFi.setTxPower(WIFI_POWER_8_5dBm);
+    WiFi.setTxPower(WIFI_POWER_13dBm);
     Serial.print("Wifi Power: ");
     Serial.println(WiFi.getTxPower());
     return;
@@ -240,8 +240,9 @@ bool Services::readSettings()
   JsonArray collection = settings.as<JsonArray>();
   JsonObject doc = collection.getElement(0).as<JsonObject>();
 
-  // e.g. User wants Connection/Sensor Status
-  manualTransition = doc["transitionTo"].as<String>();
+  // if not manually set, see "checkSettings"
+  if(transDestination.isEmpty())
+    transDestination = doc["transitionTo"].as<String>();
 
   /*
   Serial.println(obj["sleepDuration"].as<int>());

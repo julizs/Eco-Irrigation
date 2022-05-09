@@ -35,7 +35,7 @@ uint8_t critErrCode = 0;
 char *critErrMessage = "";
 // const char *critErrMessage[] = {"None", "Final Fail to connect WiFi", "Final Fail to connect to InfluxDB", "Final Fail to setup ToFs"};
 // const char *stateNames[] = {"IDLE", "INIT", "CONNECT", "REQUEST", "MEASURE", "EVALUATE", "ACTION", "TRANSMIT", "ERROR"};
-String manualTransition = "";
+String transDestination = "";
 
 bool countTime(int durationSec)
 {
@@ -146,7 +146,8 @@ void commonStateLogic()
   // setCpuFrequencyMhz(currentState->clockSpeed);
 
   currentState = fsm.stateList->get(fsm.currentState);
-  currentState->didSucceed = false; // "Reset" States
+  currentState->didActivities = false; // "Reset" States
+  currentState->transCount++;
 
   Serial.println();
   // Serial.println(stateNames[fsm.currentState]);
@@ -164,47 +165,54 @@ State Index of manual Transition reached, go Back to Idle
 Evaluate this Transition first, if State has it
 Make as extra Trans so not every State has it
 */
-void transitionToIdle()
+bool transitionToIdle()
 {
-  if (currentState->didSucceed)
+  if (currentState->didActivities)
   {
-    if (manualTransition.equals(currentState->name) && SLEEPTYPE == 0)
+    if (transDestination.equals(currentState->name) && SLEEPTYPE == 0)
+    {
       nextState = idleState;
+      return true;
+    }
   }
+  return false;
 }
 
 /*
 Generalized Transition Funcs, evaluated continously
 Evaluation Order important
+Return true/false, to reliably stop evaluation of next transitions
 (...When a state has multiple transitions, they are evaluated in the order they were added to the state)
 If manualTransitin == currentStateIndex and didSucceed, go back to Idle
 */
-void transitionToNext()
+bool transitionToNext()
 {
   uint8_t current = fsm.currentState;
-  uint8_t next = current < fsm.stateList->size() ? current+1 : 0;
+  // Starts from 0, and dont include last State (errorState), hence -2
+  uint8_t next = current < fsm.stateList->size() -2 ? ++current : 0;
 
-  if (currentState->didSucceed)
+  if (currentState->didActivities)
   {
-    if(!manualTransition.equals(currentState->name))
+    if (!transDestination.equals(currentState->name))
     {
-      currentState->selfTrans = 0;
+      currentState->transCount = 0;
       nextState = fsm.stateList->get(next);
-    }  
+      return true;
+    }
   }
+  return false;
 }
 
 /*
 Increase waitTime?
 */
-void transitionToSelf()
+bool transitionToSelf()
 {
-  if (!currentState->didSucceed)
+  if (!currentState->didActivities)
   {
-    Serial.println("Self Transition");
-    if (currentState->selfTrans < currentState->maxSelfTrans)
+    if (currentState->transCount < currentState->maxSelfTrans)
     {
-      currentState->selfTrans++;
+      // currentState->transCount++;
       // while(!Utilities::countTime(currentState->beginTime, currentState->minStateTime*currentState->selfTrans));
       nextState = currentState;
     }
@@ -213,7 +221,27 @@ void transitionToSelf()
       // critErrMessage = currentState->name;
       nextState = errorState;
     }
+    return true;
   }
+  return false;
+}
+
+/*
+Check Settings / User Actions every n (interval) idle Transitions
+Set transCount to 0, or maxSelfTrans is reached after returning to IDLE, -> ERROR State
+*/
+bool checkSettings()
+{
+  uint8_t interval = 5;
+
+  if (currentState->transCount % interval == 0)
+  {
+    currentState->transCount = 0;
+    transDestination = "REQUEST";
+    nextState = connectState;
+    return true;
+  }
+  return false;
 }
 
 /*
@@ -240,7 +268,7 @@ void on_idleState()
       delay(100);                                             // Else no Wakeup
       esp_light_sleep_start();
       // Resume Program, Connections and States were kept, go to INIT
-      currentState->didSucceed = true;
+      currentState->didActivities = true;
     }
     else if (SLEEPTYPE == 2)
     {
@@ -248,26 +276,25 @@ void on_idleState()
     }
     else if (SLEEPTYPE == 0)
     {
-      // User has set manualTransition, stop idling , go to INIT and until manualTransition State
-      // currentState->didSucceed == manualTransition.length() > 0;
-      currentState->didSucceed = true;
+      // User has set manualTransition, stop idling
+      currentState->didActivities == !transDestination.isEmpty();
     }
   }
 
   if (countTime(currentState->minStateTime))
   {
-    // Valid on 0 (Beginning), 4, 8, ... 
-    // go to CONNECT,REQUEST, back to IDLE to check User Actions
-    if (currentState->selfTrans > 0 && currentState->selfTrans % 4 == 0)
+    // Do whole Cycle once after Bootup
+    if (!initState->didActivities)
     {
-      manualTransition = "REQUEST";
-      nextState = connectState;
+      nextState = initState;
+      return;
     }
-    else
-    {
-      transitionToSelf();
-      transitionToNext();
-    }    
+
+    if (checkSettings())
+      return;
+    if (transitionToSelf())
+      return;
+    transitionToNext();
   }
 }
 
@@ -298,10 +325,13 @@ void on_initState()
   // Start checking bool after minStateTime, Give Sensors time to init
   if (countTime(currentState->minStateTime))
   {
-    initState->didSucceed = pump1.inaReady();
-    initState->didSucceed = lightSensor2.isReady();
-    // transitionToIdle();
-    transitionToSelf();
+    initState->didActivities = pump1.inaReady();
+    initState->didActivities = lightSensor2.isReady();
+
+    if (transitionToIdle())
+      return;
+    if (transitionToSelf())
+      return;
     transitionToNext();
   }
 }
@@ -321,7 +351,7 @@ void on_connectState()
   {
     commonStateLogic();
 
-    setCpuFrequencyMhz(80); // Clock down, prevent Brownout
+    // setCpuFrequencyMhz(80); // Clock down, prevent Brownout
 
     while (!Services::wifiConnected())
       Services::setupWifi();
@@ -332,12 +362,13 @@ void on_connectState()
         ;
 
     // If true then InfluxDB Connection (and ofc Wifi) are established
-    connectState->didSucceed = InfluxHelper::checkConnection();
+    connectState->didActivities = InfluxHelper::checkConnection();
   }
 
   if (countTime(currentState->minStateTime))
   {
-    transitionToSelf();
+    if (transitionToSelf())
+      return;
     transitionToNext();
   }
 }
@@ -352,15 +383,17 @@ void on_requestState()
   {
     commonStateLogic();
     if (!SLEEPTYPE == 0) // update Vector of Irrigations? (Expensive, only Check if real Sleep enabled)
-      requestState->didSucceed = Irrigation::updateData();
-    requestState->didSucceed = Services::readSettings(); // Quick Check
+      requestState->didActivities = Irrigation::updateData();
+    requestState->didActivities = Services::readSettings(); // Quick Check
   }
 
   if (countTime(currentState->minStateTime))
   {
-    transitionToIdle();
-    // transitionToSelf();
-    // transitionToNext();
+    if (transitionToIdle())
+      return;
+    if (transitionToSelf())
+      return;
+    transitionToNext();
   }
 }
 
@@ -369,22 +402,21 @@ void on_measureState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    setCpuFrequencyMhz(160);
+    // setCpuFrequencyMhz(240);
 
     // WiFi.disconnect();
 #if (DO_MEASURE == 1)
     {
-      measureState->didSucceed = doMeasurements();
+      measureState->didActivities = doMeasurements();
     }
 #endif
   }
 
-  if (countTime(STATE_MIN_DUR))
+  if (countTime(currentState->minStateTime))
   {
-    if (measureState->didSucceed)
-    {
-      nextState = evaluateState;
-    }
+    if (transitionToSelf())
+      return;
+    transitionToNext();
   }
 }
 
@@ -393,34 +425,24 @@ void on_evaluateState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    evaluateState->didSucceed = Irrigation::decidePlants();
+    evaluateState->didActivities = Irrigation::decidePlants();
   }
 
-  /*
-  if(countTime(STATE_MIN_DUR))
+  // "Custom" Transitions
+  if (countTime(currentState->minStateTime))
   {
-    if(didEvaluate)
+    if (currentState->didActivities)
     {
-      if(Irrigation::pumpInstructions.size() || Irrigation::irrInstructions.size() > 0)
+      if(Irrigation::pumpInstructions.size() > 0 || Irrigation::irrInstructions.size() > 0)
       {
-         nextState = actionState;
+        nextState = actionState;
       }
       else
       {
         nextState = transmitState;
-      }
-    }
-    else if(selfTrans < maxSelfTrans)
-    {
-        selfTrans++;
-        nextState = evaluateState;
-    }
-    else
-    {
-        critErrCode = 3;
+      }   
     }
   }
-  */
 }
 
 /*
@@ -455,11 +477,16 @@ void on_actionState()
       // Leave Vec unmanipulated (for Report)
       if (&instr == &Irrigation::irrInstructions.back())
       {
-        actionState->didSucceed = true;
+        actionState->didActivities = true;
       }
     }
   }
 #endif
+
+if (countTime(currentState->minStateTime))
+  {
+    transitionToNext();
+  }
 }
 
 void on_transmitState()
@@ -471,8 +498,15 @@ void on_transmitState()
     bool didTramsmit;
 
     // Chronology important
-    transmitState->didSucceed = Irrigation::reportInstructions(Irrigation::pumpInstructions);
-    transmitState->didSucceed = InfluxHelper::writeBuffer();
+    transmitState->didActivities = Irrigation::reportInstructions(Irrigation::pumpInstructions);
+    transmitState->didActivities = InfluxHelper::writeBuffer();
+  }
+
+  if (countTime(currentState->minStateTime))
+  {
+    if (transitionToSelf())
+      return;
+    transitionToNext();
   }
 }
 
@@ -552,7 +586,12 @@ void setup()
   connectState->name = "CONNECT";
   requestState->name = "REQUEST";
   measureState->name = "MEASURE";
+  evaluateState->name = "EVALUATE";
+  actionState->name = "ACTION";
+  transmitState->name = "TRANSMIT";
+  errorState->name = "ERROR";
   initState->minStateTime = 6;
+  idleState->maxSelfTrans = 6; // 1 + interval (checkSettings)
 
   currentState = idleState;
 

@@ -85,6 +85,8 @@ bool Irrigation::decidePlants()
     Services::doJSONGetRequest("/plants/sensors", plants);
     Services::doJSONGetRequest("/plants/needs", plantNeeds);
 
+    Serial.println("Plant Needs: ");
+
     for (int i = 0; i < plants.size(); i++)
     {
         String plantName = plants[i]["name"];
@@ -103,10 +105,9 @@ bool Irrigation::decidePlants()
                 waterNeeds = plantNeeds[j]["waterNeeds"];
                 lightNeeds = plantNeeds[j]["lightNeeds"];
                 plantSize = plantNeeds[j]["plantSize"];
-            }
-
-            snprintf(message, 64, "%s Needs: Water: %d, Light: %d, Plant Size: %d", name, waterNeeds, lightNeeds, plantSize);
-            Serial.println(message);
+                snprintf(message, 64, "%s: Water: %d, Light: %d, Plant Size: %d", name, waterNeeds, lightNeeds, plantSize);
+                Serial.println(message);
+            }        
         }
     }
 
