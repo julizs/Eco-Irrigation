@@ -127,11 +127,14 @@ void Utilities::printCursor(FluxQueryResult &cursor)
   }
 }
 
+/*
+Use Irrigation::validSolenoid()
 void Utilities::printVector(std::vector<WaterPerSolenoid> &solenoids)
 {
   char message[64];
 
-  Serial.print("Recent Irrigations: ");
+  Serial.println("Recent Irrigations: ");
+
   if (solenoids.size() > 0)
   {
     for (auto const &sol : solenoids)
@@ -142,6 +145,7 @@ void Utilities::printVector(std::vector<WaterPerSolenoid> &solenoids)
     }
   } else { Serial.println("None.");}
 }
+*/
 
 bool Utilities::countTime(long begin, uint8_t duration)
 {

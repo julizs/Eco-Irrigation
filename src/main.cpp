@@ -404,9 +404,13 @@ void on_requestState()
   {
     // User added manual pumpInstr, do it before EVALUATE State
     // (otherwise Evaluation is based on outdated Data)
-    if(Irrigation::irrInstructions.size() > 0)
+    if (Irrigation::instructions.size() > 0)
+    {
+      referralState = currentState;
       nextState = actionState;
-
+      return;
+    }
+      
     if (transitionToIdle())
       return;
     if (transitionToSelf())
@@ -452,7 +456,7 @@ void on_evaluateState()
     // "Custom" Transitions
     if (currentState->didActivities)
     {
-      if (Irrigation::pumpInstructions.size() > 0 || Irrigation::irrInstructions.size() > 0)
+      if (Irrigation::instructions.size() > 0)
       {
         nextState = actionState;
       }
@@ -464,22 +468,6 @@ void on_evaluateState()
   }
 }
 
-void runInstruction(Instruction &instr)
-{
-  Pump *pump = instr.pump;
-  // Set back State to idle so that same Pump can run multiple times
-  pump->resetMachine();
-  // machine->setTime(instr.pumpTime);
-  pump->pumpTime = instr.pumpTime;
-  pump->relaisChannel = instr.solenoidValve;
-  while (!pump->isDone())
-  {
-    pump->loop();
-  }
-
-  // Set ErrorCode for Report
-  instr.errorCode = pump->errorCode;
-}
 /*
 Pump, Fan, Heater, ...
 For each Instruction, run SubStateMachine until it reaches DONE State
@@ -493,17 +481,29 @@ void on_actionState()
 
 #if (RUN_SUBMACHINES == 1)
   {
-    for(auto &instr: Irrigation::pumpInstructions)
-    {
-      runInstruction(instr);
-    }
 
-    for (auto &instr : Irrigation::irrInstructions)
+    for (auto &instr : Irrigation::instructions)
     {
-      runInstruction(instr);
-
-      if (&instr == &Irrigation::irrInstructions.back())
+      Pump *pump = instr.pump;
+      // Set back State to idle so that same Pump can run multiple times
+      pump->resetMachine();
+      // machine->setTime(instr.pumpTime);
+      pump->pumpTime = instr.pumpTime;
+      pump->relaisChannel = instr.solenoidValve;
+      while (!pump->isDone())
       {
+        pump->loop();
+      }
+
+      // Set ErrorCode for Report
+      instr.errorCode = pump->errorCode;
+
+      if (&instr == &Irrigation::instructions.back())
+      {
+        // create/write/run manual Instr, write Reports, clear Vec, return to EVALUATE, then
+        // decidePlants (based on new Data), create/write automatic Instructions
+        transmitState->didActivities = Irrigation::reportInstructions(Irrigation::instructions);
+        Irrigation::clearInstructions();
         actionState->didActivities = true;
       }
     }
@@ -512,6 +512,13 @@ void on_actionState()
 
   if (countTime(currentState->minStateTime))
   {
+    // Go back to EVALUATE if instructions were manual
+    if(referralState == requestState)
+    {
+      nextState = evaluateState;
+      return;
+    }   
+
     transitionToNext();
   }
 }
@@ -525,7 +532,7 @@ void on_transmitState()
     bool didTramsmit;
 
     // Write reports before clearing Buffer!
-    transmitState->didActivities = Irrigation::reportInstructions(Irrigation::pumpInstructions);
+    // transmitState->didActivities = Irrigation::reportInstructions(Irrigation::instructions);
     transmitState->didActivities = InfluxHelper::writeBuffer();
   }
 

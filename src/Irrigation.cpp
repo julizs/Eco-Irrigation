@@ -1,7 +1,6 @@
 #include "Irrigation.h"
 
-std::vector<Instruction> Irrigation::irrInstructions;
-std::vector<Instruction> Irrigation::pumpInstructions;
+std::vector<Instruction> Irrigation::instructions;
 std::vector<WaterPerSolenoid> Irrigation::waterPerSol;
 
 /*
@@ -15,7 +14,7 @@ FluxQueryResult Irrigation::recentIrrigations(uint8_t timePeriod)
                          "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"allocatedWater\")"
                          "|> sum()",
              timePeriod);
-    
+
     FluxQueryResult cursor = InfluxHelper::doQuery(query);
     // Serial.println(query);
     // Utilities::printCursor(cursor);
@@ -41,7 +40,7 @@ bool Irrigation::updateData()
     while (!Utilities::cursorToVec(cursor, waterPerSol, timePeriod))
         ;
 
-    Utilities::printVector(waterPerSol);
+    // Utilities::printVector(waterPerSol);
 
     return true;
 }
@@ -50,15 +49,16 @@ bool Irrigation::updateData()
 Gets called by Irrigation Algo and at each Button Press
 TODO check per Pump (multiple solenoidValves, Addition)
 */
-bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit, uint8_t timePeriod)
+bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit, u16_t allocatedWater, uint8_t timePeriod)
 {
-    char message[64];
+    char message[128];
 
     for (auto const &s : waterPerSol)
     {
         if (s.solenoidValve == solenoidValve && s.timePeriod == timePeriod)
         {
-            snprintf(message, 64, "Solenoid Valve: %d, Water Amount: %d, Water Limit: %d", solenoidValve, s.waterAmount, waterLimit);
+            snprintf(message, 128, "Solenoid Valve: %d, Water Amount: %dml, Water Limit: %dml, Time Period: %dh, Valid: %s", 
+            solenoidValve, s.waterAmount, waterLimit, timePeriod, ((s.waterAmount + allocatedWater) < waterLimit ? "true" : "false"));
             Serial.println(message);
 
             if (s.waterAmount > waterLimit)
@@ -92,10 +92,13 @@ bool Irrigation::decidePlants()
         String plantName = plants[i]["name"];
         int solenoidValve = plants[i]["solenoidValve"].as<int>();
 
+        /*
+        At this point unclear if validSolenoid, since allocatedWater not known
         if (!validSolenoid(solenoidValve, waterLimit24h, 24)) // Efficient Check
         {
             continue; // skip Plant
         }
+        */
 
         for (int j = 0; j < plantNeeds.size(); j++)
         {
@@ -107,7 +110,7 @@ bool Irrigation::decidePlants()
                 plantSize = plantNeeds[j]["plantSize"];
                 snprintf(message, 64, "%s: Water: %d, Light: %d, Plant Size: %d", name, waterNeeds, lightNeeds, plantSize);
                 Serial.println(message);
-            }        
+            }
         }
     }
 
@@ -146,6 +149,7 @@ void Irrigation::createInstructions(JsonArray &actions, std::vector<Instruction>
 /*
 Write all neccessary Infos for an Irrigation into Instr
 Do Requests only once
+Manual Irrigations are reduced too
 */
 void Irrigation::writeInstructions()
 {
@@ -153,23 +157,24 @@ void Irrigation::writeInstructions()
     Services::doJSONGetRequest("/plants/sensors", plants);
     Services::doJSONGetRequest("/pumps/json", pumps);
 
-    for (auto &instr : pumpInstructions)
+    for (auto &instr : instructions)
     {
         JsonObject pumpModel = pumpModelByName(pumps, instr.reason);
-        solenoidByPump(instr, pumpModel);
-        setPumpTime(instr, pumpModel);
+        if (!pumpModel.isNull()) // instr.reason: a pump
+        {
+            solenoidByPump(instr, pumpModel);
+            setPumpTime(instr, pumpModel);
+        }
+        else // instr.reason: a plant
+        {
+            solenoidByPlant(instr, plants);
+            JsonObject pumpModel = pumpModelBySolenoid(pumps, instr.solenoidValve);
+            setPumpTime(instr, pumpModel);
+        }
     }
 
-    for (auto &instr : irrInstructions)
-    {
-        solenoidByPlant(instr, plants);
-        JsonObject pumpModel = pumpModelBySolenoid(pumps, instr.solenoidValve);
-        setPumpTime(instr, pumpModel);
-    }
-
-    reduceInstructions(irrInstructions);
-    printInstructions(pumpInstructions);
-    printInstructions(irrInstructions);
+    reduceInstructions(instructions);
+    printInstructions(instructions);
 }
 
 /*
@@ -190,7 +195,7 @@ int8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &plan
 
         if (plantName.equals(instr.reason))
         {
-            if (validSolenoid(solenoid, waterLimit24h, 24))
+            if (validSolenoid(solenoid, waterLimit24h, instr.allocatedWater, 24))
             {
                 solenoid = plants[i]["solenoidValve"].as<int>();
                 errorCode = 0;
@@ -226,7 +231,7 @@ int8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject &pumpModel)
         {
             for (auto sol : solenoidValves)
             {
-                if (validSolenoid(sol, waterLimit24h, 24))
+                if (validSolenoid(sol, waterLimit24h, instr.allocatedWater, 24))
                 {
                     solenoid = sol;
                     errorCode = 0;
@@ -395,8 +400,7 @@ Call after reportInstructions
 */
 void Irrigation::clearInstructions()
 {
-    irrInstructions.clear();
-    pumpInstructions.clear();
+    instructions.clear();
 }
 
 /*

@@ -251,14 +251,13 @@ bool Services::readSettings()
   } 
   */
 
-  Irrigation::clearInstructions();
   JsonObject actions = doc["actions"].as<JsonObject>();
   JsonArray irrActions = actions["irrigations"].as<JsonArray>();
   JsonArray pumpActions = actions["pumps"].as<JsonArray>();
   if(pumpActions.size() > 0)
-    Irrigation::createInstructions(pumpActions, Irrigation::pumpInstructions);
+    Irrigation::createInstructions(pumpActions, Irrigation::instructions);
   if(irrActions.size() > 0)
-    Irrigation::createInstructions(irrActions, Irrigation::irrInstructions);
+    Irrigation::createInstructions(irrActions, Irrigation::instructions);
   if(pumpActions.size() > 0 || irrActions.size() > 0)
   {
     Irrigation::writeInstructions();  
