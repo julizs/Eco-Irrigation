@@ -178,7 +178,6 @@ Make as extra Trans so not every State has it
 */
 bool transitionToIdle()
 {
-  printDestinations();
   if (currentState->didActivities)
   {
     if (transDestinations.get(0).equals(currentState->name) && SLEEPTYPE == 0)
@@ -374,6 +373,9 @@ void on_connectState()
 
     // If true then InfluxDB Connection (and ofc Wifi) are established
     connectState->didActivities = InfluxHelper::checkConnection();
+
+    // Connect to SensorBox
+    // connectState->didActivities = connectToBox();
   }
 
   if (countTime(currentState->minStateTime))
@@ -387,19 +389,24 @@ void on_connectState()
 /*
 readSettings: "Passive" Button Handling, do AFTER Influx checkConnection or ssl -1
 countTime(STATE_MIN_DUR) && didRequest ? nextState = measureState : nextState = requestState;
+InfluxDB Connection is held open, probably not many recent Irrigations -> updateData not so expensive
 */
 void on_requestState()
 {
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    if (!SLEEPTYPE == 0) // update Vector of Irrigations? (Expensive, only Check if real Sleep enabled)
-      requestState->didActivities = Irrigation::updateData();
-    requestState->didActivities = Services::readSettings(); // Quick Check
+    requestState->didActivities = Irrigation::updateData();
+    requestState->didActivities = Services::readSettings();
   }
 
   if (countTime(currentState->minStateTime))
   {
+    // User added manual pumpInstr, do it before EVALUATE State
+    // (otherwise Evaluation is based on outdated Data)
+    if(Irrigation::irrInstructions.size() > 0)
+      nextState = actionState;
+
     if (transitionToIdle())
       return;
     if (transitionToSelf())
@@ -457,6 +464,22 @@ void on_evaluateState()
   }
 }
 
+void runInstruction(Instruction &instr)
+{
+  Pump *pump = instr.pump;
+  // Set back State to idle so that same Pump can run multiple times
+  pump->resetMachine();
+  // machine->setTime(instr.pumpTime);
+  pump->pumpTime = instr.pumpTime;
+  pump->relaisChannel = instr.solenoidValve;
+  while (!pump->isDone())
+  {
+    pump->loop();
+  }
+
+  // Set ErrorCode for Report
+  instr.errorCode = pump->errorCode;
+}
 /*
 Pump, Fan, Heater, ...
 For each Instruction, run SubStateMachine until it reaches DONE State
@@ -470,23 +493,15 @@ void on_actionState()
 
 #if (RUN_SUBMACHINES == 1)
   {
+    for(auto &instr: Irrigation::pumpInstructions)
+    {
+      runInstruction(instr);
+    }
+
     for (auto &instr : Irrigation::irrInstructions)
     {
-      Pump *pump = instr.pump;
-      // Set back State to idle so that same Pump can run multiple times
-      pump->resetMachine();
-      // machine->setTime(instr.pumpTime);
-      pump->pumpTime = instr.pumpTime;
-      pump->relaisChannel = instr.solenoidValve;
-      while (!pump->isDone())
-      {
-        pump->loop();
-      }
+      runInstruction(instr);
 
-      // Set ErrorCode for Report
-      instr.errorCode = pump->errorCode;
-
-      // Leave Vec unmanipulated (for Report)
       if (&instr == &Irrigation::irrInstructions.back())
       {
         actionState->didActivities = true;

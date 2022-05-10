@@ -251,6 +251,7 @@ bool Services::readSettings()
   } 
   */
 
+  Irrigation::clearInstructions();
   JsonObject actions = doc["actions"].as<JsonObject>();
   JsonArray irrActions = actions["irrigations"].as<JsonArray>();
   JsonArray pumpActions = actions["pumps"].as<JsonArray>();
@@ -260,7 +261,6 @@ bool Services::readSettings()
     Irrigation::createInstructions(irrActions, Irrigation::irrInstructions);
   if(pumpActions.size() > 0 || irrActions.size() > 0)
   {
-    Irrigation::clearInstructions();
     Irrigation::writeInstructions();  
   }
 

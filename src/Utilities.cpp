@@ -101,7 +101,7 @@ bool Utilities::cursorToVec(FluxQueryResult &cursor, std::vector<WaterPerSolenoi
       Serial.println(cursor.getError());
     }
   }
-  Serial.println("Wrote FluxCursor to Vector.");
+  // Serial.println("Wrote FluxCursor to Vector.");
   cursor.close();
 
   return true;
