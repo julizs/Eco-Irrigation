@@ -29,17 +29,28 @@ Cistern cistern1(0x51, solenoids1, 300, 53.0f), cistern2(0x52, solenoids2, 450, 
 Pump pump1(0, pump_PWM_1, cistern1), pump2(1, pump_PWM_2, cistern2);
 
 StateMachine fsm = StateMachine();
-State *currentState = nullptr, *nextState = nullptr;
+State *currentState = nullptr, *nextState = nullptr, *referralState = nullptr;
 State *idleState, *initState, *connectState, *requestState, *measureState, *evaluateState, *actionState, *transmitState, *errorState;
 uint8_t critErrCode = 0;
 char *critErrMessage = "";
 // const char *critErrMessage[] = {"None", "Final Fail to connect WiFi", "Final Fail to connect to InfluxDB", "Final Fail to setup ToFs"};
 // const char *stateNames[] = {"IDLE", "INIT", "CONNECT", "REQUEST", "MEASURE", "EVALUATE", "ACTION", "TRANSMIT", "ERROR"};
-String transDestination = "";
+LinkedList<String> transDestinations = LinkedList<String>(); // "Eingabewörter"
 
 bool countTime(int durationSec)
 {
   return (millis() - stateBeginMillis >= durationSec * 1000UL);
+}
+
+void printDestinations()
+{
+  Serial.print("Manual Transitions List: ");
+  for (int i = 0; i < transDestinations.size(); i++)
+  {
+    Serial.print(transDestinations.get(i));
+    Serial.print(" ");
+  }
+  Serial.println();
 }
 
 // Always setup both Sensors at once
@@ -167,10 +178,12 @@ Make as extra Trans so not every State has it
 */
 bool transitionToIdle()
 {
+  printDestinations();
   if (currentState->didActivities)
   {
-    if (transDestination.equals(currentState->name) && SLEEPTYPE == 0)
+    if (transDestinations.get(0).equals(currentState->name) && SLEEPTYPE == 0)
     {
+      transDestinations.remove(0);
       nextState = idleState;
       return true;
     }
@@ -189,11 +202,11 @@ bool transitionToNext()
 {
   uint8_t current = fsm.currentState;
   // Starts from 0, and dont include last State (errorState), hence -2
-  uint8_t next = current < fsm.stateList->size() -2 ? ++current : 0;
+  uint8_t next = current < fsm.stateList->size() - 2 ? ++current : 0;
 
   if (currentState->didActivities)
   {
-    if (!transDestination.equals(currentState->name))
+    if (!transDestinations.get(0).equals(currentState->name))
     {
       currentState->transCount = 0;
       nextState = fsm.stateList->get(next);
@@ -237,7 +250,8 @@ bool checkSettings()
   if (currentState->transCount % interval == 0)
   {
     currentState->transCount = 0;
-    transDestination = "REQUEST";
+    transDestinations.add(0, "REQUEST");
+    referralState = currentState;
     nextState = connectState;
     return true;
   }
@@ -277,7 +291,7 @@ void on_idleState()
     else if (SLEEPTYPE == 0)
     {
       // User has set manualTransition, stop idling
-      currentState->didActivities == !transDestination.isEmpty();
+      currentState->didActivities = transDestinations.size() > 0;
     }
   }
 
@@ -289,7 +303,6 @@ void on_idleState()
       nextState = initState;
       return;
     }
-
     if (checkSettings())
       return;
     if (transitionToSelf())
@@ -322,12 +335,11 @@ void on_initState()
     Utilities::scanI2CBus(&I2Ctwo);
   }
 
-  // Start checking bool after minStateTime, Give Sensors time to init
   if (countTime(currentState->minStateTime))
   {
+    // Start checking bool after minStateTime, Give Sensors time to init
     initState->didActivities = pump1.inaReady();
     initState->didActivities = lightSensor2.isReady();
-
     if (transitionToIdle())
       return;
     if (transitionToSelf())
@@ -344,6 +356,7 @@ Services::doPostRequest("/commands/ip");
 Services::startRestServer();
 Influx Params must be set before sending Data to InfluxDB, or
 Buffer Settings etc. won't be applied
+Don't set Params if Conn already exsists
 */
 void on_connectState()
 {
@@ -351,15 +364,13 @@ void on_connectState()
   {
     commonStateLogic();
 
-    // setCpuFrequencyMhz(80); // Clock down, prevent Brownout
-
     while (!Services::wifiConnected())
       Services::setupWifi();
 
     // Set before establishing any Connection to InfluxDB
-    if (!InfluxHelper::checkConnection())
-      while (!InfluxHelper::setParameters())
-        ;
+
+    while (!InfluxHelper::setParameters())
+      ;
 
     // If true then InfluxDB Connection (and ofc Wifi) are established
     connectState->didActivities = InfluxHelper::checkConnection();
@@ -402,7 +413,6 @@ void on_measureState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    // setCpuFrequencyMhz(240);
 
     // WiFi.disconnect();
 #if (DO_MEASURE == 1)
@@ -414,6 +424,8 @@ void on_measureState()
 
   if (countTime(currentState->minStateTime))
   {
+    if (transitionToIdle())
+      return;
     if (transitionToSelf())
       return;
     transitionToNext();
@@ -428,19 +440,19 @@ void on_evaluateState()
     evaluateState->didActivities = Irrigation::decidePlants();
   }
 
-  // "Custom" Transitions
   if (countTime(currentState->minStateTime))
   {
+    // "Custom" Transitions
     if (currentState->didActivities)
     {
-      if(Irrigation::pumpInstructions.size() > 0 || Irrigation::irrInstructions.size() > 0)
+      if (Irrigation::pumpInstructions.size() > 0 || Irrigation::irrInstructions.size() > 0)
       {
         nextState = actionState;
       }
       else
       {
         nextState = transmitState;
-      }   
+      }
     }
   }
 }
@@ -483,7 +495,7 @@ void on_actionState()
   }
 #endif
 
-if (countTime(currentState->minStateTime))
+  if (countTime(currentState->minStateTime))
   {
     transitionToNext();
   }
@@ -497,7 +509,7 @@ void on_transmitState()
 
     bool didTramsmit;
 
-    // Chronology important
+    // Write reports before clearing Buffer!
     transmitState->didActivities = Irrigation::reportInstructions(Irrigation::pumpInstructions);
     transmitState->didActivities = InfluxHelper::writeBuffer();
   }
@@ -516,7 +528,8 @@ void on_errorState()
   {
     commonStateLogic();
     Serial.println(critErrMessage[critErrCode]);
-    delay(2000);
+    while (!countTime(currentState->minStateTime))
+      ;
     ESP.restart();
   }
 }
@@ -592,6 +605,22 @@ void setup()
   errorState->name = "ERROR";
   initState->minStateTime = 6;
   idleState->maxSelfTrans = 6; // 1 + interval (checkSettings)
+
+  /*
+  // States added like this always get evaluated first
+  // Additional Transitions directly defined in on_idle etc. get evaluated last -> problematic
+  idleState->addTransition(&checkSettings, connectState);
+  for(int i = 0; i < fsm.stateList->size(); i++)
+  {
+    if(i < 3)
+    {
+      State *cState = fsm.stateList->get(i);
+      State *nState = fsm.stateList->get(i+1);
+      fsm.stateList->get(i)->addTransition(&transitionToSelf, cState);
+      fsm.stateList->get(i)->addTransition(&transitionToNext, nState);
+    }
+  }
+  */
 
   currentState = idleState;
 

@@ -240,9 +240,9 @@ bool Services::readSettings()
   JsonArray collection = settings.as<JsonArray>();
   JsonObject doc = collection.getElement(0).as<JsonObject>();
 
-  // if not manually set, see "checkSettings"
-  if(transDestination.isEmpty())
-    transDestination = doc["transitionTo"].as<String>();
+  String transDestination = doc["transitionTo"].as<String>();
+  if(!transDestination.isEmpty())
+    transDestinations.add(transDestination);
 
   /*
   Serial.println(obj["sleepDuration"].as<int>());

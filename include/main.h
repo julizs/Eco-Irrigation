@@ -19,7 +19,7 @@
 #define REQUEST_DATA 1
 #define RUN_SUBMACHINES 1
 extern uint8_t SLEEP_DUR, IDLE_DUR, STATE_MIN_DUR;
-extern String transDestination;
+extern LinkedList<String> transDestinations;
 
 extern TwoWire I2Cone, I2Ctwo;
 extern LinkedList<ISubStateMachine*> actions;

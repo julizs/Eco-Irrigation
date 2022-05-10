@@ -23,13 +23,16 @@ Flush manually in TRANSMIT State
 */
 bool InfluxHelper::setParameters()
 {
-  timeSync(TZ_INFO, "pool.ntp.org", "0.de.pool.ntp.org"); // time.nis.gov
+  if(!client.validateConnection())
+  {
+    timeSync(TZ_INFO, "pool.ntp.org", "0.de.pool.ntp.org"); // time.nis.gov
   // Must be done AFTER timeSync
   client.setConnectionParams(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
   client.setWriteOptions(WriteOptions().writePrecision(WritePrecision::MS).batchSize(64).bufferSize(128).retryInterval(5).maxRetryAttempts(10).flushInterval(180));
   client.setHTTPOptions(HTTPOptions().httpReadTimeout(10000).connectionReuse(true));
   Serial.println("Did Set Influx Options.");
   return true;
+  } 
 }
 
 bool InfluxHelper::checkConnection()
