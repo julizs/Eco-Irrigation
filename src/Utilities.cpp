@@ -68,7 +68,7 @@ so do not include "failed Irrigations" / Reports with invalid Solenoids (-1)
 */
 bool Utilities::cursorToVec(FluxQueryResult &cursor, std::vector<WaterPerSolenoid> &solenoids, uint8_t timePeriod)
 {
-  int solenoidValve; // -1 if not valid
+  int solenoidValve; // -1 if invalid
   uint16_t waterAmount;
 
   while (cursor.next())
@@ -127,9 +127,7 @@ void Utilities::printCursor(FluxQueryResult &cursor)
   }
 }
 
-/*
-Use Irrigation::validSolenoid()
-void Utilities::printVector(std::vector<WaterPerSolenoid> &solenoids)
+void Utilities::printSolenoids(std::vector<WaterPerSolenoid> &solenoids)
 {
   char message[64];
 
@@ -145,7 +143,6 @@ void Utilities::printVector(std::vector<WaterPerSolenoid> &solenoids)
     }
   } else { Serial.println("None.");}
 }
-*/
 
 bool Utilities::countTime(long begin, uint8_t duration)
 {

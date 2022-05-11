@@ -28,8 +28,9 @@ class Pump : public ISubStateMachine
 public:
     PumpState currentState, lastState;
     char const *stateNames[4] = {"PUMP_IDLE", "PUMP_ON", "PUMP_DONE", "PUMP_ABORT"};
-    char const *errors[5] = {"None", "ToF Setup failed.", "Too many recent Irrgations.",
-                             "Water not sufficient.", "Irrigation cancelled by User."};
+    char const *errors[6] = {"None", "ToF Setup failed.", "Too many recent Irrgations.",
+                             "Water not sufficient.", "Irrigation cancelled by User.",
+                             "Invalid SolenoidValve"};
     unsigned short errorCode, minStateDuration;
     unsigned long stateBeginMillis;
 
@@ -37,7 +38,7 @@ public:
     DynamicJsonDocument pumpModel;
 
     // Set by Irrigation Algo
-    uint8_t relaisChannel;
+    int8_t relaisChannel;
     float pumpTime;
 
     int pwmPin, pwmChannel, frequency, resolution, dutyCycle;

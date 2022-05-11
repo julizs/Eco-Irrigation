@@ -25,7 +25,7 @@ class Utilities
         static bool countTime(long begin, uint8_t duration);
         static bool cursorToVec(FluxQueryResult &cursor, std::vector<WaterPerSolenoid> &vec, uint8_t timePeriod);
         static void printCursor(FluxQueryResult &cursor);
-        static void printVector(std::vector<WaterPerSolenoid> &solenoids);
+        static void printSolenoids(std::vector<WaterPerSolenoid> &solenoids);
 };
 
 #endif // Utilities_h

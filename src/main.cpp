@@ -389,14 +389,14 @@ void on_connectState()
 /*
 readSettings: "Passive" Button Handling, do AFTER Influx checkConnection or ssl -1
 countTime(STATE_MIN_DUR) && didRequest ? nextState = measureState : nextState = requestState;
-InfluxDB Connection is held open, probably not many recent Irrigations -> updateData not so expensive
+InfluxDB Connection is held open, probably not many recent Irrigations -> updateRecentIrrigations not so expensive
 */
 void on_requestState()
 {
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    requestState->didActivities = Irrigation::updateData();
+    requestState->didActivities = Irrigation::updateRecentIrrigations();
     requestState->didActivities = Services::readSettings();
   }
 

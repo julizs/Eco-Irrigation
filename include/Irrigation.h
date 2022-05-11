@@ -33,7 +33,7 @@ public:
     static const uint16_t waterLimit2h = 500, waterLimit24h = 1000;
     static constexpr float pumpTimeLimit = 10.0f;  
     static std::vector<Instruction> instructions;
-    static std::vector<WaterPerSolenoid> waterPerSol;
+    static std::vector<WaterPerSolenoid> recentIrrigations;
     // static FluxQueryResult waterPerSol;
 
     static bool decidePlants();
@@ -47,14 +47,17 @@ public:
 
     static void reduceInstructions(std::vector<Instruction> &instructions);
     static void sortInstructions(std::vector<Instruction> &instructions);
+    static bool compareBySolenoid(const Instruction &i1, const Instruction &i2);
+
     static void printInstructions(std::vector<Instruction> &instructions);
     static bool reportInstructions(std::vector<Instruction> &instructions);
     static bool reportToMongo(std::vector<Instruction> &instructions);
     static void clearInstructions();
-    static bool compareBySolenoid(const Instruction &a, const Instruction &b);
-    static FluxQueryResult recentIrrigations(uint8_t timePeriod);
+    
+    static bool updateRecentIrrigations();
+    static FluxQueryResult querySolenoids(uint8_t timePeriod);
+    static uint16_t waterPerSolenoid(uint8_t solenoidValve, uint8_t timePeriod);
     static bool validSolenoid(uint8_t solenoidValve, uint16_t waterLimit, u16_t allocatedWater, uint8_t timePeriod);
-    static bool updateData();
     
 };
 #endif // Irrigation_h

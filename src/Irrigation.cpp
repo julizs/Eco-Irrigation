@@ -1,13 +1,13 @@
 #include "Irrigation.h"
 
 std::vector<Instruction> Irrigation::instructions;
-std::vector<WaterPerSolenoid> Irrigation::waterPerSol;
+std::vector<WaterPerSolenoid> Irrigation::recentIrrigations; // waterDistribution
 
 /*
 Query is done only once for ALL Solenoids in System, per timePeriod
-Check Query in Powershell/Console, "influx query"
+Doublecheck Query in Powershell/Console, "influx query" ...
 */
-FluxQueryResult Irrigation::recentIrrigations(uint8_t timePeriod)
+FluxQueryResult Irrigation::querySolenoids(uint8_t timePeriod)
 {
     char query[256] = "";
     snprintf(query, 256, "from (bucket: \"messdaten\")|> range(start: -%dh)"
@@ -23,64 +23,70 @@ FluxQueryResult Irrigation::recentIrrigations(uint8_t timePeriod)
 }
 
 /*
-Get all recent Irrigations (in ml) per Solenoid
-Write InfluxDB Cursors to Vecs so waterLimit Evaluation is fast
+Get all recent Irrigations (in ml) per Solenoid (2 hours, 2 days, 1 week)
+Write InfluxDB Cursors to Vecs
 */
-bool Irrigation::updateData()
+bool Irrigation::updateRecentIrrigations()
 {
-    uint8_t timePeriod = 24;
-    FluxQueryResult cursor = recentIrrigations(timePeriod);
+    uint8_t timePeriods[] = {2, 48, 168};
+    for (int i = 0; i < 3; i++)
+    {
+        FluxQueryResult cursor = querySolenoids(timePeriods[i]);
+        while (!Utilities::cursorToVec(cursor, recentIrrigations, timePeriods[i]))
+            ;
+    }
 
-    while (!Utilities::cursorToVec(cursor, waterPerSol, timePeriod))
-        ;
-
-    timePeriod = 48;
-    cursor = recentIrrigations(timePeriod);
-
-    while (!Utilities::cursorToVec(cursor, waterPerSol, timePeriod))
-        ;
-
-    // Utilities::printVector(waterPerSol);
+    Utilities::printSolenoids(recentIrrigations);
 
     return true;
 }
 
 /*
-Gets called by Irrigation Algo and at each Button Press
-TODO check per Pump (multiple solenoidValves, Addition)
+Needed for Irrigation Algo
+*/
+uint16_t Irrigation::waterPerSolenoid(uint8_t solenoidValve, uint8_t timePeriod)
+{
+    uint16_t waterAmount = 0;
+
+    for (auto const &sol : recentIrrigations)
+    {
+        if (sol.solenoidValve == solenoidValve && sol.timePeriod == timePeriod)
+        {
+            waterAmount = sol.waterAmount;
+        }
+    }
+    return waterAmount;
+}
+
+/*
+Needed for Evaluation (Manual Irr and Irr Algo)
+TODO valid Pump (has min. 1 valid Solenoid?)
+Outcome = solenoid still under waterLimit after Irrigation?
 */
 bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit, u16_t allocatedWater, uint8_t timePeriod)
 {
     char message[128];
 
-    for (auto const &s : waterPerSol)
-    {
-        if (s.solenoidValve == solenoidValve && s.timePeriod == timePeriod)
-        {
-            snprintf(message, 128, "Solenoid Valve: %d, Water Amount: %dml, Water Limit: %dml, Time Period: %dh, Valid: %s", 
-            solenoidValve, s.waterAmount, waterLimit, timePeriod, ((s.waterAmount + allocatedWater) < waterLimit ? "true" : "false"));
-            Serial.println(message);
+    uint16_t waterAmount = waterPerSolenoid(solenoidValve, timePeriod);
+    uint16_t outcome = waterAmount + allocatedWater;
 
-            if (s.waterAmount > waterLimit)
-            {
-                return false;
-            }
-        }
-    }
-    // No entry in Vec/InfluxDB or lower than Limit
-    return true;
+    snprintf(message, 128, "Solenoid Valve: %d, Water Amount: %dml, Time Period: %dh, Valid: %s",
+    solenoidValve, waterAmount, timePeriod, outcome < waterLimit ? "true" : "false"); Serial.println(message);
+
+    return outcome > waterLimit;
 }
 
 /*
+Part of Evaluate Plants / Happiness?
 Call after processing manual User Irrigations
 Check needs of each Plant in System
+e.g. plantSize 1 = 100-200mm, waterNeeds 1 = 500ml per 2 days
 */
 bool Irrigation::decidePlants()
 {
     char message[64];
-    uint8_t waterNeeds = 1, lightNeeds = 1, plantSize = 1; // e.g. plantSize 1 = 100-200mm
+    uint8_t waterNeeds = 1, lightNeeds = 1, plantSize = 1; // Standard Values (0-3)
 
-    // Do only 1 Request each
     DynamicJsonDocument plants(2048), plantNeeds(1024);
     Services::doJSONGetRequest("/plants/sensors", plants);
     Services::doJSONGetRequest("/plants/needs", plantNeeds);
@@ -91,6 +97,11 @@ bool Irrigation::decidePlants()
     {
         String plantName = plants[i]["name"];
         int solenoidValve = plants[i]["solenoidValve"].as<int>();
+
+        // Look at "Plant Groups" (Plants with same Sol), recent Irrigation Amount
+        // Worst Case: Plant with different waterNeeds in one Group
+        // uint8_t wateringCycle = ...
+        // uint16_t recentIrrigations = waterPerSolenoid(solenoidValve);
 
         /*
         At this point unclear if validSolenoid, since allocatedWater not known
@@ -119,6 +130,13 @@ bool Irrigation::decidePlants()
     // writeInstructions();
     return true;
 }
+
+/*
+bool Irrigation::decidePlant()
+{
+
+}
+*/
 
 /*
 All actions (= planned instrs) get converted to instrs, if invalid (PumpModel not active, SolenoidValve not valid), set errorCode
@@ -215,14 +233,16 @@ int8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &plan
 }
 
 /*
-Check if any of the solenoidValve of pumpModel (= pumpModel) are valid
+aka validPump()
+Checks if pumpModel has assigned solenoids (at all)
+Checks if any of the solenoids are valid
 Pick the first valid one, set pwmPin accordingly
-Set Error Codes
+Set Error Codes otherwise
 break: found the first valid solenoid for model, break for loop
 */
 int8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject &pumpModel)
 {
-    int8_t solenoid = -1, errorCode = 1; // pumpModel has no Solenoids at all (= model not active)
+    int8_t solenoid = -1, errorCode = 1; // pumpModel has no sols at all (= model not active)
 
     if (!pumpModel.isNull())
     {
@@ -239,7 +259,7 @@ int8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject &pumpModel)
                 }
                 else
                 {
-                    // Solenoid not valid, keep Searching
+                    // sol not valid, keep Searching
                     errorCode = 2;
                 }
             }
@@ -359,9 +379,9 @@ void Irrigation::sortInstructions(std::vector<Instruction> &instructions)
     std::sort(instructions.begin(), instructions.end(), compareBySolenoid);
 }
 
-bool Irrigation::compareBySolenoid(const Instruction &a, const Instruction &b)
+bool Irrigation::compareBySolenoid(const Instruction &i1, const Instruction &i2)
 {
-    return a.solenoidValve > b.solenoidValve;
+    return i1.solenoidValve > i2.solenoidValve;
 }
 
 /* Report to InfluxDB:

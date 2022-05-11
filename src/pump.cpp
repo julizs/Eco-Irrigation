@@ -107,6 +107,11 @@ void Pump::loop()
                 errorCode = 1;
                 currentState = PumpState::ABORT;
             }
+            else if(relaisChannel == -1)
+            {
+                errorCode = 5;
+                currentState = PumpState::ABORT;
+            }
             /*
             else if(!Irrigation::validSolenoid(relaisChannel, Irrigation::waterLimit24h, 24))
             {
