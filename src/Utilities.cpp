@@ -26,7 +26,7 @@ uint8_t Utilities::scanI2CBus(TwoWire *wire)
   }
 
   snprintf(message, 64, "Clock: %d, Num of Devices: %d, Error:%s",
-                     wire->getClock(), cnt, wire->getErrorText(wire->lastError()));
+           wire->getClock(), cnt, wire->getErrorText(wire->lastError()));
   Serial.println(message);
 
   return cnt;
@@ -59,34 +59,32 @@ DynamicJsonDocument Utilities::readDoc(int address, int size)
 }
 
 /*
-FluxQueryResult to Vector
+In REQUEST State
+Convert Reports/Irrigations to Vector for quick validSolenoid Checks later
+
 CAREFUL with FluxQueryResult, if printed before this Function then Cursor is empty
 close() must be called after end of reading
+
 Check reportInstructions() if Value is _field or _tag (String!)
 This Vector is built based on Reports and used for checking waterLimits per Solenoid,
 so do not include "failed Irrigations" / Reports with invalid Solenoids (-1)
 */
 bool Utilities::cursorToVec(FluxQueryResult &cursor, std::vector<WaterPerSolenoid> &solenoids, uint8_t timePeriod)
 {
-  int solenoidValve; // -1 if invalid
+  String solenoidValveTag, errorCodeTag;
+  int solenoidValve, errorCode;
   uint16_t waterAmount;
 
   while (cursor.next())
   {
-    String solenoidValveTag = cursor.getValueByName("solenoidValve").getString(); // Tag
+    solenoidValveTag = cursor.getValueByName("solenoidValve").getString(); // Tag(s)
+    errorCodeTag = cursor.getValueByName("errorCode").getString();
     solenoidValve = solenoidValveTag.toInt();
+    errorCode = errorCodeTag.toInt();
     waterAmount = cursor.getValueByName("_value").getLong();
-    bool exists = false;
 
-    for (auto &sol : solenoids)
-    {
-      if (sol.solenoidValve == solenoidValve && sol.timePeriod == timePeriod)
-      {
-        sol.waterAmount += waterAmount;
-        exists = true;
-      }
-    }
-    if (!exists && solenoidValve != -1)
+    // Only pick valid/actual Irrigations
+    if(errorCode == 0 && solenoidValve != -1)
     {
       WaterPerSolenoid sol;
       sol.solenoidValve = solenoidValve;
@@ -141,7 +139,11 @@ void Utilities::printSolenoids(std::vector<WaterPerSolenoid> &solenoids)
                sol.solenoidValve, sol.waterAmount, sol.timePeriod);
       Serial.println(message);
     }
-  } else { Serial.println("None.");}
+  }
+  else
+  {
+    Serial.println("None.");
+  }
 }
 
 bool Utilities::countTime(long begin, uint8_t duration)

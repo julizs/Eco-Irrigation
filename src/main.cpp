@@ -120,7 +120,7 @@ bool doMeasurements()
       int moistureSensor = array[j];
       int pinNum = moistureSensor - 1;
       char key[64];
-      snprintf(key, 64, "Soil Moisture Sensor %d", moistureSensor);
+      snprintf(key, 64, "soilMoisture%d", moistureSensor);
 
       int moistureSmoothed = SoilMoisture::measureSoilMoistureSmoothed(pinNum);
       // Pass Reference of moistureSensors Table, so only 1 GET Request instead of per Plant, per Sensor
@@ -136,8 +136,8 @@ bool doMeasurements()
       data = lightSensor2.measureLight();
       lastMeasuredLightSensor = lightSensor;
     }
-    p.addField("Infrared Light", data.infraRed);
-    p.addField("Visible Light", data.visibleLight);
+    p.addField("infraredLight", data.infraRed);
+    p.addField("visibleLight", data.visibleLight);
 
     InfluxHelper::writeDataPoint(p);
   }
@@ -278,7 +278,7 @@ void on_idleState()
     {
       Serial.println("Entering Light Sleep.");
       esp_sleep_enable_timer_wakeup(SLEEP_DUR * 1000 * 1000); // µs
-      delay(100);                                             // Else no Wakeup
+      delay(100); // else no Wakeup
       esp_light_sleep_start();
       // Resume Program, Connections and States were kept, go to INIT
       currentState->didActivities = true;
@@ -402,8 +402,9 @@ void on_requestState()
 
   if (countTime(currentState->minStateTime))
   {
-    // User added manual pumpInstr, do it before EVALUATE State
+    // User added manual pumpInstr, go to ACTION before EVALUATE State
     // (otherwise Evaluation is based on outdated Data)
+    // Only go to ACTION State if errorCode of instr == 0 (?)
     if (Irrigation::instructions.size() > 0)
     {
       referralState = currentState;
@@ -448,7 +449,7 @@ void on_evaluateState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    evaluateState->didActivities = Irrigation::decidePlants();
+    evaluateState->didActivities = Irrigation::evaluatePlants();
   }
 
   if (countTime(currentState->minStateTime))

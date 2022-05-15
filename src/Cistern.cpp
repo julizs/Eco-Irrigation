@@ -110,9 +110,9 @@ int Cistern::updateWaterLevel()
         currWaterDist = measurement;
 
         char key1[32], key2[32];
-        snprintf(key1, 32, "waterDistance 0x%x", this->toF_address);
+        snprintf(key1, 32, "waterDistance0x%x", this->toF_address);
         p0.addField(key1, currWaterDist);
-        snprintf(key2, 32, "waterAmount 0x%x", this->toF_address);
+        snprintf(key2, 32, "waterAmount0x%x", this->toF_address);
         p0.addField(key2, calcMl(currWaterDist));
     }
 

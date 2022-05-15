@@ -220,16 +220,13 @@ void Services::startRestServer()
 /* "Passive" Handling of WebButtons
 Serial.println(settings[0]["sleepDuration"].as<int>());
 Read User Actions and Settings from MongoDB doc
-Create instructions Vec from Data, pass to Irrigation to add missing Infos
+Convert JsonObjects/JsonArrays to local Datastructures (instr Vec), Release Memory
 Take Actions later in Action State (before decidePlants() Evaluation)
 Properly use ArduinoJson:
 https://arduinojson.org/v6/how-to/reuse-a-json-document/
 IMPORTANT: differentiate as/to<JsonArray> and as/to<JsonObject>
 Look closely at settings (mongoose) nested datastructure to check if 
 Attributes are JsonObject {}, e.g. "actions" or JsonArray []
-
-Both irr/pump Actions need same Infos and produce Reports
-Put on same Vec?
 */
 bool Services::readSettings()
 {
@@ -260,7 +257,7 @@ bool Services::readSettings()
     Irrigation::createInstructions(irrActions, Irrigation::instructions);
   if(pumpActions.size() > 0 || irrActions.size() > 0)
   {
-    Irrigation::writeInstructions();  
+    Irrigation::writeInstructions();
   }
 
   String emptyDoc = "{}";

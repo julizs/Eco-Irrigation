@@ -4,7 +4,7 @@ std::vector<Instruction> Irrigation::instructions;
 std::vector<WaterPerSolenoid> Irrigation::recentIrrigations; // waterDistribution
 
 /*
-Query is done only once for ALL Solenoids in System, per timePeriod
+Check recent waterAmounts for ALL Solenoids per timePeriod
 Doublecheck Query in Powershell/Console, "influx query" ...
 */
 FluxQueryResult Irrigation::querySolenoids(uint8_t timePeriod)
@@ -23,11 +23,35 @@ FluxQueryResult Irrigation::querySolenoids(uint8_t timePeriod)
 }
 
 /*
+https://www.sqlpac.com/en/documents/influxdb-moving-from-influxql-language-to-flux-language.html
+https://docs.influxdata.com/influxdb/cloud/query-data/common-queries/iot-common-queries/
+https://docs.influxdata.com/influxdb/cloud/query-data/flux/monitor-states/
+How many Minutes were roots wet today
+How many Sun Hours did Plant receive today
+-> Influences Plant Happiness and Irrigation
+*/
+uint8_t Irrigation::queryMoisture(uint8_t threshold, uint8_t timePeriod)
+{
+    char query[256] = "";
+    snprintf(query, 256, "from (bucket: \"messdaten\")|> range(start: -%dh)"
+                         "|> filter(fn: (r) => r._measurement == \"Plant Data\" and r._field == \"Soil Moisture\")"
+                         "|> sum()",
+             timePeriod);
+
+    FluxQueryResult cursor = InfluxHelper::doQuery(query);
+    
+
+}
+
+/*
 Get all recent Irrigations (in ml) per Solenoid (2 hours, 2 days, 1 week)
 Write InfluxDB Cursors to Vecs
+Do NOT update Vec but always write new, more expensive but less Errors
 */
 bool Irrigation::updateRecentIrrigations()
 {
+    recentIrrigations.clear();
+
     uint8_t timePeriods[] = {2, 48, 168};
     for (int i = 0; i < 3; i++)
     {
@@ -81,8 +105,10 @@ Part of Evaluate Plants / Happiness?
 Call after processing manual User Irrigations
 Check needs of each Plant in System
 e.g. plantSize 1 = 100-200mm, waterNeeds 1 = 500ml per 2 days
+
+Each plant needs to be evaluated for Happiness anyway
 */
-bool Irrigation::decidePlants()
+bool Irrigation::evaluatePlants()
 {
     char message[64];
     uint8_t waterNeeds = 1, lightNeeds = 1, plantSize = 1; // Standard Values (0-3)
@@ -98,23 +124,15 @@ bool Irrigation::decidePlants()
         String plantName = plants[i]["name"];
         int solenoidValve = plants[i]["solenoidValve"].as<int>();
 
-        // Look at "Plant Groups" (Plants with same Sol), recent Irrigation Amount
-        // Worst Case: Plant with different waterNeeds in one Group
-        // uint8_t wateringCycle = ...
-        // uint16_t recentIrrigations = waterPerSolenoid(solenoidValve);
-
-        /*
-        At this point unclear if validSolenoid, since allocatedWater not known
-        if (!validSolenoid(solenoidValve, waterLimit24h, 24)) // Efficient Check
-        {
-            continue; // skip Plant
-        }
-        */
+        // Check if enough Water
+        uint16_t recentIrrigations = waterPerSolenoid(solenoidValve, 48);
+        // Check Staunässe
+        // uint8_t timePeriod 
 
         for (int j = 0; j < plantNeeds.size(); j++)
         {
             const char *name = plantNeeds[j]["name"];
-            if (plantName.equals(name)) // strcmp(plantName, name) == 0
+            if (plantName.equals(name))
             {
                 waterNeeds = plantNeeds[j]["waterNeeds"];
                 lightNeeds = plantNeeds[j]["lightNeeds"];
@@ -139,10 +157,9 @@ bool Irrigation::decidePlant()
 */
 
 /*
-All actions (= planned instrs) get converted to instrs, if invalid (PumpModel not active, SolenoidValve not valid), set errorCode
-Convert JsonObjects/JsonArrays to local Datastructures, Release Memory
-irrActions and pumpActions are pushed on different Vecs
-pumpInstructions need NO sorting, reducing etc.
+Convert user actions (= manual instrs) to instrs
+decidePlants also creates instrs (= autonomous instr)
+Create instrs even if invalid (e.g. PumpModel not active, SolenoidValve not valid), set errorCode
 */
 void Irrigation::createInstructions(JsonArray &actions, std::vector<Instruction> &instructions)
 {
@@ -210,12 +227,12 @@ int8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &plan
     for (int i = 0; i < plants.size(); i++)
     {
         String plantName = plants[i]["name"];
+        solenoid = plants[i]["solenoidValve"].as<int>();
 
         if (plantName.equals(instr.reason))
         {
             if (validSolenoid(solenoid, waterLimit24h, instr.allocatedWater, 24))
-            {
-                solenoid = plants[i]["solenoidValve"].as<int>();
+            {           
                 errorCode = 0;
             }
             else
@@ -239,6 +256,7 @@ Checks if any of the solenoids are valid
 Pick the first valid one, set pwmPin accordingly
 Set Error Codes otherwise
 break: found the first valid solenoid for model, break for loop
+Gets called by manual Irrigations (Pumpcheck), so validify with 2h waterLimit
 */
 int8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject &pumpModel)
 {
@@ -251,7 +269,7 @@ int8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject &pumpModel)
         {
             for (auto sol : solenoidValves)
             {
-                if (validSolenoid(sol, waterLimit24h, instr.allocatedWater, 24))
+                if (validSolenoid(sol, waterLimit2h, instr.allocatedWater, 2))
                 {
                     solenoid = sol;
                     errorCode = 0;
