@@ -1,5 +1,17 @@
 #include "Cistern.h"
 
+/*
+Measurements:
+5 Liters = 83mm from Table = 135mm Distance from Sensor
+4 Liters = 146mm 
+3 Liters = 156mm
+2 Liters = 167mm (lower LIMIT)
+0,1 Liter: = 179mm (Unsafe for Pump)
+Rule: About 1cm per Liter, -1mm the higher it goes (Cistern gets wider)
+-> Pumping: 1 Liter = 10mm, 500ml = 5mm
+-> Max(Safe): 9 Liters, Min (Safe): 2 Liters
+*/
+
 Cistern::Cistern(uint8_t toF_address, uint8_t relaisChannels[], int cisternHeight, float mmToMl)
 {
     this->toF_address = toF_address;
@@ -29,9 +41,9 @@ bool Cistern::setupToF()
 
     // Serial.println(toF.Status);
     // true/false for debug infos while Setup
-    while (!toF.begin(toF_address, true, &I2Cone) && attempt < 5)
+    while (!toF.begin(toF_address, false, &I2Cone) && attempt < 3)
     {
-        delay(500 * attempt);
+        delay(1000 * attempt);
         Serial.println(toF.Status);
         attempt++;
         if (toF_address == 0x51)
@@ -87,7 +99,7 @@ bool Cistern::setupToF()
 
 void Cistern::shutToF()
 {
-    Serial.println("Shutting");
+    // Serial.println("Shutting");
     digitalWrite(toF_shut, LOW);
     delay(10);
     digitalWrite(toF_shut, HIGH);

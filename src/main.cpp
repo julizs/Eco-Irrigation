@@ -56,10 +56,8 @@ void printDestinations()
 // Always setup both Sensors at once
 void setupToFs()
 {
-  while (!cistern2.setupToF())
-    ;
-  while (!cistern1.setupToF())
-    ;
+  while (!cistern2.setupToF());
+  // while (!cistern1.setupToF());
 }
 
 bool doMeasurements()
@@ -278,7 +276,7 @@ void on_idleState()
     {
       Serial.println("Entering Light Sleep.");
       esp_sleep_enable_timer_wakeup(SLEEP_DUR * 1000 * 1000); // µs
-      delay(100); // else no Wakeup
+      delay(100);                                             // else no Wakeup
       esp_light_sleep_start();
       // Resume Program, Connections and States were kept, go to INIT
       currentState->didActivities = true;
@@ -411,7 +409,7 @@ void on_requestState()
       nextState = actionState;
       return;
     }
-      
+
     if (transitionToIdle())
       return;
     if (transitionToSelf())
@@ -482,22 +480,29 @@ void on_actionState()
 
 #if (RUN_SUBMACHINES == 1)
   {
-
     for (auto &instr : Irrigation::instructions)
     {
-      Pump *pump = instr.pump;
-      // Set back State to idle so that same Pump can run multiple times
-      pump->resetMachine();
-      // machine->setTime(instr.pumpTime);
-      pump->pumpTime = instr.pumpTime;
-      pump->relaisChannel = instr.solenoidValve;
-      while (!pump->isDone())
+      if (instr.errorCode == 0) // Only run valid Instructions
       {
-        pump->loop();
-      }
+        Pump *pump = instr.pump;
+        // Set back State to idle so that same Pump can run multiple times
+        pump->resetMachine();
+        // machine->setTime(instr.pumpTime);
+        pump->pumpTime = instr.pumpTime;
+        pump->relaisChannel = instr.solenoidValve;
+        while (!pump->isDone())
+        {
+          pump->loop();
+        }
 
-      // Set ErrorCode for Report
-      instr.errorCode = pump->errorCode;
+        // Set ErrorCode for Report
+        instr.errorCode = pump->errorCode;
+      }
+      else
+      {
+        Serial.print("Action aborted, ErrorCode: ");
+        Serial.println(instr.errorCode);
+      }
 
       if (&instr == &Irrigation::instructions.back())
       {
@@ -514,11 +519,11 @@ void on_actionState()
   if (countTime(currentState->minStateTime))
   {
     // Go back to EVALUATE if instructions were manual
-    if(referralState == requestState)
+    if (referralState == requestState)
     {
       nextState = evaluateState;
       return;
-    }   
+    }
 
     transitionToNext();
   }
@@ -539,6 +544,8 @@ void on_transmitState()
 
   if (countTime(currentState->minStateTime))
   {
+    if (transitionToIdle())
+      return;
     if (transitionToSelf())
       return;
     transitionToNext();
