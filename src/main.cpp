@@ -500,8 +500,9 @@ void on_actionState()
       }
       else
       {
-        Serial.print("Action aborted, ErrorCode: ");
-        Serial.println(instr.errorCode);
+        Serial.println("Action aborted.");
+        // Serial.println(Irrigation::errors[instr.errorCode]);
+        Irrigation::printError(instr.errorCode);
       }
 
       if (&instr == &Irrigation::instructions.back())

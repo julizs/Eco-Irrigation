@@ -29,7 +29,7 @@ public:
     PumpState currentState, lastState;
     char const *stateNames[4] = {"PUMP_IDLE", "PUMP_ON", "PUMP_DONE", "PUMP_ABORT"};
     char const *errors[6] = {"None", "ToF Setup failed.", "Too many recent Irrgations.",
-                             "Water not sufficient.", "Irrigation cancelled by User.",
+                             "Waterlevel not sufficient.", "Irrigation cancelled by User.",
                              "Invalid SolenoidValve"};
     unsigned short errorCode, minStateDuration;
     unsigned long stateBeginMillis;

@@ -2,6 +2,10 @@
 
 std::vector<Instruction> Irrigation::instructions;
 std::vector<WaterPerSolenoid> Irrigation::recentIrrigations; // waterDistribution
+// std::string Irrigation::errors[] = {"Test"};
+String Irrigation::errors[] = {"None", "Did not find Plant", "Solenoid invalid (Waterlimit)",
+                             "Pump has no Solenoids assigned.", "Pump has no valid Solenoids (Waterlimit)"
+                             };
 
 /*
 Check recent waterAmounts for ALL Solenoids per timePeriod
@@ -44,7 +48,7 @@ uint8_t Irrigation::queryMoisture(uint8_t threshold, uint8_t timePeriod)
 }
 
 /*
-Get all recent Irrigations (in ml) per Solenoid (2 hours, 2 days, 1 week)
+Get all recent Irrigations (in ml) per Solenoid (2 hours, 1 day, 1 week)
 Write InfluxDB Cursors to Vecs
 Do NOT update Vec but always write new, more expensive but less Errors
 */
@@ -52,7 +56,7 @@ bool Irrigation::updateRecentIrrigations()
 {
     recentIrrigations.clear();
 
-    uint8_t timePeriods[] = {2, 48, 168};
+    uint8_t timePeriods[] = {2, 24, 168};
     for (int i = 0; i < 3; i++)
     {
         FluxQueryResult cursor = querySolenoids(timePeriods[i]);
@@ -97,7 +101,7 @@ bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit, u16_t
     snprintf(message, 128, "Solenoid Valve: %d, Water Amount: %dml, Time Period: %dh, Valid: %s",
     solenoidValve, waterAmount, timePeriod, outcome < waterLimit ? "true" : "false"); Serial.println(message);
 
-    return outcome > waterLimit;
+    return outcome < waterLimit;
 }
 
 /*
@@ -125,9 +129,9 @@ bool Irrigation::evaluatePlants()
         int solenoidValve = plants[i]["solenoidValve"].as<int>();
 
         // Check if enough Water
-        uint16_t recentIrrigations = waterPerSolenoid(solenoidValve, 48);
+        uint16_t recentIrrigations = waterPerSolenoid(solenoidValve, 24);
+
         // Check Staunässe
-        // uint8_t timePeriod 
 
         for (int j = 0; j < plantNeeds.size(); j++)
         {
@@ -221,8 +225,9 @@ break: found matching solenoid for plant (valid or invalid), break for loop
 */
 int8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &plants)
 {
-    // 1: found no matching plant for instr.reason
+    // errorCode 1: found no matching plant for instr.reason
     int8_t solenoid = -1, errorCode = 1;
+    Serial.println("Recently Distributed Water:");
 
     for (int i = 0; i < plants.size(); i++)
     {
@@ -232,11 +237,12 @@ int8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &plan
         if (plantName.equals(instr.reason))
         {
             if (validSolenoid(solenoid, waterLimit24h, instr.allocatedWater, 24))
-            {           
+            {          
                 errorCode = 0;
             }
             else
             {
+                // Solenoid already distributed too much water in recent 24h
                 errorCode = 2;
             }
             break;
@@ -260,7 +266,7 @@ Gets called by manual Irrigations (Pumpcheck), so validify with 2h waterLimit
 */
 int8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject &pumpModel)
 {
-    int8_t solenoid = -1, errorCode = 1; // pumpModel has no sols at all (= model not active)
+    int8_t solenoid = -1, errorCode = 3; // pumpModel has no Solenoids assigned (= currently not active)
 
     if (!pumpModel.isNull())
     {
@@ -277,8 +283,9 @@ int8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject &pumpModel)
                 }
                 else
                 {
-                    // sol not valid, keep Searching
-                    errorCode = 2;
+                    // Solenoid reached Waterlimit, check next
+                    // Or: All assigned Solenoids reached Waterlimit
+                    errorCode = 4;
                 }
             }
         }
@@ -440,6 +447,14 @@ void Irrigation::clearInstructions()
 {
     instructions.clear();
 }
+
+void Irrigation::printError(uint8_t errorCode)
+{
+    Serial.print("Reason: ");
+    Serial.println(errors[errorCode]);
+    //Serial.println(errors[errorCode].c_str());
+}
+
 
 /*
 Report to MongoDB
