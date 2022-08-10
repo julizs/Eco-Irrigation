@@ -5,8 +5,9 @@ Cistern::Cistern(uint8_t toF_address, uint8_t relaisChannels[])
     this->toF_address = toF_address;
 
     solenoidValves = relaisChannels;
-    minValidWaterDist = 50; // minValid
-    maxValidWaterDist = 165; // maxValid
+    minValidWaterDist = 50;
+    maxValidWaterDist = 170; // 3L
+    maxPossibleDist = 200;
     sampleSize = 8;
 }
 
@@ -105,19 +106,19 @@ e.g. 210mm - (210mm -190mm) - 20mm
 (Diesen Wert durch Messen verifizieren, 
 ab hier (z.B. 2L) ist Füllstand messbar, Änderungen darunter nicht erfassbar)
 
-fillLevel = maxPossibleDist - currWaterDist
-e.g. 180mm - 180mm = 0mm
-e.g. 180mm - 158mm = 22mm
+fillLevel = waterBodyMinHeight + maxPossibleDist - currWaterDist
+e.g. 20mm + 170mm - 170mm = 0mm
+e.g. 20mm + 170mm - 135mm = 55mm
 
 Ergänzung (falls höherer Wert als maxPossibleDist gemessen wird):
 fillLevel = min((maxPossibleDist - currWaterDist),0)
-180mm -181mm = -1mm
-min(180-181),0 = min(-1,0) = 0
+170mm -171mm = -1mm
+max(170-171),0 = max(-1,0) = 0
 */
 int Cistern::updateWaterLevel()
 {
-    int currWaterDist = evaluateToF();
-    currWaterLevel = min((maxPossibleDist - currWaterDist),0);
+    currWaterDist = evaluateToF();
+    currWaterLevel = 20 + max((maxPossibleDist - currWaterDist),0);
 
     return currWaterLevel;
 }
@@ -130,10 +131,14 @@ bool Cistern::waterManagement(uint8_t relaisChannel)
 {
     int oldWaterLevel = currWaterLevel; // (Updated from Check at Beginning of Pump State Machine)
     int newWaterLevel = updateWaterLevel(); // Get new fill Level and Update
-    int availableWater = calcMl(newWaterLevel);
+    uint16_t availableWater = calcMl(newWaterLevel);
     // 20mm pumped can be different waterAmounts, depending on waterLevel
     // min necessary, if pumpProcess stops after 0s AND wrong Reading of new waterLevel
-    int pumpedWater = min((calcMl(oldWaterLevel) - availableWater),0);
+    uint16_t pumpedWater = max((calcMl(oldWaterLevel) - availableWater),0);
+    
+    Serial.println("Available Water and pumped Water: ");
+    Serial.println(availableWater);
+    Serial.println(pumpedWater);
 
     // Only create new Point if evaluateTof returns valid, else don't create new Grafana Point
     if (newWaterLevel <= oldWaterLevel)
@@ -201,35 +206,53 @@ waterVolume = 0.09/3 * (0.0638 + 0.07086725 + sqrt(0.0638 * 0.07086725))
 = 0.00605724269m³ = 6.057 Liter (Nachgemessen: 9cm, 6 Liter, Korrekt)
 (Dumm / Ohne Slope Berücksichtigung: 0.0638 * 0.09 = 0.005742 m³ = 5.74 Liter)
 */
-int Cistern::calcMl(int waterLevel) // in mm
+uint16_t Cistern::calcMl(int waterLevel) // Eingabeparam in mm, Ausgabeparam in ml (>250ml möglich)
 {
-    float l_B = 0.29, w_B = 0.22; // m
-    float l_T = 0.32, w_T = 0.25; // -> 3cm Slope auf 20cm, 1.5cm auf 10cm
+    float l_B = 290, w_B = 220; // m
+    float l_T = 320, w_T = 250; // -> 3cm Slope auf 20cm, 1.5cm auf 10cm
     float A_B = l_B * w_B; // Area Bottom (doesn't change), 0,0638m², 1m³ = 1000L
-    // float A_T = l_T * w_T; // Area Top (changes depending on fillLevel), 0.08m²
-    // height, slope length, slope width (1.5cm per 10cm, 0.15cm (1.5mm) per 1cm, 0.15m per 1m)
-    // float h = 0.21; // m
-    float sl_l = 0.15, sl_w = 0.15; 
+    // double A_T = l_T * w_T; // Area Top (changes depending on fillLevel), 0.08m²
+    // int h = 210;
+    // slope length, slope width (1.5cm per 10cm, 15cm (0.15m) per 1m, 0.15cm (1.5mm) per 1cm, 0.15mm per 1mm)
+    float sl_l = 0.15, sl_w = 0.15; // mm je mm
     
-    // 1. Set Height, convert mm to m
+    // 1. Set Height
     // Min: h = 0mm
-    float h = waterLevel/1000.0f;
+    uint16_t h = waterLevel;
 
-    // 2. Slope für gegebene Füllhöhe (22mm) berechnen:
-    // e.g. 22mm/1000.0f = 0.022m * 0.15 = 0,0033m = 3.3mm
-    float sl_l_eff = (waterLevel/1000.0f) * sl_l;
-    float sl_w_eff = (waterLevel/1000.0f) * sl_w;
+    // 2. Slope in mm per m (for a given waterLevel):
+    // e.g. 33mm * 0.15mm/mm = 4.95mm
+    float sl_l_eff = waterLevel * sl_l;
+    float sl_w_eff = waterLevel * sl_w;
+    Serial.println("Slope:");
+    Serial.print(sl_l_eff);
+    Serial.println(" mm");
 
-    // 3. Neue A_T (obere Fläche) berechnen:
+    // 3. Calc A_T (new top area):
     // (Untere Seiten + effective Slope for fillLevel)
+    // 294.95mm * 224.95mm = 66349mm²)
+    // (if l_B, w_B are ints then 294 * 224 = 65856, WRONG)
+    // uint32_t nötig, da > 65000ml möglich
     l_T = l_B + sl_l_eff;
     w_T = w_B + sl_w_eff;
-    float A_T = l_T * w_T;
+    uint32_t A_T = l_T * w_T; 
+    Serial.println("Area A_T:");
+    Serial.print(A_T);
+    Serial.println(" mm²");
     
     // 3. Volumen berechnen (ähnlich auch für Kegel Frustum)
-    float waterVolume = h/3 * (A_B + A_T + sqrt(A_B*A_T));
+    uint32_t waterVolume = h/3.0f * (A_B + A_T + sqrt(A_B*A_T));
+    Serial.println("Volume: ");
+    Serial.print(waterVolume);
+    Serial.println(" mm³");
 
-    return waterVolume;
+    // uint8_t waterAmount = waterVolume * 1000; // m³ * 1000 = Liter
+    uint32_t waterAmount = waterVolume / 1000.0f; // mm³ /1000000 = L, mm³ /1000 = Ml
+    Serial.println("Amount: ");
+    Serial.print(waterAmount);
+    Serial.println(" ml");
+
+    return waterAmount;
 }
 
 void Cistern::updateEnvironmentData(int newWaterLevel, int availableWater)

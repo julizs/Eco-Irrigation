@@ -32,7 +32,7 @@ class Cistern
         void updateIrrigationData(uint8_t relaisChannel, int pumpedWater);
         void updateEnvironmentData(int newWaterLevel, int availableWater);
         void driveSolenoid(uint8_t relaisChannel, uint8_t state);
-        int calcMl(int waterLevel);
+        uint16_t calcMl(int waterLevel);
         bool validWaterLevel();
         void shutToF();
 };

@@ -375,7 +375,7 @@ void Irrigation::printInstructions(std::vector<Instruction> &instructions)
         Serial.println();
         for (auto const &instr : instructions)
         {
-            snprintf(message, 128, "Reason: %s, Pump Model: %s, Pump Time: %0.2fs, Solenoid Valve: %d, Allocated Water: %dml, ErrorCode: %d",
+            snprintf(message, 128, "Subject: %s, Pump Model: %s, Pump Time: %0.2fs, Solenoid Valve: %d, Allocated Water: %dml, ErrorCode: %d",
                      instr.reason, instr.pumpModel, instr.pumpTime, instr.solenoidValve, instr.allocatedWater, instr.errorCode);
             Serial.println(message); // instr.pump->pwmPin
         }
