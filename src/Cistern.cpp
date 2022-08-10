@@ -1,27 +1,12 @@
 #include "Cistern.h"
 
-/*
-Measurements:
-5 Liters = 83mm from Table = 135mm Distance from Sensor
-4 Liters = 146mm 
-3 Liters = 156mm
-2 Liters = 167mm (lower LIMIT)
-0,1 Liter: = 179mm (Unsafe for Pump)
-Rule: About 1cm per Liter, -1mm the higher it goes (Cistern gets wider)
--> Pumping: 1 Liter = 10mm, 500ml = 5mm
--> Max(Safe): 9 Liters, Min (Safe): 2 Liters
-*/
-
-Cistern::Cistern(uint8_t toF_address, uint8_t relaisChannels[], int cisternHeight, float mmToMl)
+Cistern::Cistern(uint8_t toF_address, uint8_t relaisChannels[])
 {
     this->toF_address = toF_address;
-    this->cisternHeight = cisternHeight;
-    this->mmToMl = mmToMl;
 
     solenoidValves = relaisChannels;
-    currWaterDist = 0;
-    minWaterDist = 50;
-    maxWaterDist = 200;
+    minValidWaterDist = 50; // minValid
+    maxValidWaterDist = 165; // maxValid
     sampleSize = 8;
 }
 
@@ -107,48 +92,165 @@ void Cistern::shutToF()
 
 bool Cistern::validWaterLevel()
 {
-    return currWaterDist < maxWaterDist;
-}
-
-// Point p0
-int Cistern::updateWaterLevel()
-{
-    int measurement = evaluateToF();
-
-    // Only create new Datapoint if Measurement is valid,
-    // else keep old Datapoint as current
-    if (measurement != 0)
-    {
-        currWaterDist = measurement;
-
-        char key1[32], key2[32];
-        snprintf(key1, 32, "waterDistance0x%x", this->toF_address);
-        p0.addField(key1, currWaterDist);
-        snprintf(key2, 32, "waterAmount0x%x", this->toF_address);
-        p0.addField(key2, calcMl(currWaterDist));
-    }
-
-    return currWaterDist;
-}
-
-int Cistern::calcMl(float waterDistance)
-{
-    // Consider Tank getting thinner/thicker
-    int waterAmount = waterDistance * mmToMl;
-    return waterAmount;
+    return currWaterDist < maxValidWaterDist && currWaterDist > minValidWaterDist;
 }
 
 /*
-Point p2
-sendReport replaces updateIrrigations
-void Cistern::updateIrrigations(uint8_t relaisChannel)
+Sensor is mounted lower than Cistern Height
+Moving Water-Body is mounted higher than Cistern Bottom
+-> maxPossibleDist = cisternHeight - sensorHeight - waterBodyMinHeight
+e.g. 210mm - (210mm -190mm) - 20mm
+= 210mm -20mm -20mm
+=  170mm
+(Diesen Wert durch Messen verifizieren, 
+ab hier (z.B. 2L) ist Füllstand messbar, Änderungen darunter nicht erfassbar)
+
+fillLevel = maxPossibleDist - currWaterDist
+e.g. 180mm - 180mm = 0mm
+e.g. 180mm - 158mm = 22mm
+
+Ergänzung (falls höherer Wert als maxPossibleDist gemessen wird):
+fillLevel = min((maxPossibleDist - currWaterDist),0)
+180mm -181mm = -1mm
+min(180-181),0 = min(-1,0) = 0
+*/
+int Cistern::updateWaterLevel()
 {
-    int oldWaterDist = currWaterDist;
-    int oldWaterAmount = calcMl(oldWaterDist);
-    int newWaterDist = updateWaterLevel();
-    int newWaterAmount = calcMl(newWaterDist);
-    // int pumpedWaterML = min(oldWaterAmount - newWaterAmount,0); // Not less than 0ml
-    int pumpedWaterML = rand() % 200 + 100; // Demo, 100-300ml
+    int currWaterDist = evaluateToF();
+    currWaterLevel = min((maxPossibleDist - currWaterDist),0);
+
+    return currWaterLevel;
+}
+
+/*
+Water Management (after Pump Procedure)
+Update Waterlevel, write waterLevel and Irrigation Point, give Warnings (low waterLevel etc.)
+*/
+bool Cistern::waterManagement(uint8_t relaisChannel)
+{
+    int oldWaterLevel = currWaterLevel; // (Updated from Check at Beginning of Pump State Machine)
+    int newWaterLevel = updateWaterLevel(); // Get new fill Level and Update
+    int availableWater = calcMl(newWaterLevel);
+    // 20mm pumped can be different waterAmounts, depending on waterLevel
+    // min necessary, if pumpProcess stops after 0s AND wrong Reading of new waterLevel
+    int pumpedWater = min((calcMl(oldWaterLevel) - availableWater),0);
+
+    // Only create new Point if evaluateTof returns valid, else don't create new Grafana Point
+    if (newWaterLevel <= oldWaterLevel)
+    {
+        updateEnvironmentData(newWaterLevel, availableWater);
+
+        updateIrrigationData(relaisChannel, pumpedWater);
+
+        return true; // Created Points, wrote into Buffer
+    }
+
+    return false;
+}
+
+/*
+Measurements:
+(9 Liters = 102mm)
+(8 Liters = 110mm)
+(7 Liters = 118mm)
+(6 Liters = 127mm) (90mm from Boxbottom)
+5 Liters = 136mm from Sensor
+4 Liters = 146mm 
+3 Liters = 156mm
+2 Liters = 167mm (minValid)
+0,1 Liter: = 179mm (Unsafe for Pump)
+Min (Safe): 2 Liters (-> < 167mm), Max(Safe): 9 Liters (> 102mm)
+Rule:
+Rounded: 10mm/1cm = 1L -> 1mm = 100ml
+Precise: -1mm every 2 Liters higher (Cistern gets wider) -> 100ml more every 2L/2cm higher (?)
+
+Volumen of Frustum, Problem 14 (*):
+https://en.wikipedia.org/wiki/Moscow_Mathematical_Papyrus
+
+Näherungsverfahren (ohne Integral) Keplersche Fassregel (nicht nötig für Frustum, da Spezialfall eines Prismatoids mit einfacher Berechnung*):
+Prismoid calculate Volume / Volume of a Trapezoid tank
+Kein Prisma sondern Prismatoid, da Grund- und Deckfläche nicht kongruent
+Oder (Pyramid) Frustum? (Ähnl.: Kegel Frustum)
+https://www.onlineconversion.com/object_volume_trapezoid.htm
+https://www.agric.gov.ab.ca/app19/calc/volume/dugout.jsp
+https://www.lernhelfer.de/schuelerlexikon/mathematik/artikel/prismatoid#
+https://www.trelleborg.com/apps/avc/index_de.html
+http://www.solving-math-problems.com/volume-of-frustum-of-a-pyramid.html
+https://www.calculatorsoup.com/calculators/geometry-solids/conicalfrustum.php
+https://mathepedia.de/Keplersche_Fassregel.html
+https://mathworld.wolfram.com/Prismatoid.html
+https://mathworld.wolfram.com/PyramidalFrustum.html (*)
+https://www.tagblatt.de/Nachrichten/Das-Fass-und-seine-Formel-400021.html
+
+Examples:
+Full Reservoir (h=0.21):
+sqrt(0,005464) = 0.0739
+h/3 * 0,2222 = 0,0155
+0,0155 * 1000 = 15 Liter
+
+Fill Level 90mm (h = 0.09):
+0.09m * 0.15m = 0.0135m (Slope, = 1.35cm for 9cm)
+l_T = 0.29 + 0.0135 = 0.3035m 
+w_T = 0.22 + 0.0135 = 0.2335m
+A_T = 0.07086725m²
+(A_B = 0.0638m², bleibt gleich)
+waterVolume = 0.09/3 * (0.0638 + 0.07086725 + sqrt(0.0638 * 0.07086725))
+= 0.03 * (0.13466725 + sqrt(0.00452133055))
+= 0.03 * (0.13466725 + 0,0672408398965986)
+= 0.03 * 0.2019080898966
+= 0.00605724269m³ = 6.057 Liter (Nachgemessen: 9cm, 6 Liter, Korrekt)
+(Dumm / Ohne Slope Berücksichtigung: 0.0638 * 0.09 = 0.005742 m³ = 5.74 Liter)
+*/
+int Cistern::calcMl(int waterLevel) // in mm
+{
+    float l_B = 0.29, w_B = 0.22; // m
+    float l_T = 0.32, w_T = 0.25; // -> 3cm Slope auf 20cm, 1.5cm auf 10cm
+    float A_B = l_B * w_B; // Area Bottom (doesn't change), 0,0638m², 1m³ = 1000L
+    // float A_T = l_T * w_T; // Area Top (changes depending on fillLevel), 0.08m²
+    // height, slope length, slope width (1.5cm per 10cm, 0.15cm (1.5mm) per 1cm, 0.15m per 1m)
+    // float h = 0.21; // m
+    float sl_l = 0.15, sl_w = 0.15; 
+    
+    // 1. Set Height, convert mm to m
+    // Min: h = 0mm
+    float h = waterLevel/1000.0f;
+
+    // 2. Slope für gegebene Füllhöhe (22mm) berechnen:
+    // e.g. 22mm/1000.0f = 0.022m * 0.15 = 0,0033m = 3.3mm
+    float sl_l_eff = (waterLevel/1000.0f) * sl_l;
+    float sl_w_eff = (waterLevel/1000.0f) * sl_w;
+
+    // 3. Neue A_T (obere Fläche) berechnen:
+    // (Untere Seiten + effective Slope for fillLevel)
+    l_T = l_B + sl_l_eff;
+    w_T = w_B + sl_w_eff;
+    float A_T = l_T * w_T;
+    
+    // 3. Volumen berechnen (ähnlich auch für Kegel Frustum)
+    float waterVolume = h/3 * (A_B + A_T + sqrt(A_B*A_T));
+
+    return waterVolume;
+}
+
+void Cistern::updateEnvironmentData(int newWaterLevel, int availableWater)
+{
+    char key1[32], key2[32];
+    snprintf(key1, 32, "waterLevel0x%x", this->toF_address);
+    p0.addField(key1, newWaterLevel); // Or calc directly in Grafana
+    snprintf(key2, 32, "waterAmount0x%x", this->toF_address);
+    p0.addField(key2, availableWater);
+
+    // Write Point p0 (Ina and ToF Data) to Buffer
+    InfluxHelper::writeDataPoint(p0);
+}
+
+/*
+Detailed Data of Pump Process (Affected Plants, PumpTime, Success, ... 
+in sendReport() Function, creates MongoDB Table Entry)
+*/
+void Cistern::updateIrrigationData(uint8_t relaisChannel, int pumpedWater)
+{
+    //int pumpedWaterML = rand() % 200 + 100; // Demo, 100-300ml
 
     // Reuse Datapoint, create new Row in InfluxDB Irrigations Measurement
     p2.clearTags();
@@ -156,10 +258,11 @@ void Cistern::updateIrrigations(uint8_t relaisChannel)
     char solenoidValve[4];
     itoa(relaisChannel, solenoidValve, 10);
     p2.addTag("solenoidValve", solenoidValve);
-    p2.addField("pumpedWaterML", pumpedWaterML);
-    influxHelper.writeDataPoint(p2);
+    p2.addField("pumpedWater", pumpedWater);
+
+    InfluxHelper::writeDataPoint(p2);
 }
-*/
+
 
 /*
 Only way to prevent Crash if one or both ToF setup fail:
@@ -181,7 +284,7 @@ void Cistern::readToF(int distances[])
             distance = toF.readRange();
             // while(toF.waitRangeComplete()) {}
 
-            if (distance > cisternHeight || distance <= 0)
+            if (distance > maxPossibleDist || distance <= 0)
             {
                 validReading = false;
                 j++;

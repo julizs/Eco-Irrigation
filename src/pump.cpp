@@ -187,10 +187,7 @@ void Pump::loop()
             {
             // If ToF not correctly Setup (but Status == ERROR_NONE) -> Crash
             // cistern.updateIrrigations(relaisChannel);
-            cistern.updateWaterLevel();
-
-            // Write Point p0 (Ina and ToF Data) to Buffer
-            InfluxHelper::writeDataPoint(p0);
+            cistern.waterManagement(relaisChannel);
             }
             #endif
         }

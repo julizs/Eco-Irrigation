@@ -15,22 +15,24 @@ class Cistern
         Adafruit_VL53L0X toF;
         uint8_t* solenoidValves; // relaisChannels
         uint8_t toF_address, sampleSize;
-        int cisternHeight, currWaterDist, minWaterDist, maxWaterDist;
-        float mmToMl;
+        int currWaterLevel, currWaterDist, minValidWaterDist, maxValidWaterDist;
+        int maxPossibleDist; //  
         bool toF_ready;
         unsigned long stateBeginMillis;
 
-        Cistern(uint8_t toF_address, uint8_t solenoidValves[], int cisternHeight, float mmToMl);
+        Cistern(uint8_t toF_address, uint8_t solenoidValves[]);
         bool setupToF();
-        int updateWaterLevel();         
+        int updateWaterLevel();
+        bool waterManagement(uint8_t relaisChannel);         
 
     private:
         float evaluateToF();
         void readToF(int distances[]);
         void readToF_cont(int distances[]);  
-        void updateIrrigations(uint8_t relaisChannel);
+        void updateIrrigationData(uint8_t relaisChannel, int pumpedWater);
+        void updateEnvironmentData(int newWaterLevel, int availableWater);
         void driveSolenoid(uint8_t relaisChannel, uint8_t state);
-        int calcMl(float waterLevel);
+        int calcMl(int waterLevel);
         bool validWaterLevel();
         void shutToF();
 };
