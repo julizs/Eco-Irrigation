@@ -15,6 +15,7 @@ class Cistern
         Adafruit_VL53L0X toF;
         uint8_t* solenoidValves; // relaisChannels
         uint8_t toF_address, sampleSize;
+        uint16_t pumpedWater;
         int currWaterLevel, currWaterDist, minValidWaterDist, maxValidWaterDist;
         int maxPossibleDist; //  
         bool toF_ready;

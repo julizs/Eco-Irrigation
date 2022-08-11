@@ -483,35 +483,43 @@ void on_actionState()
   {
     for (auto &instr : Irrigation::instructions)
     {
+       Pump *pump = instr.pump;
+
       if (instr.errorCode == 0) // Only run valid Instructions
       {
-        Pump *pump = instr.pump;
         // Set back State to idle so that same Pump can run multiple times
         pump->resetMachine();
-        // machine->setTime(instr.pumpTime);
+  
+        // Infos set before StateMachine Run
         pump->pumpTime = instr.pumpTime;
+
         pump->relaisChannel = instr.solenoidValve;
+
         while (!pump->isDone())
         {
           pump->loop();
         }
 
-        // Set ErrorCode for Report
+        // Infos set after StateMachine Run
         instr.errorCode = pump->errorCode;
       }
       else
       {
+        // instr.distributedWater = 0;
+
         Serial.println("Action aborted.");
         // Serial.println(Irrigation::errors[instr.errorCode]);
         Irrigation::printError(instr.errorCode);
       }
 
+      instr.distributedWater = pump->cistern.pumpedWater;
+
       if (&instr == &Irrigation::instructions.back())
       {
         // create/write/run manual Instr, write Reports, clear Vec, return to EVALUATE, then
         // decidePlants (based on new Data), create/write automatic Instructions
-        transmitState->didActivities = Irrigation::reportInstructions(Irrigation::instructions);
-        Irrigation::clearInstructions();
+        Irrigation::reportInstructions(Irrigation::instructions);
+        // Irrigation::clearInstructions();
         actionState->didActivities = true;
       }
     }

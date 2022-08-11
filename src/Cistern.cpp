@@ -5,6 +5,7 @@ Cistern::Cistern(uint8_t toF_address, uint8_t relaisChannels[])
     this->toF_address = toF_address;
 
     solenoidValves = relaisChannels;
+    pumpedWater = 0;
     minValidWaterDist = 50;
     maxValidWaterDist = 170; // 3L
     maxPossibleDist = 200;
@@ -117,9 +118,14 @@ max(170-171),0 = max(-1,0) = 0
 */
 int Cistern::updateWaterLevel()
 {
-    currWaterDist = evaluateToF();
-    currWaterLevel = 20 + max((maxPossibleDist - currWaterDist),0);
-
+    if(toF_ready) // or Crash if called from PumpState::ABORTED and toF not setup
+    {
+        int waterBodyMinHeight = 10;
+        int sensorError = 15; // Sensor measures wrong...
+        currWaterDist = evaluateToF();
+        currWaterLevel = waterBodyMinHeight + sensorError + max((maxPossibleDist - currWaterDist),0);
+    }
+    
     return currWaterLevel;
 }
 
@@ -134,7 +140,7 @@ bool Cistern::waterManagement(uint8_t relaisChannel)
     uint16_t availableWater = calcMl(newWaterLevel);
     // 20mm pumped can be different waterAmounts, depending on waterLevel
     // min necessary, if pumpProcess stops after 0s AND wrong Reading of new waterLevel
-    uint16_t pumpedWater = max((calcMl(oldWaterLevel) - availableWater),0);
+    pumpedWater = max((calcMl(oldWaterLevel) - availableWater),0);
     
     Serial.println("Available Water and pumped Water: ");
     Serial.println(availableWater);
@@ -145,7 +151,8 @@ bool Cistern::waterManagement(uint8_t relaisChannel)
     {
         updateEnvironmentData(newWaterLevel, availableWater);
 
-        updateIrrigationData(relaisChannel, pumpedWater);
+        // Done by Irrigation::reportInstructions instead, Main class sets Info in Irrigation Instruction Obj
+        // updateIrrigationData(relaisChannel, pumpedWater);
 
         return true; // Created Points, wrote into Buffer
     }
@@ -268,8 +275,9 @@ void Cistern::updateEnvironmentData(int newWaterLevel, int availableWater)
 }
 
 /*
-Detailed Data of Pump Process (Affected Plants, PumpTime, Success, ... 
-in sendReport() Function, creates MongoDB Table Entry)
+Detailed Data of Pump Process (Affected Plants, PumpTime, Success, ... )
+done by Irrigation::reportInstructions 
+(or Irrigation::reportToMongo)
 */
 void Cistern::updateIrrigationData(uint8_t relaisChannel, int pumpedWater)
 {

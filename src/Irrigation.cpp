@@ -433,10 +433,14 @@ bool Irrigation::reportInstructions(std::vector<Instruction> &instructions)
         p2.addTag("pump", instr.pumpModel);
         p2.addTag("solenoidValve", solenoidValve);
         p2.addField("allocatedWater", instr.allocatedWater);
+        p2.addField("distributedWater", instr.distributedWater);
         // p2.addField("pumpTime", instr.pumpTime);
         p2.addTag("errorCode", errorCode);
         InfluxHelper::writeDataPoint(p2); // Write to Buffer
     }
+
+    clearInstructions();
+
     return true;
 }
 

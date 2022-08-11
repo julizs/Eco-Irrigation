@@ -94,7 +94,7 @@ void Pump::loop()
   
             if(!cistern.toF_ready)
             {
-                // Resetup...
+                // Redo Setup...
                 // cistern.setupToF();
                 setupToFs();
             }     
@@ -183,13 +183,8 @@ void Pump::loop()
 
             cistern.driveSolenoid(relaisChannel, HIGH);
 
-            #if (TRANSMIT_DATA == 1)
-            {
             // If ToF not correctly Setup (but Status == ERROR_NONE) -> Crash
-            // cistern.updateIrrigations(relaisChannel);
             cistern.waterManagement(relaisChannel);
-            }
-            #endif
         }
 
         lastState = PumpState::DONE;
@@ -199,6 +194,10 @@ void Pump::loop()
         if (lastState != currentState)
         {
             commonStateLogic();
+
+            // e.g. Pump Process aborted midtime (Button or Error), how much water pumped? 
+            cistern.waterManagement(relaisChannel);
+
             Serial.println(errors[errorCode]);
         }
 
