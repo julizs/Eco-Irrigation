@@ -25,8 +25,8 @@ AmbientClimate climate1(500, 2);
 AmbientLight lightSensor1(1), lightSensor2(2);
 StatusDisplay displayController;
 
-uint8_t solenoids1[] = {0, 1}, solenoids2[] = {}; // Pump/Solenoid/relaisChannels/ToFs are hardwired, User can only change pumpModel
-Cistern cistern1(0x51, solenoids1), cistern2(0x52, solenoids2);
+// uint8_t solenoids1[] = {1, 2}, solenoids2[] = {};
+Cistern cistern1(0x51), cistern2(0x52);
 Pump pump1(0, pump_PWM_1, cistern1), pump2(1, pump_PWM_2, cistern2);
 
 StateMachine fsm = StateMachine();

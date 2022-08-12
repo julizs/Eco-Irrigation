@@ -38,7 +38,7 @@ public:
     // static FluxQueryResult waterPerSol;
     
     // static char const *errors[5];
-    static String errors[5];
+    static String errors[6];
     // static std::string errors[5];
     /*
     static geht nicht
@@ -55,7 +55,7 @@ public:
     static int8_t solenoidByPump(Instruction &instr, JsonObject &pumpModel);
     static JsonObject pumpModelBySolenoid(DynamicJsonDocument &pumps, uint8_t solenoidValve);
     static JsonObject pumpModelByName(DynamicJsonDocument &pumps, const char pumpName[]);
-    static void setPumpTime(Instruction &instr, JsonObject &pumpModel);
+    static void setPumpingParameters(Instruction &instr, JsonObject &pumpModel);
 
     static void reduceInstructions(std::vector<Instruction> &instructions);
     static void sortInstructions(std::vector<Instruction> &instructions);

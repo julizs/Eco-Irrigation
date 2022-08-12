@@ -6,6 +6,9 @@
 
 /*
 Each pump has 1 associated ToF Sensor, Water Temp Sensor, Water PH Sensor
+solenoidValves: Which Relais Channels are associated with this Cistern
+Since 1 Esp constrols 1-2 pumps, 1 toF, 2-4 Sols/relaisChannels its unnecessary to have multiple toFs etc.
+
 */
 class Cistern
 {
@@ -13,7 +16,7 @@ class Cistern
     public:
         //VL53L0X toF; // Polulu Library
         Adafruit_VL53L0X toF;
-        uint8_t* solenoidValves; // relaisChannels
+        uint8_t* solenoidValves;
         uint8_t toF_address, sampleSize;
         uint16_t pumpedWater;
         int currWaterLevel, currWaterDist, minValidWaterDist, maxValidWaterDist;
@@ -21,7 +24,7 @@ class Cistern
         bool toF_ready;
         unsigned long stateBeginMillis;
 
-        Cistern(uint8_t toF_address, uint8_t solenoidValves[]);
+        Cistern(uint8_t toF_address);
         bool setupToF();
         int updateWaterLevel();
         bool waterManagement(uint8_t relaisChannel);         

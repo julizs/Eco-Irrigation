@@ -1,10 +1,11 @@
 #include "Cistern.h"
 
-Cistern::Cistern(uint8_t toF_address, uint8_t relaisChannels[])
+Cistern::Cistern(uint8_t toF_address)
 {
     this->toF_address = toF_address;
 
-    solenoidValves = relaisChannels;
+    // solenoidValves = relaisChannels;
+
     pumpedWater = 0;
     minValidWaterDist = 50;
     maxValidWaterDist = 170; // 3L
@@ -13,6 +14,7 @@ Cistern::Cistern(uint8_t toF_address, uint8_t relaisChannels[])
 }
 
 /*
+Bugs:
 Wrong Readings if spadCount after (re)Setup is different (e.g. 3 instead of 4 spads)
 (Check while sensor debug mode true)
 https://wolles-elektronikkiste.de/vl53l0x-und-vl53l1x-tof-abstandssensoren
@@ -142,9 +144,10 @@ bool Cistern::waterManagement(uint8_t relaisChannel)
     // min necessary, if pumpProcess stops after 0s AND wrong Reading of new waterLevel
     pumpedWater = max((calcMl(oldWaterLevel) - availableWater),0);
     
-    Serial.println("Available Water and pumped Water: ");
-    Serial.println(availableWater);
-    Serial.println(pumpedWater);
+    Serial.println("Water left: ");
+    Serial.print(availableWater); Serial.println("ml");
+    Serial.println("Water pumped: ");
+    Serial.print(pumpedWater); Serial.println("ml");
 
     // Only create new Point if evaluateTof returns valid, else don't create new Grafana Point
     if (newWaterLevel <= oldWaterLevel)
@@ -213,7 +216,7 @@ waterVolume = 0.09/3 * (0.0638 + 0.07086725 + sqrt(0.0638 * 0.07086725))
 = 0.00605724269m³ = 6.057 Liter (Nachgemessen: 9cm, 6 Liter, Korrekt)
 (Dumm / Ohne Slope Berücksichtigung: 0.0638 * 0.09 = 0.005742 m³ = 5.74 Liter)
 */
-uint16_t Cistern::calcMl(int waterLevel) // Eingabeparam in mm, Ausgabeparam in ml (>250ml möglich)
+uint16_t Cistern::calcMl(int waterLevel) // Inputparam in mm
 {
     float l_B = 290, w_B = 220; // m
     float l_T = 320, w_T = 250; // -> 3cm Slope auf 20cm, 1.5cm auf 10cm
@@ -231,9 +234,6 @@ uint16_t Cistern::calcMl(int waterLevel) // Eingabeparam in mm, Ausgabeparam in 
     // e.g. 33mm * 0.15mm/mm = 4.95mm
     float sl_l_eff = waterLevel * sl_l;
     float sl_w_eff = waterLevel * sl_w;
-    Serial.println("Slope:");
-    Serial.print(sl_l_eff);
-    Serial.println(" mm");
 
     // 3. Calc A_T (new top area):
     // (Untere Seiten + effective Slope for fillLevel)
@@ -243,23 +243,14 @@ uint16_t Cistern::calcMl(int waterLevel) // Eingabeparam in mm, Ausgabeparam in 
     l_T = l_B + sl_l_eff;
     w_T = w_B + sl_w_eff;
     uint32_t A_T = l_T * w_T; 
-    Serial.println("Area A_T:");
-    Serial.print(A_T);
-    Serial.println(" mm²");
     
     // 3. Volumen berechnen (ähnlich auch für Kegel Frustum)
     uint32_t waterVolume = h/3.0f * (A_B + A_T + sqrt(A_B*A_T));
-    Serial.println("Volume: ");
-    Serial.print(waterVolume);
-    Serial.println(" mm³");
 
     // uint8_t waterAmount = waterVolume * 1000; // m³ * 1000 = Liter
     uint32_t waterAmount = waterVolume / 1000.0f; // mm³ /1000000 = L, mm³ /1000 = Ml
-    Serial.println("Amount: ");
-    Serial.print(waterAmount);
-    Serial.println(" ml");
 
-    return waterAmount;
+    return waterAmount; // Outputparam in ml (>250ml possible -> uint16_t)
 }
 
 void Cistern::updateEnvironmentData(int newWaterLevel, int availableWater)
@@ -396,7 +387,10 @@ void Cistern::readToF_cont(int distances[])
     toF.stopRangeContinuous();
 }
 
+/*
+relaisChannel -1, since WebInterface starts counting from 1 not 0
+*/
 void Cistern::driveSolenoid(uint8_t relaisChannel, uint8_t state)
 {
-    digitalWrite(Relais[relaisChannel], state);
+    digitalWrite(Relais[relaisChannel-1], state);
 }

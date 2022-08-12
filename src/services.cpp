@@ -141,7 +141,7 @@ void Services::doPostRequest(char const endpoint[], String &payload)
   int httpResponseCode = http.POST(payload);
 
   snprintf(message, 128, "POST %s, HTTP Response code: %d ", url, httpResponseCode);
-  Serial.println(message);
+  // Serial.println(message);
 
   if (httpResponseCode > 0)
   {
@@ -164,7 +164,7 @@ void Services::doJSONGetRequest(char const endpoint[], DynamicJsonDocument &doc)
   int httpResponseCode = http.GET();
 
   snprintf(message, 128, "GET %s, HTTP Response code: %d ", url, httpResponseCode);
-  Serial.println(message);
+  // Serial.println(message);
 
   if (httpResponseCode > 0)
   {
