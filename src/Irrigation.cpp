@@ -9,13 +9,29 @@ String Irrigation::errors[] = {"None", "Plant not found", "Solenoid invalid (Wat
 
 /*
 Check recent waterAmounts for ALL Solenoids per timePeriod
-Doublecheck Query in Powershell/Console, "influx query" ...
+(Check with Powershell/Console or make new Panel in Grafana):
+
+influx query, Enter
+
+from(bucket: "messdaten")
+|> range(start: -24h)
+|> filter(fn: (r) => r._measurement == "Irrigations" and r._field == "distributedWater" and r["errorCode"] == "0")
+|> sum()
+
+from(bucket: "messdaten")
+|> range(start: -24h)
+|> filter(fn: (r) => r._measurement == "Irrigations" and r._field == "distributedWater" and r["errorCode"] == "0")
+|> group(columns: ["solenoidValve"])
+|> sum()
+
+Enter, Strg + d
 */
 FluxQueryResult Irrigation::querySolenoids(uint8_t timePeriod)
 {
-    char query[256] = "";
-    snprintf(query, 256, "from (bucket: \"messdaten\")|> range(start: -%dh)"
-                         "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"distributedWater\")"
+    char query[512] = "";
+    snprintf(query, 512, "from (bucket: \"messdaten\")|> range(start: -%dh)"
+                         "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"distributedWater\" and r[\"errorCode\"] == \"0\")"
+                         "|> group(columns: [\"solenoidValve\"])"
                          "|> sum()",
              timePeriod);
 
