@@ -4,7 +4,7 @@ std::vector<Instruction> Irrigation::instructions;
 std::vector<WaterPerSolenoid> Irrigation::recentIrrigations; // waterDistribution
 // std::string Irrigation::errors[] = {"Test"};
 String Irrigation::errors[] = {"None", "Plant not found", "Solenoid invalid (Waterlimit)",
-                             "Pump has no Solenoids assigned.", "Pump has no valid Solenoids (Waterlimit)"
+                             "Pump has no Solenoids assigned.", "Pump has no valid Solenoids (Waterlimit)",
                              "Pump currently not active in System"};
 
 /*
@@ -15,7 +15,7 @@ FluxQueryResult Irrigation::querySolenoids(uint8_t timePeriod)
 {
     char query[256] = "";
     snprintf(query, 256, "from (bucket: \"messdaten\")|> range(start: -%dh)"
-                         "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"allocatedWater\")"
+                         "|> filter(fn: (r) => r._measurement == \"Irrigations\" and r._field == \"distributedWater\")"
                          "|> sum()",
              timePeriod);
 
@@ -438,21 +438,34 @@ bool Irrigation::compareBySolenoid(const Instruction &i1, const Instruction &i2)
 }
 
 /* Report to InfluxDB:
+Do NOT write Points at the same Time / with same Timestamp since 
+Grafana Points in Graphs will be overlapped / hard to read
+
 Tags are indexed (unlike Fields), faster Queries
 -> Use Tags instead of Fields for often queried Attr
 Tags can only be Strings
 e.g. which Irrigations failed (errorCode != 0) ?
-Check (as Table): influx query
+Check (as Table) in Powershell: 
+influx query
+
+Strg+c, Rechtsklick zum Einfügen:
+
 from(bucket: "messdaten")
-|> range(start: -24h)
+|> range(start: -5m)
 |> filter(fn: (r) => r._measurement == "Irrigations")
+
+Enter, Strg+d zum Ausführen
 */
+/*
 bool Irrigation::reportInstructions(std::vector<Instruction> &instructions)
 {
+
     for (auto const &instr : instructions)
     {
-        Point p2("Irrigations");
-        // p2.clearTags(); p2.clearFields();
+        // Point p2("Irrigations");
+        p2.clearTags(); p2.clearFields();
+
+        // Tags have to be Strings
         char solenoidValve[4], errorCode[4];
         itoa(instr.solenoidValve, solenoidValve, 10);
         itoa(instr.errorCode, errorCode, 10);
@@ -471,6 +484,28 @@ bool Irrigation::reportInstructions(std::vector<Instruction> &instructions)
 
     return true;
 }
+*/
+
+bool Irrigation::reportInstruction(Instruction &instr)
+{
+    p2.clearTags(); p2.clearFields();
+
+    // Tags have to be Strings
+    char solenoidValve[4], errorCode[4];
+    itoa(instr.solenoidValve, solenoidValve, 10);
+    itoa(instr.errorCode, errorCode, 10);
+
+    p2.addTag("reason", instr.reason);
+    p2.addTag("pump", instr.pumpModel);
+    p2.addTag("solenoidValve", solenoidValve);
+    p2.addField("allocatedWater", instr.allocatedWater);
+    p2.addField("distributedWater", instr.distributedWater);
+    // p2.addField("pumpTime", instr.pumpTime);
+    p2.addTag("errorCode", errorCode);
+    InfluxHelper::writeDataPoint(p2); // Write to Buffer
+
+    return true;
+}
 
 void Irrigation::clearInstructions()
 {
@@ -483,14 +518,13 @@ void Irrigation::printError(uint8_t errorCode)
     Serial.println(errors[errorCode]);
 }
 
-
 /*
 Report to MongoDB
 https://arduinojson.org/v6/api/json/serializejson/
-
+*/
 bool Irrigation::reportToMongo(std::vector<Instruction> &instructions)
 {
-    StaticJsonDocument<2048> reports;
+    StaticJsonDocument<1024> reports;
     String output;
 
     for (auto const &instr : instructions)
@@ -499,20 +533,23 @@ bool Irrigation::reportToMongo(std::vector<Instruction> &instructions)
         report["reason"] = instr.reason;
         report["pump"] = instr.pumpModel;
         report["solenoidValve"] = instr.solenoidValve;
-        report["allocatedWater"] = instr.allocatedWater; // Planned
-        // report["distributedWater"] = instr.allocatedWater; // Actual
+        report["allocatedWater"] = instr.allocatedWater;
+        report["distributedWater"] = instr.distributedWater;
         // report["timeStamp"] = ...
         report["pumpTime"] = instr.pumpTime;
         report["errorCode"] = instr.errorCode;
         reports.add(report);
     }
 
-    // output = "{}";
+    // output = "{}"; // Empty Json Obj
     serializeJson(reports, output);
     Services::doPostRequest("/settings/report", output);
+
+    clearInstructions();
+
     return true;
 }
-*/
+
 
 /* Irrigation Algorithm
   1.1 Skip if waterAmount released by this Solenoid over last 2h > Threshold

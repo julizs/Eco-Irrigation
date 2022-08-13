@@ -270,6 +270,7 @@ Detailed Data of Pump Process (Affected Plants, PumpTime, Success, ... )
 done by Irrigation::reportInstructions 
 (or Irrigation::reportToMongo)
 */
+/*
 void Cistern::updateIrrigationData(uint8_t relaisChannel, int pumpedWater)
 {
     //int pumpedWaterML = rand() % 200 + 100; // Demo, 100-300ml
@@ -284,7 +285,7 @@ void Cistern::updateIrrigationData(uint8_t relaisChannel, int pumpedWater)
 
     InfluxHelper::writeDataPoint(p2);
 }
-
+*/
 
 /*
 Only way to prevent Crash if one or both ToF setup fail:

@@ -42,6 +42,8 @@ bool Pump::setupIna()
         return false;
     }
 
+    ina219.powerSave(true);
+
     return true;
 }
 
@@ -51,33 +53,59 @@ bool Pump::inaReady()
     bool ready = ina219.success();
     if(ready)
         Serial.println("INA 219 is ready.");
+
     return ready;
 }
 
+/*
+influx query
+
+from(bucket: "messdaten")
+|> range(start: -5m)
+|> filter(fn: (r) => r._measurement == "Environment Data")
+
+Enter, Strg + d
+*/
 INAdata Pump::readIna()
 {
+    ina219.powerSave(false);
+
     INAdata data;
+    
     data.busVoltage = ina219.getBusVoltage_V();
     data.shuntVoltage = abs(ina219.getShuntVoltage_mV() / 1000.0f);
     data.voltage = data.busVoltage + data.shuntVoltage;
-    // Constrain (InfluxDB Write fail, Current = Inf)
+
     float current = abs(ina219.getCurrent_mA() / 1000.0f);
-    data.current = constrain(current, 0, 2);
-    // power_mW = ina219.getPower_mW();
-    data.power = data.busVoltage * data.current; // P = U * I
+    // Use constrain or max on current, otherwise InfluxDB Buffer Write fails, Value = Infinity
+    // data.current = max(current, 24.0f);
+    // data.current = constrain(current, 0.0f, 4.0f);
+    if(isnan(current))
+        data.current = 0.0f;
+
+    data.power = ina219.getPower_mW();
+    // data.power = data.busVoltage * data.current; // P = U * I
+
+    Serial.print("INA 219: ");
+    Serial.print(data.voltage);
+    Serial.print(" ");
+    Serial.print(data.current);
+    Serial.print(" ");
+    Serial.println(data.power);
+
+    ina219.powerSave(true);
 
     return data;
 }
 
 void Pump::writeIna()
 {
-    // p.clearFields();
     INAdata inaData = readIna();
     p0.addField("voltage", inaData.voltage);
     p0.addField("current", inaData.current);
     p0.addField("power", inaData.power);
-    p0.addField("busVoltage", inaData.busVoltage);
-    p0.addField("shuntVoltage", inaData.shuntVoltage);
+    // p0.addField("busVoltage", inaData.busVoltage);
+    // p0.addField("shuntVoltage", inaData.shuntVoltage);
     // delay(200);
 }
 
@@ -107,11 +135,14 @@ void Pump::loop()
                 errorCode = 1;
                 currentState = PumpState::ABORT;
             }
+            /*
+            Pump SM will not even get started if no valid Solenoid/Pump not active in System
             else if(relaisChannel == -1)
             {
                 errorCode = 5;
                 currentState = PumpState::ABORT;
             }
+            */
             /*
             else if(!Irrigation::validSolenoid(relaisChannel, Irrigation::waterLimit24h, 24))
             {
@@ -195,8 +226,8 @@ void Pump::loop()
         {
             commonStateLogic();
 
-            // e.g. Pump Process aborted midtime (Button or Error), how much water pumped? 
-            cistern.waterManagement(relaisChannel);
+            // e.g. if Pump Process aborted midtime by Button -> DONE, not ABORT 
+            // cistern.waterManagement(relaisChannel);
 
             Serial.println(errors[errorCode]);
         }

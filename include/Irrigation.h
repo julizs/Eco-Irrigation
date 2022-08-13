@@ -36,17 +36,13 @@ public:
     static std::vector<Instruction> instructions;
     static std::vector<WaterPerSolenoid> recentIrrigations;
     // static FluxQueryResult waterPerSol;
-    
-    // static char const *errors[5];
+       
     static String errors[6];
+    // static char const *errors[5];
     // static std::string errors[5];
-    /*
-    static geht nicht
+    /* static geht nicht:
     char const *errors[5] = {"None", "Did not find Plant", "Solenoid invalid (Waterlimit)",
-                             "Pump has no Solenoids assigned.", "Pump has no valid Solenoids (Waterlimit)"
-                             };
-    */
-                             
+                             "Pump has no Solenoids assigned.", "Pump has no valid Solenoids (Waterlimit)"};*/                    
 
     static bool evaluatePlants();
     static void createInstructions(JsonArray &actions, std::vector<Instruction> &instructions);
@@ -62,7 +58,8 @@ public:
     static bool compareBySolenoid(const Instruction &i1, const Instruction &i2);
 
     static void printInstructions(std::vector<Instruction> &instructions);
-    static bool reportInstructions(std::vector<Instruction> &instructions);
+    // static bool reportInstructions(std::vector<Instruction> &instructions);
+    static bool reportInstruction(Instruction &instruction); // Single Instr
     static bool reportToMongo(std::vector<Instruction> &instructions);
     static void clearInstructions();
     

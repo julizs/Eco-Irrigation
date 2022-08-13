@@ -500,28 +500,34 @@ void on_actionState()
           pump->loop();
         }
 
-        // Infos set after StateMachine Run
+        // Only set this is if pump ran into ABORT, 
+        // if there is an error before (Irrigation, Plant/Pump not found etc.) then don't override that errorCode
         instr.errorCode = pump->errorCode;
+
+        instr.distributedWater = pump->cistern.pumpedWater;
       }
       else
       {
-        // instr.distributedWater = 0;
+        instr.distributedWater = 0;
 
         Serial.println("Action aborted.");
         // Serial.println(Irrigation::errors[instr.errorCode]);
         Irrigation::printError(instr.errorCode);
       }
 
-      instr.distributedWater = pump->cistern.pumpedWater;
+      // Write Points into Buffer (no Delay), correct Timestamp (Order of Pumping Processes)
+      // and better readable Points in Grafana Graph
+      Irrigation::reportInstruction(instr);
 
       if (&instr == &Irrigation::instructions.back())
       {
         // create/write/run manual Instr, write Reports, clear Vec, return to EVALUATE, then
         // decidePlants (based on new Data), create/write automatic Instructions
-        Irrigation::reportInstructions(Irrigation::instructions);
-        // Irrigation::clearInstructions();
+        // Irrigation::reportToMongo(Irrigation::instructions);
+        // Irrigation::reportInstructions(Irrigation::instructions);
+        Irrigation::clearInstructions();
         actionState->didActivities = true;
-      }
+      }  
     }
   }
 #endif

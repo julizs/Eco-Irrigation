@@ -129,7 +129,7 @@ void Utilities::printSolenoids(std::vector<WaterPerSolenoid> &solenoids)
 {
   char message[64];
 
-  Serial.println("Recent Irrigation Events: ");
+  Serial.println("Total Water Distribution per Solenoid: ");
 
   if (solenoids.size() > 0)
   {
