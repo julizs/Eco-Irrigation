@@ -215,7 +215,7 @@ void Pump::loop()
             cistern.driveSolenoid(relaisChannel, HIGH);
 
             // If ToF not correctly Setup (but Status == ERROR_NONE) -> Crash
-            cistern.waterManagement(relaisChannel);
+            cistern.waterManagement();
         }
 
         lastState = PumpState::DONE;

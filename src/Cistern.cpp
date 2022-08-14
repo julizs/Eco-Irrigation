@@ -132,10 +132,10 @@ int Cistern::updateWaterLevel()
 }
 
 /*
-Water Management (after Pump Procedure)
-Update Waterlevel, write waterLevel and Irrigation Point, give Warnings (low waterLevel etc.)
+Called by measureState and after Pump::DONE State
+Calc Milliliters, write Environment_Data Point to Buffer, give Warnings (low waterLevel etc.)
 */
-bool Cistern::waterManagement(uint8_t relaisChannel)
+bool Cistern::waterManagement()
 {
     int oldWaterLevel = currWaterLevel; // (Updated from Check at Beginning of Pump State Machine)
     int newWaterLevel = updateWaterLevel(); // Get new fill Level and Update
@@ -143,23 +143,9 @@ bool Cistern::waterManagement(uint8_t relaisChannel)
     // 20mm pumped can be different waterAmounts, depending on waterLevel
     // min necessary, if pumpProcess stops after 0s AND wrong Reading of new waterLevel
     pumpedWater = max((calcMl(oldWaterLevel) - availableWater),0);
+
+    updateEnvironmentData(newWaterLevel, availableWater);
     
-    Serial.println("Water left: ");
-    Serial.print(availableWater); Serial.println("ml");
-    Serial.println("Water pumped: ");
-    Serial.print(pumpedWater); Serial.println("ml");
-
-    // Only create new Point if evaluateTof returns valid, else don't create new Grafana Point
-    if (newWaterLevel <= oldWaterLevel)
-    {
-        updateEnvironmentData(newWaterLevel, availableWater);
-
-        // Done by Irrigation::reportInstructions instead, Main class sets Info in Irrigation Instruction Obj
-        // updateIrrigationData(relaisChannel, pumpedWater);
-
-        return true; // Created Points, wrote into Buffer
-    }
-
     return false;
 }
 

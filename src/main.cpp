@@ -71,16 +71,19 @@ bool doMeasurements()
   }
   p0.clearFields();
 
-  if (cistern1.toF_ready)
-    cistern1.updateWaterLevel();
-
-  if (cistern2.toF_ready)
-    cistern2.updateWaterLevel();
-
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
 
-  InfluxHelper::writeDataPoint(p0);
+  if (cistern1.toF_ready)
+    //cistern1.updateWaterLevel();
+    cistern1.waterManagement();
+
+  if (cistern2.toF_ready)
+    //cistern2.updateWaterLevel();
+    cistern2.waterManagement();
+
+  // Gets written in waterManagement() Func instead
+  // InfluxHelper::writeDataPoint(p0);
 
   // PLANT-SPECIFIC MEASUREMENTS
   // Advantage: Local DynamicJsonDocs (big) get destroyed after leaving Scope
@@ -550,8 +553,6 @@ void on_transmitState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-
-    bool didTramsmit;
 
     // Write reports before clearing Buffer!
     // transmitState->didActivities = Irrigation::reportInstructions(Irrigation::instructions);

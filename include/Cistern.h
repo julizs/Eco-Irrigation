@@ -27,7 +27,7 @@ class Cistern
         Cistern(uint8_t toF_address);
         bool setupToF();
         int updateWaterLevel();
-        bool waterManagement(uint8_t relaisChannel);         
+        bool waterManagement();         
 
     private:
         float evaluateToF();
