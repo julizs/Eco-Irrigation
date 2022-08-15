@@ -37,7 +37,7 @@ public:
     static std::vector<WaterPerSolenoid> recentIrrigations;
     // static FluxQueryResult waterPerSol;
        
-    static String errors[6];
+    static String errors[7];
     // static char const *errors[5];
     // static std::string errors[5];
     /* static geht nicht:

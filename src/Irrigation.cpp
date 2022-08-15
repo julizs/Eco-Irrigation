@@ -3,7 +3,7 @@
 std::vector<Instruction> Irrigation::instructions;
 std::vector<WaterPerSolenoid> Irrigation::recentIrrigations; // waterDistribution
 // std::string Irrigation::errors[] = {"Test"};
-String Irrigation::errors[] = {"None", "Plant not found", "Solenoid invalid (Waterlimit)",
+String Irrigation::errors[] = {"None", "Plant not found", "Solenoid invalid (Not existing)", "Solenoid invalid (Waterlimit)",
                              "Pump has no Solenoids assigned.", "Pump has no valid Solenoids (Waterlimit)",
                              "Pump currently not active in System"};
 
@@ -114,8 +114,10 @@ bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit, u16_t
     uint16_t waterAmount = waterPerSolenoid(solenoidValve, timePeriod);
     uint16_t outcome = waterAmount + allocatedWater;
 
+    /*
     snprintf(message, 128, "Solenoid Valve: %d, Water Amount: %dml, Time Period: %dh, Valid: %s",
     solenoidValve, waterAmount, timePeriod, outcome < waterLimit ? "true" : "false"); Serial.println(message);
+    */
 
     return outcome < waterLimit;
 }
@@ -228,7 +230,8 @@ void Irrigation::writeInstructions()
         }
         else // User clicked on Irrigate! e.g. instr.reason: "Basilikum"
         {
-            solenoidByPlant(instr, plants); // Find Solenoid connected to this Plant
+            solenoidByPlant(instr, plants); // Check if this Plant is connected to a Sol. and if Sol. is valid
+           
             JsonObject pumpModel = pumpModelBySolenoid(pumps, instr.solenoidValve);
             setPumpingParameters(instr, pumpModel);
         }
@@ -249,25 +252,34 @@ int8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &plan
 {
     // errorCode 1: found no matching plant for instr.reason
     int8_t solenoid = -1, errorCode = 1;
-    Serial.println("Recently Distributed Water:");
+    // Serial.println("Recently Distributed Water:");
 
     for (int i = 0; i < plants.size(); i++)
     {
         String plantName = plants[i]["name"];
-        solenoid = plants[i]["solenoidValve"].as<int>();
 
         if (plantName.equals(instr.reason))
         {
-            if (validSolenoid(solenoid, waterLimit24h, instr.allocatedWater, 24))
-            {          
-                errorCode = 0;
+            solenoid = plants[i]["solenoidValve"].as<int>();
+ 
+            if(solenoid > 0 && solenoid <= 2)
+            {
+                if (validSolenoid(solenoid, waterLimit24h, instr.allocatedWater, 24))
+                {          
+                    errorCode = 0;
+                }
+                else
+                {
+                    // Solenoid already distributed too much water in recent 24h
+                    errorCode = 3;
+                }
+                break;
             }
             else
             {
-                // Solenoid already distributed too much water in recent 24h
+                // Solenoid does not exist in System (null = Plant not connected) or User set invalid Solenoid (e.g. 3)
                 errorCode = 2;
-            }
-            break;
+            }   
         }
     }
 
@@ -288,7 +300,7 @@ Gets called by manual Irrigations (Pumpcheck), so validify with 2h waterLimit
 */
 int8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject &pumpModel)
 {
-    int8_t solenoid = -1, errorCode = 3; // pumpModel has no Solenoids assigned (= currently not active)
+    int8_t solenoid = -1, errorCode = 4; // pumpModel has no Solenoids assigned (= currently not active)
 
     if (!pumpModel.isNull())
     {
@@ -307,7 +319,7 @@ int8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject &pumpModel)
                 {
                     // Solenoid reached Waterlimit, check next
                     // Or: All assigned Solenoids reached Waterlimit
-                    errorCode = 4;
+                    errorCode = 5;
                 }
             }
         }
@@ -378,6 +390,12 @@ pwmChannel/Pin always associated with same pumpObj (no changes necessary)
 */
 void Irrigation::setPumpingParameters(Instruction &instr, JsonObject &pumpModel)
 {
+    if(pumpModel.isNull())
+    {
+        snprintf(instr.pumpModel, 32, "Null");
+        return;
+    }
+
     // Adress correct pumpObj / pwmChannel
     int pwmChannel = pumpModel["pwmChannel"];
     if(pwmChannel == 1)
@@ -391,7 +409,7 @@ void Irrigation::setPumpingParameters(Instruction &instr, JsonObject &pumpModel)
     else
     {
         // Pump currently not active in System
-        instr.errorCode = 5;
+        instr.errorCode = 6;
     }
 
     snprintf(instr.pumpModel, 32, pumpModel["name"]);
