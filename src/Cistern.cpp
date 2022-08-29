@@ -20,6 +20,7 @@ Wrong Readings if spadCount after (re)Setup is different (e.g. 3 instead of 4 sp
 https://wolles-elektronikkiste.de/vl53l0x-und-vl53l1x-tof-abstandssensoren
 toF.status is 0 even if not correctly setup
 toF.rangingTest for current ErrCode crashes if toF not setup before
+Error -5 or -6 (and no I2C Accress): Move ToF Sensor a bit around
 */
 
 bool Cistern::setupToF()
@@ -32,7 +33,8 @@ bool Cistern::setupToF()
     // true/false for debug infos while Setup
     while (!toF.begin(toF_address, false, &I2Cone) && attempt < 3)
     {
-        delay(1000 * attempt);
+        delay(1500 * attempt);
+        Serial.println("Time of Flight Sensor Status: ");
         Serial.println(toF.Status);
         attempt++;
         if (toF_address == 0x51)

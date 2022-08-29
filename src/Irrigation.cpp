@@ -128,37 +128,39 @@ Call after processing manual User Irrigations
 Check needs of each Plant in System
 e.g. plantSize 1 = 100-200mm, waterNeeds 1 = 500ml per 2 days
 
-Each plant needs to be evaluated for Happiness anyway
+EVALUATE State checks overall Plant Wellbeing first and displays Happiness
+this Func only processes all Water related Values from that Query, decides Irrigations
 */
 bool Irrigation::evaluatePlants()
 {
-    char message[64];
-    uint8_t waterNeeds = 1, lightNeeds = 1, plantSize = 1; // Standard Values (0-3)
+    char message[128];
+    uint8_t waterNeeds = 5, lightNeeds = 5, tempNeeds = 5, humidityNeeds = 0; // Standard Values (1-10)
+    bool letDry, fullSun;
     int k = 0;
 
-    DynamicJsonDocument plants(2048), plantNeeds(1024);
+    DynamicJsonDocument plants(2048), plantNeeds(2048);
     Services::doJSONGetRequest("/plants/sensors", plants);
     Services::doJSONGetRequest("/plants/needs", plantNeeds);
+    // Services::doJSONGetRequest("/plants/happiness", plantHappiness);
 
     Serial.println("Plant Needs: ");
 
     for (int i = 0; i < plants.size(); i++)
     {
-        String plantName = plants[i]["name"];
+        String plantName = plants[i]["scientificName"];
         int solenoidValve = plants[i]["solenoidValve"].as<int>();
-
-        // Check if too little/much Water
-        uint16_t recentIrrigations = waterPerSolenoid(solenoidValve, 24);
 
         for (int j = 0; j < plantNeeds.size(); j++)
         {
-            const char *name = plantNeeds[j]["name"];
+            const char *name = plantNeeds[j]["scientificName"];
+         
             if (plantName.equals(name))
             {
                 waterNeeds = plantNeeds[j]["waterNeeds"];
                 lightNeeds = plantNeeds[j]["lightNeeds"];
-                plantSize = plantNeeds[j]["plantSize"];
-                snprintf(message, 64, "%s: Water: %d, Light: %d, Plant Size: %d", name, waterNeeds, lightNeeds, plantSize);
+                tempNeeds = plantNeeds[j]["tempNeeds"];
+                tempNeeds = plantNeeds[j]["humidityNeeds"];
+                snprintf(message, 128, "%s: Water: %d, Light: %d, Temperature: %d, Humidity: %d", name, waterNeeds, lightNeeds, tempNeeds, humidityNeeds);
                 Serial.println(message);
                 k++;
             }
@@ -277,7 +279,8 @@ int8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &plan
             }
             else
             {
-                // Solenoid does not exist in System (null = Plant not connected) or User set invalid Solenoid (e.g. 3)
+                // Solenoid currently does not exist in System (null = Plant not connected) 
+                // or User set invalid Solenoid in Interface (e.g. 12)
                 errorCode = 2;
             }   
         }

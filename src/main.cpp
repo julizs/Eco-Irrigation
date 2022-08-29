@@ -185,6 +185,7 @@ bool transitionToIdle()
     if (transDestinations.get(0).equals(currentState->name) && SLEEPTYPE == 0)
     {
       transDestinations.remove(0);
+      // printDestinations();
       nextState = idleState;
       return true;
     }
@@ -215,6 +216,15 @@ bool transitionToNext()
     }
   }
   return false;
+}
+
+/*
+Directly go to User targetState, only go to
+other States if necessary (Connection lost etc.)
+*/
+bool transitionToTarget()
+{
+
 }
 
 /*
@@ -289,9 +299,9 @@ void on_idleState()
     {
       // ESP.deepSleep(30e6);
     }
-    else if (SLEEPTYPE == 0)
+    else if (SLEEPTYPE == 0) // No Sleep / Demonstration Mode
     {
-      // User has set manualTransition, stop idling
+      // User has set a manual transitionTarget, stop idling
       currentState->didActivities = transDestinations.size() > 0;
     }
   }
@@ -332,7 +342,9 @@ void on_initState()
     lightSensor2.setupTSL2591(I2Ctwo);
     // sensorsReady = lightSensor1.isReady();
 
+    // Serial.println("I2C Bus 1:");
     Utilities::scanI2CBus(&I2Cone);
+    // Serial.println("I2C Bus 2:");
     Utilities::scanI2CBus(&I2Ctwo);
   }
 
