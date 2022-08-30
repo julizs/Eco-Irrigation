@@ -260,7 +260,7 @@ bool Services::readSettings()
     Irrigation::writeInstructions();
   }
 
-  Serial.println("Resetting User Actions: ");
+  // Serial.println("Resetting User Actions: ");
   String emptyDoc = "{}";
   Services::doPostRequest("/settings/reset", emptyDoc);
     

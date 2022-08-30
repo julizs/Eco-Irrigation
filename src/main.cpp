@@ -45,13 +45,50 @@ bool countTime(int durationSec)
 
 void printDestinations()
 {
-  Serial.print("Manual Transitions List: ");
-  for (int i = 0; i < transDestinations.size(); i++)
+  if(transDestinations.size() > 0)
   {
-    Serial.print(transDestinations.get(i));
-    Serial.print(" ");
+    Serial.print("Manual Transitions List: ");
+    for (int i = 0; i < transDestinations.size(); i++)
+    {
+      Serial.print(transDestinations.get(i));
+      Serial.print(" ");
+    }
+    Serial.println();
   }
-  Serial.println();
+  else
+  {
+    Serial.print("No User Actions.");
+  }
+}
+
+State* getStateByName(String stateName)
+{
+  State* state = nullptr;
+
+  for(int i = 0; i < fsm.stateList->size()-1; i++)
+    {
+      state = fsm.stateList->get(i);
+
+      if(stateName.equals(state->name))
+      {
+        return state;
+      }
+    }
+
+  return state;
+}
+
+/*
+  Do one whole Cycle in Demo Mode first
+  Skip IDLE and ERROR
+  */
+void addCycle()
+{ 
+  for(int i = 1; i < fsm.stateList->size()-1; i++)
+  {
+    State* state = fsm.stateList->get(i);
+    transDestinations.add(state->name);
+  }
 }
 
 // Always setup both Sensors at once
@@ -162,15 +199,17 @@ void commonStateLogic()
   currentState->didActivities = false; // "Reset" States
   currentState->transCount++;
 
-  Serial.println();
   // Serial.println(stateNames[fsm.currentState]);
+  Serial.println();
   Serial.println(currentState->name);
 
+  /*
   // Safety
   pump1.switchOff();
   pump2.switchOff();
   digitalWrite(Relais[0], HIGH);
   digitalWrite(Relais[1], HIGH);
+  */
 }
 
 /*
@@ -198,7 +237,7 @@ Generalized Transition Funcs, evaluated continously
 Evaluation Order important
 Return true/false, to reliably stop evaluation of next transitions
 (...When a state has multiple transitions, they are evaluated in the order they were added to the state)
-If manualTransitin == currentStateIndex and didSucceed, go back to Idle
+If manualTransition == currentStateIndex and didSucceed, go back to Idle
 */
 bool transitionToNext()
 {
@@ -206,29 +245,55 @@ bool transitionToNext()
   // Starts from 0, and dont include last State (errorState), hence -2
   uint8_t next = current < fsm.stateList->size() - 2 ? ++current : 0;
 
-  if (currentState->didActivities)
+  if(SLEEPTYPE != 0)
   {
-    if (!transDestinations.get(0).equals(currentState->name))
+    if (currentState->didActivities)
     {
       currentState->transCount = 0;
       nextState = fsm.stateList->get(next);
-      return true;
+      return true;   
     }
   }
+  
   return false;
 }
 
 /*
-Directly go to User targetState, only go to
+Directly go to User targetState, only go (back) to
 other States if necessary (Connection lost etc.)
+Call whenever transDestinations.size > 0
 */
+
 bool transitionToTarget()
 {
+  int index;
 
+  if (currentState->didActivities)
+  {
+    if(transDestinations.size() > 0)
+    {
+      State* target = getStateByName(transDestinations.get(0));
+      transDestinations.remove(0);
+  
+      if(target != nullptr)
+      {
+        currentState->transCount = 0;
+        nextState = target;
+      }  
+    }
+    else
+    {
+      // Serial.println("All manual Transitions done.");
+      nextState = idleState;
+    }   
+  }
+  
+  return false;
 }
 
 /*
 Increase waitTime?
+Idle State can repeat indefinately
 */
 bool transitionToSelf()
 {
@@ -243,6 +308,9 @@ bool transitionToSelf()
     else
     {
       // critErrMessage = currentState->name;
+      if(currentState == idleState)
+        currentState->transCount = 0;
+
       nextState = errorState;
     }
     return true;
@@ -257,13 +325,17 @@ Set transCount to 0, or maxSelfTrans is reached after returning to IDLE, -> ERRO
 bool checkSettings()
 {
   uint8_t interval = 5;
+  Serial.println(currentState->transCount);
 
   if (currentState->transCount % interval == 0)
   {
+    transDestinations.add("REQUEST");
+    transitionToTarget();
+    /*
     currentState->transCount = 0;
-    transDestinations.add(0, "REQUEST");
     referralState = currentState;
     nextState = connectState;
+    */
     return true;
   }
   return false;
@@ -302,22 +374,30 @@ void on_idleState()
     else if (SLEEPTYPE == 0) // No Sleep / Demonstration Mode
     {
       // User has set a manual transitionTarget, stop idling
-      currentState->didActivities = transDestinations.size() > 0;
+      // currentState->didActivities = transDestinations.size() > 0;
     }
   }
 
   if (countTime(currentState->minStateTime))
   {
+    currentState->didActivities = true;
+
+    /*
     // Do whole Cycle once after Bootup
     if (!initState->didActivities)
     {
       nextState = initState;
       return;
     }
+    */
+
     if (checkSettings())
       return;
+    if(transitionToTarget());
+      return; 
     if (transitionToSelf())
       return;
+
     transitionToNext();
   }
 }
@@ -353,7 +433,8 @@ void on_initState()
     // Start checking bool after minStateTime, Give Sensors time to init
     initState->didActivities = pump1.inaReady();
     initState->didActivities = lightSensor2.isReady();
-    if (transitionToIdle())
+
+    if(transitionToTarget());
       return;
     if (transitionToSelf())
       return;
@@ -394,6 +475,8 @@ void on_connectState()
 
   if (countTime(currentState->minStateTime))
   {
+    if(transitionToTarget());
+      return;
     if (transitionToSelf())
       return;
     transitionToNext();
@@ -416,17 +499,20 @@ void on_requestState()
 
   if (countTime(currentState->minStateTime))
   {
-    // User added manual pumpInstr, go to ACTION before EVALUATE State
-    // (otherwise Evaluation is based on outdated Data)
-    // Only go to ACTION State if errorCode of instr == 0 (?)
+    /*
+    User added manual pumpInstr, go to ACTION before EVALUATE State
+    (otherwise Evaluation is based on outdated Data)
+    Only go to ACTION State if errorCode of instr == 0 (?)
     if (Irrigation::instructions.size() > 0)
     {
       referralState = currentState;
       nextState = actionState;
       return;
     }
+    */
+   printDestinations();
 
-    if (transitionToIdle())
+    if(transitionToTarget());
       return;
     if (transitionToSelf())
       return;
@@ -450,7 +536,7 @@ void on_measureState()
 
   if (countTime(currentState->minStateTime))
   {
-    if (transitionToIdle())
+    if(transitionToTarget());
       return;
     if (transitionToSelf())
       return;
@@ -468,9 +554,14 @@ void on_evaluateState()
 
   if (countTime(currentState->minStateTime))
   {
-    // "Custom" Transitions
+    if(transitionToTarget());
+      return;
+
+    /*
     if (currentState->didActivities)
     {
+      
+      // "Custom" Transition
       if (Irrigation::instructions.size() > 0)
       {
         nextState = actionState;
@@ -478,8 +569,9 @@ void on_evaluateState()
       else
       {
         nextState = transmitState;
-      }
+      }  
     }
+    */
   }
 }
 
@@ -492,70 +584,83 @@ void on_actionState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
+
+    if(!Irrigation::instructions.size() > 0)
+    {
+      Serial.println("No scheduled automatic or manual Irrigations.");
+      actionState->didActivities = true;
+    }
   }
 
-#if (RUN_SUBMACHINES == 1)
+  #if (RUN_SUBMACHINES == 1)
   {
-    for (auto &instr : Irrigation::instructions)
+    if(Irrigation::instructions.size() > 0)
     {
-       Pump *pump = instr.pump;
-
-      if (instr.errorCode == 0) // Only run valid Instructions
+      for (auto &instr : Irrigation::instructions)
       {
-        // Set back State to idle so that same Pump can run multiple times
-        pump->resetMachine();
-  
-        // Infos set before StateMachine Run
-        pump->pumpTime = instr.pumpTime;
+        Pump *pump = instr.pump;
 
-        pump->relaisChannel = instr.solenoidValve;
-
-        while (!pump->isDone())
+        if (instr.errorCode == 0) // Only run valid Instructions
         {
-          pump->loop();
+          // Set back State to idle so that same Pump can run multiple times
+          pump->resetMachine();
+    
+          // Infos set before StateMachine Run
+          pump->pumpTime = instr.pumpTime;
+
+          pump->relaisChannel = instr.solenoidValve;
+
+          while (!pump->isDone())
+          {
+            pump->loop();
+          }
+
+          // Only set this is if pump ran into ABORT, 
+          // if there is an error before (Irrigation, Plant/Pump not found etc.) then don't override that errorCode
+          instr.errorCode = pump->errorCode;
+
+          instr.distributedWater = pump->cistern.pumpedWater;
+        }
+        else
+        {
+          instr.distributedWater = 0;
+
+          Serial.println("Action aborted.");
+          // Serial.println(Irrigation::errors[instr.errorCode]);
+          Irrigation::printError(instr.errorCode);
         }
 
-        // Only set this is if pump ran into ABORT, 
-        // if there is an error before (Irrigation, Plant/Pump not found etc.) then don't override that errorCode
-        instr.errorCode = pump->errorCode;
+        // Write Points into Buffer (no Delay), correct Timestamp (Order of Pumping Processes)
+        // and better readable Points in Grafana Graph
+        Irrigation::reportInstruction(instr);
 
-        instr.distributedWater = pump->cistern.pumpedWater;
+        if (&instr == &Irrigation::instructions.back())
+        {
+          // create/write/run manual Instr, write Reports, clear Vec, return to EVALUATE, then
+          // decidePlants (based on new Data), create/write automatic Instructions
+          // Irrigation::reportToMongo(Irrigation::instructions);
+          // Irrigation::reportInstructions(Irrigation::instructions);
+          Irrigation::clearInstructions();
+          actionState->didActivities = true;
+        }  
       }
-      else
-      {
-        instr.distributedWater = 0;
-
-        Serial.println("Action aborted.");
-        // Serial.println(Irrigation::errors[instr.errorCode]);
-        Irrigation::printError(instr.errorCode);
-      }
-
-      // Write Points into Buffer (no Delay), correct Timestamp (Order of Pumping Processes)
-      // and better readable Points in Grafana Graph
-      Irrigation::reportInstruction(instr);
-
-      if (&instr == &Irrigation::instructions.back())
-      {
-        // create/write/run manual Instr, write Reports, clear Vec, return to EVALUATE, then
-        // decidePlants (based on new Data), create/write automatic Instructions
-        // Irrigation::reportToMongo(Irrigation::instructions);
-        // Irrigation::reportInstructions(Irrigation::instructions);
-        Irrigation::clearInstructions();
-        actionState->didActivities = true;
-      }  
-    }
+    } 
   }
 #endif
 
   if (countTime(currentState->minStateTime))
   {
+    /*
     // Go back to EVALUATE if instructions were manual
     if (referralState == requestState)
     {
       nextState = evaluateState;
       return;
     }
+    */
 
+    if(transitionToTarget());
+      return;
     transitionToNext();
   }
 }
@@ -573,7 +678,7 @@ void on_transmitState()
 
   if (countTime(currentState->minStateTime))
   {
-    if (transitionToIdle())
+    if(transitionToTarget());
       return;
     if (transitionToSelf())
       return;
@@ -681,7 +786,14 @@ void setup()
   }
   */
 
+  // Begin here
   currentState = idleState;
+
+  if(SLEEPTYPE == 0)
+  {
+    addCycle();
+    printDestinations();
+  }
 
   // https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
   xTaskCreatePinnedToCore(
