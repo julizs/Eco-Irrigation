@@ -244,7 +244,9 @@ bool Services::readSettings()
   {
     for(int i = 0; i < destinations.size(); i++)
     {
-      transDestinations.add(destinations.getElement(i).as<String>());
+      String dest = destinations.getElement(i).as<String>();
+      if(dest.length() > 0) // Don't add " ", or wrong Count
+        transDestinations.add(dest);
     }
   }
   
@@ -267,7 +269,7 @@ bool Services::readSettings()
     Irrigation::writeInstructions();
   }
 
-  // Serial.println("Resetting User Actions: ");
+  Serial.println("(Resetting User Actions): ");
   String emptyDoc = "{}";
   Services::doPostRequest("/settings/reset", emptyDoc);
     
