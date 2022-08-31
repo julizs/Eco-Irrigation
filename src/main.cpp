@@ -7,6 +7,7 @@
 #include <AmbientClimate.h>
 #include <SoilMoisture.h>
 #include <AmbientLight.h>
+#include <FlowMeter.h>
 #include <StatusDisplay.h>
 #include <ButtonHandler.h>
 #include <Pump.h>
@@ -23,6 +24,7 @@ TwoWire I2Cone = TwoWire(0), I2Ctwo = TwoWire(1);
 
 AmbientClimate climate1(500, 2);
 AmbientLight lightSensor1(1), lightSensor2(2);
+FlowMeter meter1(button2Pin);
 StatusDisplay displayController;
 
 // uint8_t solenoids1[] = {1, 2}, solenoids2[] = {};
@@ -788,6 +790,8 @@ void setup()
     printDestinations();
   }
 
+  attachInterrupt(button2Pin, interruptMeter1, RISING);
+
   // https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
   xTaskCreatePinnedToCore(
       runStateMachine, // Function to implement the Task
@@ -819,4 +823,9 @@ void loop()
   // checkCriticalErrors();
 
   // delay(100);
+}
+
+void interruptMeter1()
+{
+  meter1.pulse();
 }
