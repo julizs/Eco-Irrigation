@@ -53,7 +53,7 @@ void printDestinations()
       Serial.print(transDestinations.get(i));
       Serial.print(" ");
     }
-    Serial.println();
+    Serial.println(transDestinations.size());
   }
   else
   {
@@ -270,6 +270,8 @@ bool transitionToTarget()
 
   if (currentState->didActivities)
   {
+    // printDestinations();
+
     if(transDestinations.size() > 0)
     {
       State* target = getStateByName(transDestinations.get(0));
@@ -325,7 +327,7 @@ Set transCount to 0, or maxSelfTrans is reached after returning to IDLE, -> ERRO
 bool checkSettings()
 {
   uint8_t interval = 5;
-  Serial.println(currentState->transCount);
+  // Serial.println(currentState->transCount);
 
   if (currentState->transCount % interval == 0)
   {
@@ -511,7 +513,9 @@ void on_requestState()
       return;
     }
     */
-   printDestinations();
+
+    // Serial.println("User Actions: ");
+    //printDestinations();
 
     if(transitionToTarget());
       return;
