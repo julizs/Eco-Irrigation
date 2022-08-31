@@ -380,6 +380,7 @@ void on_idleState()
 
   if (countTime(currentState->minStateTime))
   {
+    // ESP.deepSleep done or idling time (demo mode) up
     currentState->didActivities = true;
 
     /*

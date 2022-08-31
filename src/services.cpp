@@ -237,10 +237,17 @@ bool Services::readSettings()
   JsonArray collection = settings.as<JsonArray>();
   JsonObject doc = collection.getElement(0).as<JsonObject>();
 
-  String transDestination = doc["transitionTo"].as<String>();
-  if(!transDestination.isEmpty())
-    transDestinations.add(transDestination);
-
+  // String transDestination = doc["transitionTo"].as<String>();
+  // transDestinations.add(transDestination);
+  JsonArray destinations = doc["transitionTo"].as<JsonArray>();
+  if(!destinations.isNull())
+  {
+    for(int i = 0; i < destinations.size(); i++)
+    {
+      transDestinations.add(destinations.getElement(i).as<String>());
+    }
+  }
+  
   /*
   Serial.println(obj["sleepDuration"].as<int>());
   for (JsonPair keyValue : obj) {
