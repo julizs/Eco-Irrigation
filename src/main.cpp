@@ -502,18 +502,6 @@ void on_requestState()
 
   if (countTime(currentState->minStateTime))
   {
-    /*
-    User added manual pumpInstr, go to ACTION before EVALUATE State
-    (otherwise Evaluation is based on outdated Data)
-    Only go to ACTION State if errorCode of instr == 0 (?)
-    if (Irrigation::instructions.size() > 0)
-    {
-      referralState = currentState;
-      nextState = actionState;
-      return;
-    }
-    */
-
     // Serial.println("User Actions: ");
     //printDestinations();
 

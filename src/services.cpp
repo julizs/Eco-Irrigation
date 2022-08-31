@@ -260,13 +260,17 @@ bool Services::readSettings()
   JsonObject actions = doc["actions"].as<JsonObject>();
   JsonArray irrActions = actions["irrigations"].as<JsonArray>();
   JsonArray pumpActions = actions["pumps"].as<JsonArray>();
+
   if(pumpActions.size() > 0)
     Irrigation::createInstructions(pumpActions, Irrigation::instructions);
   if(irrActions.size() > 0)
     Irrigation::createInstructions(irrActions, Irrigation::instructions);
+
   if(pumpActions.size() > 0 || irrActions.size() > 0)
   {
     Irrigation::writeInstructions();
+    transDestinations.add("ACTION");
+    transDestinations.add("TRANSMIT");
   }
 
   Serial.println("(Resetting User Actions): ");
