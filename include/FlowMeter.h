@@ -14,10 +14,8 @@ class FlowMeter
     public:
     
     uint8_t pinNum;
-    uint16_t measureIntervall;
     double flowLperMin, flowLperHour, flowMlperSec; // Liters per Minute/Hour
-    unsigned long currentTime;
-    unsigned long lastTime;
+   
     unsigned long pulse_freq;
     unsigned long amountMl;
 

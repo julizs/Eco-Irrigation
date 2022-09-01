@@ -22,6 +22,7 @@ void Pump::setup()
     dutyCycle = 200;
     lastState = (PumpState)-1;
     pumpTime = constrain(pumpTime, 2.0f, 15.0f);
+    measureIntervall = 1000; // Ms
 
     setupPWM();
 }
@@ -32,81 +33,6 @@ void Pump::setupPWM()
     pinMode(pwmPin, OUTPUT);
     ledcSetup(pwmChannel, frequency, resolution);
     ledcAttachPin(pwmPin, pwmChannel);
-}
-
-bool Pump::setupIna()
-{
-    if (!ina219.begin(&I2Ctwo))
-    {
-        Serial.println(F("Failed to boot Ina219_1"));
-        return false;
-    }
-
-    ina219.powerSave(true);
-
-    return true;
-}
-
-bool Pump::inaReady()
-{
-    ina219.setCalibration_32V_2A();
-    bool ready = ina219.success();
-    if(ready)
-        Serial.println("INA 219 is ready.");
-
-    return ready;
-}
-
-/*
-influx query
-
-from(bucket: "messdaten")
-|> range(start: -5m)
-|> filter(fn: (r) => r._measurement == "Environment Data")
-
-Enter, Strg + d
-*/
-INAdata Pump::readIna()
-{
-    ina219.powerSave(false);
-
-    INAdata data;
-    
-    data.busVoltage = ina219.getBusVoltage_V();
-    data.shuntVoltage = abs(ina219.getShuntVoltage_mV() / 1000.0f);
-    data.voltage = data.busVoltage + data.shuntVoltage;
-
-    float current = abs(ina219.getCurrent_mA() / 1000.0f);
-    // Use constrain or max on current, otherwise InfluxDB Buffer Write fails, Value = Infinity
-    // data.current = max(current, 24.0f);
-    // data.current = constrain(current, 0.0f, 4.0f);
-    if(isnan(current))
-        data.current = 0.0f;
-
-    data.power = ina219.getPower_mW();
-    // data.power = data.busVoltage * data.current; // P = U * I
-
-    Serial.print("INA 219: ");
-    Serial.print(data.voltage);
-    Serial.print(" ");
-    Serial.print(data.current);
-    Serial.print(" ");
-    Serial.println(data.power);
-
-    ina219.powerSave(true);
-
-    return data;
-}
-
-void Pump::writeIna()
-{
-    INAdata inaData = readIna();
-    p0.addField("voltage", inaData.voltage);
-    p0.addField("current", inaData.current);
-    p0.addField("power", inaData.power);
-    // p0.addField("busVoltage", inaData.busVoltage);
-    // p0.addField("shuntVoltage", inaData.shuntVoltage);
-    // delay(200);
 }
 
 void Pump::loop()
@@ -183,8 +109,18 @@ void Pump::loop()
 
         switchOn();
 
-        cistern.meter.measureFlow();
 
+        // Repeating Measurements
+        currentTime = millis();
+        if(currentTime >= (lastTime + measureIntervall))
+        {
+            lastTime = currentTime;
+
+            cistern.meter.measureFlow();
+
+            // Measure Ina
+        }
+        
         /*
         // Button pressed
         if (pumpButton == true)
@@ -209,8 +145,8 @@ void Pump::loop()
         {
             commonStateLogic();
 
-            // Measure Power before stopping Pump
-            writeIna();
+            // Measure Power once before stopping Pump
+            // writeIna();
 
             switchOff();
 

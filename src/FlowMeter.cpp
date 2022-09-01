@@ -7,9 +7,9 @@ https://electropeak.com/learn/interfacing-yf-s201c-transparent-water-liquid-flow
 FlowMeter::FlowMeter(uint8_t pinNum)
 {
   this->pinNum = pinNum;
-  measureIntervall = 1000;
   pulse_freq = 0;
   amountMl = 0;
+  // setup();
 }
 
 /*
@@ -25,20 +25,14 @@ Called frequently called in Pump:LOOP
 (Flow could change, make Point every 1.0s)
 */
 void FlowMeter::measureFlow()
-{
-  currentTime = millis();
-  if(currentTime >= (lastTime + measureIntervall))
-  {
-    lastTime = currentTime;
+{ 
+  flowLperMin = (pulse_freq / 7.5); // Q(flowRate L/Min) = pulses / 7.5 (see Datasheet)
+  flowLperHour = flowLperMin * 60;
+  flowMlperSec = (flowLperMin / 60) * 1000; // How many Ml in this Measureintervall
     
-    flowLperMin = (pulse_freq / 7.5); // Q(flowRate L/Min) = pulses / 7.5 (see Datasheet)
-    flowLperHour = flowLperMin * 60;
-    flowMlperSec = (flowLperMin / 60) * 1000; // How many Ml in this Measureintervall
-    
-    Serial.println("FlowMeter Flow (L/H): ");
-    Serial.println(flowLperHour);
-    makePoint(flowLperHour, flowMlperSec);
-  } 
+  Serial.println("FlowMeter Flow (L/H): ");
+  Serial.println(flowLperHour);
+  makePoint(flowLperHour, flowMlperSec); 
 }
 
 /*

@@ -34,6 +34,11 @@ public:
     unsigned short errorCode, minStateDuration;
     unsigned long stateBeginMillis;
 
+    // For reapeating Measurements in Loop
+    uint16_t measureIntervall;
+    unsigned long currentTime;
+    unsigned long lastTime;
+
     // Interchangable by User
     DynamicJsonDocument pumpModel;
 
@@ -44,30 +49,22 @@ public:
     int pwmPin, pwmChannel, frequency, resolution, dutyCycle;
 
     Cistern &cistern;
-    Adafruit_INA219 ina219;
-
-    float voltage_V, shuntVoltage_mV, busVoltage_V;
-    float current_mA, power_mW;
 
     Pump(int pwmChannel, int pwmPin, Cistern &cistern);
     void setup();
     virtual void loop();
 
     void switchOff();
-    bool setupIna();
-    bool inaReady();
-    void add_callback(callback act);
     virtual bool isDone();
     virtual void resetMachine();
+    void add_callback(callback act);
 
 private:
-    INAdata readIna();
-    void writeIna();
-    void switchOn();
     void setupPWM();
+    void switchOn();
     bool checkPumpPerformance(unsigned short);
-    bool countTime(int durationSec);
     void commonStateLogic();
+    bool countTime(int durationSec);
     callback setupToFs;
 };
 

@@ -8,6 +8,7 @@
 #include <SoilMoisture.h>
 #include <AmbientLight.h>
 #include <FlowMeter.h>
+#include <PowerMeter.h>
 #include <StatusDisplay.h>
 #include <ButtonHandler.h>
 #include <Pump.h>
@@ -22,13 +23,14 @@ uint32_t stateBeginMillis = 0;
 TaskHandle_t Task1, Task2;
 TwoWire I2Cone = TwoWire(0), I2Ctwo = TwoWire(1);
 
+PowerMeter powerMeter1(I2Ctwo);
 AmbientClimate climate1(500, 2);
 AmbientLight lightSensor1(1), lightSensor2(2);
-FlowMeter meter1(button2Pin);
+FlowMeter flowMeter1(button2Pin);
 StatusDisplay displayController;
 
 // uint8_t solenoids1[] = {1, 2}, solenoids2[] = {};
-Cistern cistern2(0x52, meter1); // cistern1(0x51, meter1)
+Cistern cistern2(0x52, flowMeter1); // cistern1(0x51, meter1)
 Pump pump1(0, pump_PWM_1, cistern2), pump2(1, pump_PWM_2, cistern2);
 
 StateMachine fsm = StateMachine();
@@ -400,7 +402,7 @@ void on_initState()
 
     // Setup Sensors
     setupToFs();
-    pump1.setupIna();
+    // powerMeter1.setupIna();
     lightSensor1.setupTSL2591(I2Cone);
     lightSensor2.setupTSL2591(I2Ctwo);
     // sensorsReady = lightSensor1.isReady();
@@ -414,7 +416,7 @@ void on_initState()
   if (countTime(currentState->minStateTime))
   {
     // Start checking bool after minStateTime, Give Sensors time to init
-    initState->didActivities = pump1.inaReady();
+    initState->didActivities = powerMeter1.inaReady();
     initState->didActivities = lightSensor2.isReady();
 
     if(transitionToTarget());
@@ -691,7 +693,7 @@ attachInterrupt needs Class method / Function without this param
 */
 void onInterrupt_1()
 {
-  meter1.pulse();
+  flowMeter1.pulse();
 }
 
 void setup()
