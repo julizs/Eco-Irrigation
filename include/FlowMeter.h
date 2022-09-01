@@ -15,7 +15,7 @@ class FlowMeter
     
     uint8_t pinNum;
     uint16_t measureIntervall;
-    double flowLperM, flowLperH, flowMlperSec; // Liters per Minute/Hour
+    double flowLperMin, flowLperHour, flowMlperSec; // Liters per Minute/Hour
     unsigned long currentTime;
     unsigned long lastTime;
     unsigned long pulse_freq;
@@ -24,8 +24,9 @@ class FlowMeter
     FlowMeter(uint8_t pinNum);
     void setup();
     void pulse();
-    void measureVolume();
     void measureFlow();
+    void measureVolume();
+    void makePoint(double flowLperH, double flowMlperSec);
 };
 
 #endif // FlowMeter_h

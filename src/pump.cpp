@@ -180,8 +180,10 @@ void Pump::loop()
         }
 
         cistern.driveSolenoid(relaisChannel, LOW);
+
         switchOn();
-        // cistern.measureWaterFlow();
+
+        cistern.meter.measureFlow();
 
         /*
         // Button pressed
@@ -211,6 +213,8 @@ void Pump::loop()
             writeIna();
 
             switchOff();
+
+            cistern.meter.measureVolume();
 
             cistern.driveSolenoid(relaisChannel, HIGH);
 

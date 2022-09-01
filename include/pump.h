@@ -45,7 +45,6 @@ public:
 
     Cistern &cistern;
     Adafruit_INA219 ina219;
-    FlowMeter meter;
 
     float voltage_V, shuntVoltage_mV, busVoltage_V;
     float current_mA, power_mW;

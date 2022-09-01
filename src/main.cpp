@@ -16,7 +16,7 @@
 #include <math.h>
 
 const char baseUrl[] = "https://juli.uber.space/node";
-uint8_t IDLE_DUR = 4, SLEEP_DUR = 16, STATE_MIN_DUR = 6;
+uint8_t IDLE_DUR = 4, SLEEP_DUR = 16, STATE_MIN_DUR = 4;
 uint32_t stateBeginMillis = 0;
 
 TaskHandle_t Task1, Task2;
@@ -28,8 +28,8 @@ FlowMeter meter1(button2Pin);
 StatusDisplay displayController;
 
 // uint8_t solenoids1[] = {1, 2}, solenoids2[] = {};
-Cistern cistern1(0x51), cistern2(0x52);
-Pump pump1(0, pump_PWM_1, cistern1), pump2(1, pump_PWM_2, cistern2);
+Cistern cistern2(0x52, meter1); // cistern1(0x51, meter1)
+Pump pump1(0, pump_PWM_1, cistern2), pump2(1, pump_PWM_2, cistern2);
 
 StateMachine fsm = StateMachine();
 State *currentState = nullptr, *nextState = nullptr, *referralState = nullptr;
@@ -38,29 +38,14 @@ uint8_t critErrCode = 0;
 char *critErrMessage = "";
 // const char *critErrMessage[] = {"None", "Final Fail to connect WiFi", "Final Fail to connect to InfluxDB", "Final Fail to setup ToFs"};
 // const char *stateNames[] = {"IDLE", "INIT", "CONNECT", "REQUEST", "MEASURE", "EVALUATE", "ACTION", "TRANSMIT", "ERROR"};
+
+// Efficient remove at start, add at end, no random access; Why not vector?
 LinkedList<String> transDestinations = LinkedList<String>(); // "Eingabewörter"
+// std::vector<String> transDestinations = {};
 
 bool countTime(int durationSec)
 {
   return (millis() - stateBeginMillis >= durationSec * 1000UL);
-}
-
-void printDestinations()
-{
-  if(transDestinations.size() > 0)
-  {
-    Serial.print("Manual Transitions List: ");
-    for (int i = 0; i < transDestinations.size(); i++)
-    {
-      Serial.print(transDestinations.get(i));
-      Serial.print(" ");
-    }
-    Serial.println(transDestinations.size());
-  }
-  else
-  {
-    Serial.print("No User Actions.");
-  }
 }
 
 State* getStateByName(String stateName)
@@ -81,9 +66,9 @@ State* getStateByName(String stateName)
 }
 
 /*
-  Do one whole Cycle in Demo Mode first
-  Skip IDLE and ERROR
-  */
+Do one whole Cycle in Demo Mode first
+Skip IDLE and ERROR
+*/
 void addCycle()
 { 
   for(int i = 1; i < fsm.stateList->size()-1; i++)
@@ -113,16 +98,9 @@ bool doMeasurements()
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
 
-  if (cistern1.toF_ready)
-    //cistern1.updateWaterLevel();
-    cistern1.waterManagement();
-
   if (cistern2.toF_ready)
     //cistern2.updateWaterLevel();
     cistern2.waterManagement();
-
-  // Gets written in waterManagement() Func instead
-  // InfluxHelper::writeDataPoint(p0);
 
   // PLANT-SPECIFIC MEASUREMENTS
   // Advantage: Local DynamicJsonDocs (big) get destroyed after leaving Scope
@@ -707,6 +685,15 @@ void runStateMachine(void *pvParameters)
   }
 }
 
+/*
+Attach meter1 Member method (hidden this Param) to Interrupt on Pin ...
+attachInterrupt needs Class method / Function without this param
+*/
+void onInterrupt_1()
+{
+  meter1.pulse();
+}
+
 void setup()
 {
   // while (!Serial){}
@@ -734,6 +721,7 @@ void setup()
 
   pinMode(button1Pin, INPUT);
   pinMode(button2Pin, INPUT);
+  attachInterrupt(button2Pin, onInterrupt_1, RISING);
 
   pump1.add_callback(setupToFs);
   pump2.add_callback(setupToFs);
@@ -787,10 +775,8 @@ void setup()
   if(SLEEPTYPE == 0)
   {
     addCycle();
-    printDestinations();
+    Utilities::printDestinations();
   }
-
-  attachInterrupt(button2Pin, interruptMeter1, RISING);
 
   // https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
   xTaskCreatePinnedToCore(
@@ -823,9 +809,4 @@ void loop()
   // checkCriticalErrors();
 
   // delay(100);
-}
-
-void interruptMeter1()
-{
-  meter1.pulse();
 }

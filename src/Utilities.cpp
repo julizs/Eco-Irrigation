@@ -146,6 +146,34 @@ void Utilities::printSolenoids(std::vector<WaterPerSolenoid> &solenoids)
   }
 }
 
+bool Utilities::containsDestination(String dest)
+{
+  for (int i = 0; i < transDestinations.size(); i++)
+  {
+      if(transDestinations.get(i).equals(dest))
+      return true;
+  }
+  return false;
+}
+
+void Utilities::printDestinations()
+{
+  if(transDestinations.size() > 0)
+  {
+    Serial.print("Manual Transitions List: ");
+    for (int i = 0; i < transDestinations.size(); i++)
+    {
+      Serial.print(transDestinations.get(i));
+      Serial.print(" ");
+    }
+    Serial.println(transDestinations.size());
+  }
+  else
+  {
+    Serial.print("No User Actions.");
+  }
+}
+
 bool Utilities::countTime(long begin, uint8_t duration)
 {
   return (millis() - begin >= duration * 1000UL);

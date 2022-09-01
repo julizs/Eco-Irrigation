@@ -8,6 +8,8 @@
 #include <StreamUtils.h>
 #include <InfluxHelper.h>
 
+#include <main.h>
+
 struct WaterPerSolenoid { 
     int solenoidValve; // -1 to 4
     uint8_t timePeriod; // h
@@ -26,6 +28,8 @@ class Utilities
         static bool cursorToVec(FluxQueryResult &cursor, std::vector<WaterPerSolenoid> &vec, uint8_t timePeriod);
         static void printCursor(FluxQueryResult &cursor);
         static void printSolenoids(std::vector<WaterPerSolenoid> &solenoids);
+        static bool containsDestination(String dest);
+        static void printDestinations();
 };
 
 #endif // Utilities_h

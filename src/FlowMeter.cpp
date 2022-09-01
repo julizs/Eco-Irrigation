@@ -8,30 +8,70 @@ FlowMeter::FlowMeter(uint8_t pinNum)
 {
   this->pinNum = pinNum;
   measureIntervall = 1000;
+  pulse_freq = 0;
   amountMl = 0;
 }
 
+/*
+Do in main instead of here, Class method has hidden this param
+*/
 void FlowMeter::setup()
 {
-    // Not possible, Class method has this param
-    // attachInterrupt(2, pulse, RISING);
+    // attachInterrupt(button2Pin, pulse, RISING);
 }
 
 /*
-Not neccessary if called in Pump::DONE instead of Pump:LOOP:
-if(currentTime >= (lastTime + measureIntervall)) {...}
-Count all pulses and calc Ml only once in Pump::DONE
+Called frequently called in Pump:LOOP
+(Flow could change, make Point every 1.0s)
+*/
+void FlowMeter::measureFlow()
+{
+  currentTime = millis();
+  if(currentTime >= (lastTime + measureIntervall))
+  {
+    lastTime = currentTime;
+    
+    flowLperMin = (pulse_freq / 7.5); // Q(flowRate L/Min) = pulses / 7.5 (see Datasheet)
+    flowLperHour = flowLperMin * 60;
+    flowMlperSec = (flowLperMin / 60) * 1000; // How many Ml in this Measureintervall
+    
+    Serial.println("FlowMeter Flow (L/H): ");
+    Serial.println(flowLperHour);
+    makePoint(flowLperHour, flowMlperSec);
+  } 
+}
+
+/*
+Make Point every Measure Intervall (e.g. 1s), write to Buffer
+More detailed Illustr. of waterFlow in Time
+Do same for INA219
+*/
+void FlowMeter::makePoint(double flowLperHour, double flowMlperSec)
+{
+  Point p3("Flow");
+  // p3.clearTags();
+  // p3.clearFields();
+
+  // p3.addTag("pump", instr.pumpModel);
+  // p3.addTag("solenoidValve", solenoidValve);
+  p3.addField("flowLperHour", flowLperHour);
+  p3.addField("flowMlperSec", flowMlperSec);
+
+  InfluxHelper::writeDataPoint(p3);
+}
+
+/*
+Called only once in Pump::DONE, Count total Amount of pulses and calc Ml
+Write this date only once into Point p2
 */
 void FlowMeter::measureVolume()
 {
-    currentTime = millis();
-    
-    lastTime = currentTime; 
-    flowLperM = (pulse_freq / 7.5); // Q(flowRate L/Min) = pulses / 7.5 (see Datasheet)
-    flowLperH = flowLperM * 60;
-    flowMlperSec = (flowLperM / 60) * 1000; // How many Ml in this measured Intervall
     amountMl = pulse_freq * 2.25; // In Ml
     pulse_freq = 0;
+
+    p2.addField("distributedWater_flowMeter", amountMl);
+    Serial.println("FlowMeter Amount (Ml): ");
+    Serial.println(amountMl);
 }
 
 void FlowMeter::pulse () // Interrupt function

@@ -269,8 +269,13 @@ bool Services::readSettings()
   if(pumpActions.size() > 0 || irrActions.size() > 0)
   {
     Irrigation::writeInstructions();
-    transDestinations.add("ACTION");
-    transDestinations.add("TRANSMIT");
+
+    // Add Action Transition (if not already on Stack)
+    if(!Utilities::containsDestination("ACTION"))
+    {
+      transDestinations.add("ACTION");
+      transDestinations.add("TRANSMIT");
+    } 
   }
 
   Serial.println("(Resetting User Actions): ");

@@ -1,6 +1,6 @@
 #include "Cistern.h"
 
-Cistern::Cistern(uint8_t toF_address)
+Cistern::Cistern(uint8_t toF_address, FlowMeter &m) : meter(m)
 {
     this->toF_address = toF_address;
 
@@ -8,7 +8,7 @@ Cistern::Cistern(uint8_t toF_address)
 
     pumpedWater = 0;
     minValidWaterDist = 50;
-    maxValidWaterDist = 170; // 3L
+    maxValidWaterDist = 170; // min fillLevel, e.g. 3L
     maxPossibleDist = 200;
     sampleSize = 8;
 }

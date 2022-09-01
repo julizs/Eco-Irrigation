@@ -2,6 +2,7 @@
 #define Cistern_h
 
 #include "Adafruit_VL53L0X.h"
+#include "FlowMeter.h"
 #include <main.h>
 
 /*
@@ -16,6 +17,7 @@ class Cistern
     public:
         //VL53L0X toF; // Polulu Library
         Adafruit_VL53L0X toF;
+        FlowMeter &meter;
         uint8_t* solenoidValves;
         uint8_t toF_address, sampleSize;
         uint16_t pumpedWater;
@@ -24,7 +26,7 @@ class Cistern
         bool toF_ready;
         unsigned long stateBeginMillis;
 
-        Cistern(uint8_t toF_address);
+        Cistern(uint8_t toF_address, FlowMeter &meter);
         bool setupToF();
         int updateWaterLevel();
         bool waterManagement();         

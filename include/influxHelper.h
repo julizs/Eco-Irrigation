@@ -26,6 +26,6 @@ class InfluxHelper
 };
 
 // extern InfluxDBClient client;
-extern Point p0, p1, p2;
+extern Point p0, p1, p2, p3;
 
 #endif // InfluxHelper_h
