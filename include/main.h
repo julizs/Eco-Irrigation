@@ -9,6 +9,9 @@
 #include <LinkedList.h>
 #include <ISubStateMachine.h>
 
+#include <PowerMeter.h>
+class PowerMeter; // Forward Decl
+
 // Disable Brownout Warnings
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
@@ -18,11 +21,12 @@
 #define TRANSMIT_DATA 1
 #define REQUEST_DATA 1
 #define RUN_SUBMACHINES 1
-extern uint8_t SLEEP_DUR, IDLE_DUR, STATE_MIN_DUR;
-extern LinkedList<String> transDestinations;
 
 extern TwoWire I2Cone, I2Ctwo;
+extern uint8_t SLEEP_DUR, IDLE_DUR, STATE_MIN_DUR;
+extern LinkedList<String> transDestinations;
 extern LinkedList<ISubStateMachine*> actions;
+extern PowerMeter powerMeter1;
 
 extern const char baseUrl[];
 

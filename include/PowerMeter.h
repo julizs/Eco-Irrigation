@@ -19,6 +19,7 @@ class PowerMeter
     public: 
     Adafruit_INA219 ina219; 
     uint16_t measureIntervall;
+    PowerData measurement;
     unsigned long currentTime;
     unsigned long lastTime;
     float voltage_V, shuntVoltage_mV, busVoltage_V;

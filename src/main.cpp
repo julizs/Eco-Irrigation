@@ -1,3 +1,4 @@
+// #include <PowerMeter.h>
 #include <main.h>
 #include <LinkedList.h>
 #include <StateMachine.h>
@@ -8,7 +9,6 @@
 #include <SoilMoisture.h>
 #include <AmbientLight.h>
 #include <FlowMeter.h>
-#include <PowerMeter.h>
 #include <StatusDisplay.h>
 #include <ButtonHandler.h>
 #include <Pump.h>
@@ -402,7 +402,7 @@ void on_initState()
 
     // Setup Sensors
     setupToFs();
-    // powerMeter1.setupIna();
+    powerMeter1.setupIna();
     lightSensor1.setupTSL2591(I2Cone);
     lightSensor2.setupTSL2591(I2Ctwo);
     // sensorsReady = lightSensor1.isReady();

@@ -42,9 +42,9 @@ Do same for INA219
 */
 void FlowMeter::makePoint(double flowLperHour, double flowMlperSec)
 {
-  Point p3("Flow");
-  // p3.clearTags();
-  // p3.clearFields();
+  // Point p3("Water Flow");
+  p3.clearTags();
+  p3.clearFields();
 
   // p3.addTag("pump", instr.pumpModel);
   // p3.addTag("solenoidValve", solenoidValve);

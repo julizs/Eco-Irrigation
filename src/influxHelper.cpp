@@ -13,7 +13,8 @@ InfluxDBClient InfluxHelper::client;
 Point p0("Environment Data");
 Point p1("Plant Data");
 Point p2("Irrigations");
-Point p3("WaterFlow");
+Point p3("Water Flow");
+Point p4("Power Usage");
 
 /* Params
 Timestamp (set by client) necessary to write data in Batches

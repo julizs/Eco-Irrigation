@@ -54,24 +54,34 @@ PowerData PowerMeter::measureIna()
     // data.power = data.busVoltage * data.current; // P = U * I
 
     ina219.powerSave(true);
+    
+    measurement = data;
+    writePoint();
 
     return data;
 }
 
 void PowerMeter::writePoint()
 {
-    PowerData data = measureIna();
-    p0.addField("voltage", data.voltage);
-    p0.addField("current", data.current);
-    p0.addField("power", data.power);
-    // p0.addField("busVoltage", inaData.busVoltage);
-    // p0.addField("shuntVoltage", inaData.shuntVoltage);
-    // delay(200);
+    // PowerData data = measureIna();
 
+    // Point p4("Power Usage");
+    p4.clearTags();
+    p4.clearFields();
+
+    // Tags?
+    p4.addField("voltage", measurement.voltage);
+    p4.addField("current", measurement.current);
+    p4.addField("power", measurement.power);
+
+    InfluxHelper::writeDataPoint(p4);
+
+    /*
     Serial.print("Power Readings INA 219: ");
     Serial.print(data.voltage);
     Serial.print(" ");
     Serial.print(data.current);
     Serial.print(" ");
     Serial.println(data.power);
+    */
 }

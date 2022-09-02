@@ -118,7 +118,7 @@ void Pump::loop()
 
             cistern.meter.measureFlow();
 
-            // Measure Ina
+            powerMeter1.measureIna();
         }
         
         /*
