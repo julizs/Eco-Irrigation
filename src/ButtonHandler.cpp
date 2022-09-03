@@ -9,7 +9,8 @@ uint8_t ButtonHandler::lastButtonState = HIGH;
 
 void ButtonHandler::handleHardwareButtons()
 {
-  int reading = digitalRead(button1Pin);
+  // int reading = digitalRead(button1Pin);
+  int reading = 0;
 
   // If Switch changed, due to Noise or Pressing:
   if (reading != lastButtonState)

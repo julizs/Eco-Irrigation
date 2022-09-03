@@ -3,12 +3,12 @@
 #include <DHTesp.h>
 #include <main.h>
 
-// scoped enumeration for same stateNames
+// https://stackoverflow.com/questions/4337193/how-to-set-enum-to-null
 enum class MeasureState
 {
-    MEASURE,
     IDLE,
-    REMEASURE
+    MEASURE,
+    DONE
 };
 
 struct DHTdata
@@ -22,22 +22,24 @@ class AmbientClimate
     public:
     DHTesp dht;
     DHTdata data;
-    int maxPollingRate;
-    int measureAttemps;
-    float temperature;
-    float humidity;
-    bool measurementsComplete;
-    MeasureState currentState, lastState;
+    uint8_t pinNum;
+    float maxPollingRate, minStateTime;
+    float temperature, humidity;
     unsigned long stateBeginMillis;
+    MeasureState currentState, lastState;
  
-    AmbientClimate(int maxPollingRate, int measureAttempts); // Konstr 
+    AmbientClimate(float maxPollingRate, uint8_t pinNum);
     void setup();
     void loop();
     DHTdata measureClimateDHT();
+
+    // private:
     float measureHumidityDHT();
     float measureTemperatureDHT();
     bool validHumidity();
     bool validTemperature();
+    void printInfo();
+    void writePoint();
 };
 
 #endif // AmbientClimate_h

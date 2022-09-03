@@ -32,7 +32,7 @@ void FlowMeter::measureFlow()
     
   Serial.println("FlowMeter Flow (L/H): ");
   Serial.println(flowLperHour);
-  makePoint(flowLperHour, flowMlperSec); 
+  writePoint(flowLperHour, flowMlperSec);
 }
 
 /*
@@ -40,7 +40,7 @@ Make Point every Measure Intervall (e.g. 1s), write to Buffer
 More detailed Illustr. of waterFlow in Time
 Do same for INA219
 */
-void FlowMeter::makePoint(double flowLperHour, double flowMlperSec)
+void FlowMeter::writePoint(double flowLperHour, double flowMlperSec)
 {
   // Point p3("Water Flow");
   p3.clearTags();

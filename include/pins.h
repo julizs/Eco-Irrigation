@@ -30,10 +30,9 @@
 
 // DHT22 und MH-Z19 PWM
 // (Pins 34 and 35 can only be input, no output)
-// #define DHT_IN 34
-// #define MHZ19_PWM 35
-#define button1Pin 34 // Unused
-#define button2Pin 35 // Waterflow Sensor
+// #define button1Pin, button2Pin
+#define dhtInPin 34 // DHT22
+#define flowPin 35 // Waterflow Sensor
 
 // Relais
 const int Relais[] = {15,23};

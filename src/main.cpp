@@ -24,9 +24,9 @@ TaskHandle_t Task1, Task2;
 TwoWire I2Cone = TwoWire(0), I2Ctwo = TwoWire(1);
 
 PowerMeter powerMeter1(I2Ctwo);
-AmbientClimate climate1(500, 2);
+AmbientClimate climate1(2.0f, dhtInPin); // DHT22
 AmbientLight lightSensor1(1), lightSensor2(2);
-FlowMeter flowMeter1(button2Pin);
+FlowMeter flowMeter1(flowPin);
 StatusDisplay displayController;
 
 // uint8_t solenoids1[] = {1, 2}, solenoids2[] = {};
@@ -100,6 +100,11 @@ bool doMeasurements()
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
 
+  // Measure Climate
+  Serial.println(climate1.measureTemperatureDHT());
+  Serial.println(climate1.measureHumidityDHT());
+
+  // Measure Water
   if (cistern2.toF_ready)
     //cistern2.updateWaterLevel();
     cistern2.waterManagement();
@@ -402,7 +407,11 @@ void on_initState()
 
     // Setup Sensors
     setupToFs();
+
     powerMeter1.setupIna();
+
+    climate1.setup();
+
     lightSensor1.setupTSL2591(I2Cone);
     lightSensor2.setupTSL2591(I2Ctwo);
     // sensorsReady = lightSensor1.isReady();
@@ -418,6 +427,7 @@ void on_initState()
     // Start checking bool after minStateTime, Give Sensors time to init
     initState->didActivities = powerMeter1.inaReady();
     initState->didActivities = lightSensor2.isReady();
+    climate1.printInfo();
 
     if(transitionToTarget());
       return;
@@ -721,9 +731,9 @@ void setup()
     digitalWrite(Relais[i], HIGH);
   }
 
-  pinMode(button1Pin, INPUT);
-  pinMode(button2Pin, INPUT);
-  attachInterrupt(button2Pin, onInterrupt_1, RISING);
+  pinMode(dhtInPin, INPUT);
+  pinMode(flowPin, INPUT);
+  attachInterrupt(flowPin, onInterrupt_1, RISING);
 
   pump1.add_callback(setupToFs);
   pump2.add_callback(setupToFs);

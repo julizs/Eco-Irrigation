@@ -24,7 +24,7 @@ class FlowMeter
     void pulse();
     void measureFlow();
     void measureVolume();
-    void makePoint(double flowLperH, double flowMlperSec);
+    void writePoint(double flowLperH, double flowMlperSec);
 };
 
 #endif // FlowMeter_h
