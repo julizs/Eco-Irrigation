@@ -260,6 +260,7 @@ bool Services::readSettings()
   JsonObject actions = doc["actions"].as<JsonObject>();
   JsonArray irrActions = actions["irrigations"].as<JsonArray>();
   JsonArray pumpActions = actions["pumps"].as<JsonArray>();
+  JsonArray solActions = actions["solenoidValves"].as<JsonArray>();
 
   if(pumpActions.size() > 0)
     Irrigation::createInstructions(pumpActions, Irrigation::instructions);
@@ -277,6 +278,16 @@ bool Services::readSettings()
       transDestinations.add("TRANSMIT");
     } 
   }
+  // Test; only do for Duration in ActionState
+  for(int i = 0; i < solActions.size(); i++)
+  {
+    JsonObject action = solActions[i];
+    uint8_t channel = action["subject"];
+    uint8_t state = action["isOpen"] == true? LOW : HIGH;
+    // cistern1.driveSolenoid(channel, state);
+    digitalWrite(Relais[channel], state);
+  } 
+
 
   Serial.println("(Resetting User Actions): ");
   String emptyDoc = "{}";

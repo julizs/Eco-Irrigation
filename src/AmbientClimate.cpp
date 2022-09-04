@@ -9,7 +9,8 @@ AmbientClimate::AmbientClimate(float maxPollingRate, uint8_t pinNum)
 
 void AmbientClimate::setup()
 {
-  dht.setup(pinNum, DHTesp::DHT22);
+  dht.setup(34, DHTesp::AM2302);
+  Serial.println("DHT22 Setup called.");
 }
 
 void AmbientClimate::loop()

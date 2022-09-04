@@ -101,10 +101,8 @@ bool doMeasurements()
   p0.addField("rssi", rssi);
 
   // Measure Climate
-  Serial.println(climate1.measureTemperatureDHT());
-  Serial.println(climate1.measureHumidityDHT());
 
-  // Measure Water
+  // Measure Watervolume
   if (cistern2.toF_ready)
     //cistern2.updateWaterLevel();
     cistern2.waterManagement();
@@ -410,7 +408,7 @@ void on_initState()
 
     powerMeter1.setupIna();
 
-    climate1.setup();
+    // climate1.setup();
 
     lightSensor1.setupTSL2591(I2Cone);
     lightSensor2.setupTSL2591(I2Ctwo);

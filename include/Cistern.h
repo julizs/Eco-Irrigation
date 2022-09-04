@@ -29,7 +29,8 @@ class Cistern
         Cistern(uint8_t toF_address, FlowMeter &meter);
         bool setupToF();
         int updateWaterLevel();
-        bool waterManagement();         
+        bool waterManagement();
+        void driveSolenoid(uint8_t relaisChannel, uint8_t state);       
 
     private:
         float evaluateToF();
@@ -37,7 +38,6 @@ class Cistern
         void readToF_cont(int distances[]);  
         void updateIrrigationData(uint8_t relaisChannel, int pumpedWater);
         void updateEnvironmentData(int newWaterLevel, int availableWater);
-        void driveSolenoid(uint8_t relaisChannel, uint8_t state);
         uint16_t calcMl(int waterLevel);
         bool validWaterLevel();
         void shutToF();

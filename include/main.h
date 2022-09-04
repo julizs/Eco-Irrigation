@@ -26,6 +26,7 @@ extern TwoWire I2Cone, I2Ctwo;
 extern uint8_t SLEEP_DUR, IDLE_DUR, STATE_MIN_DUR;
 extern LinkedList<String> transDestinations;
 extern LinkedList<ISubStateMachine*> actions;
+
 extern PowerMeter powerMeter1;
 
 extern const char baseUrl[];

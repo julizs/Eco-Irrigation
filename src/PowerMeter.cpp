@@ -50,8 +50,8 @@ PowerData PowerMeter::measureIna()
     if(isnan(current))
         data.current = 0.0f;
 
-    data.power = ina219.getPower_mW();
-    // data.power = data.busVoltage * data.current; // P = U * I
+    // data.power = ina219.getPower_mW();
+    data.power = data.busVoltage * data.current; // P = U * I
 
     ina219.powerSave(true);
     

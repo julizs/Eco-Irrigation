@@ -31,7 +31,7 @@ class Irrigation
 {
 
 public:
-    static const uint16_t waterLimit2h = 300, waterLimit24h = 10000;
+    static const uint16_t waterLimit2h = 50000, waterLimit24h = 100000;
     static constexpr float pumpTimeLimit = 10.0f;
     static std::vector<Instruction> instructions;
     static std::vector<WaterPerSolenoid> recentIrrigations;
