@@ -3,11 +3,13 @@
 /*
 https://lastminuteengineers.com/handling-esp32-gpio-interrupts-tutorial/
 https://electropeak.com/learn/interfacing-yf-s201c-transparent-water-liquid-flow-sensor-with-arduino/
+https://techtutorialsx.com/2017/09/30/esp32-arduino-external-interrupts/
+https://circuitdigest.com/microcontroller-projects/esp32-interrupt
 */
 FlowMeter::FlowMeter(uint8_t pinNum)
 {
   this->pinNum = pinNum;
-  pulse_freq = 0;
+  pulses = 0;
   amountMl = 0;
   // setup();
 }
@@ -22,14 +24,15 @@ void FlowMeter::setup()
 
 /*
 Called frequently called in Pump:LOOP
-(Flow could change, make Point every 1.0s)
+(Flow could change, make Point every Invtervall, e.g. 1.0s)
+Same as INA219
 */
 void FlowMeter::measureFlow()
 { 
-  flowLperMin = (pulse_freq / 7.5); // Q(flowRate L/Min) = pulses / 7.5 (see Datasheet)
+  flowLperMin = (pulses / 7.5); // Q(flowRate L/Min) = pulses / 7.5 (see Datasheet)
   flowLperHour = flowLperMin * 60;
-  flowMlperSec = (flowLperMin / 60) * 1000; // How many Ml in this Measureintervall
-    
+  flowMlperSec = (flowLperMin / 60) * 1000;
+  
   Serial.println("FlowMeter Flow (L/H): ");
   Serial.println(flowLperHour);
   writePoint(flowLperHour, flowMlperSec);
@@ -55,20 +58,24 @@ void FlowMeter::writePoint(double flowLperHour, double flowMlperSec)
 }
 
 /*
-Called only once in Pump::DONE, Count total Amount of pulses and calc Ml
+Called only once in Pump::DONE
+Calc Ml from total pulses, reset counter
 Write this date only once into Point p2
 */
 void FlowMeter::measureVolume()
 {
-    amountMl = pulse_freq * 2.25; // In Ml
-    pulse_freq = 0;
+    amountMl = pulses * 2.25; // 1 Pulse = 2.25 Ml (see Datasheet)
+    pulses = 0;
 
     p2.addField("distributedWater_flowMeter", amountMl);
     Serial.println("FlowMeter Amount (Ml): ");
     Serial.println(amountMl);
 }
 
-void FlowMeter::pulse () // Interrupt function
+/*
+ISR (Interrupt Service Routine)
+*/
+void FlowMeter::pulse ()
 {
-  pulse_freq++;
+  pulses++;
 }

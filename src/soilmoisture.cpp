@@ -1,5 +1,18 @@
 #include "SoilMoisture.h"
 
+DynamicJsonDocument SoilMoisture::sensorRanges(1024);
+
+
+int SoilMoisture::measureSoilMoisture(int pinNum)
+{
+  // Moisture Range: around 1000-3000 @ 5V, 3000 is max Dryness
+  int moistureRaw = Multiplexer::readChannel(pinNum);
+  return moistureRaw;
+}
+
+/*
+Make multiple Measurements per Sensor, take Avg/Smooth
+*/
 int SoilMoisture::measureSoilMoistureSmoothed(int pinNum)
 {
   int sum = 0;
@@ -21,56 +34,99 @@ int SoilMoisture::measureSoilMoistureSmoothed(int pinNum)
 
   int moistureSmoothed = sum/(actualSamples*1.0f);
 
+  /*
   Serial.print(moistureSmoothed);
   Serial.print(" Measured MoistureSensor: ");
   Serial.print(pinNum + 1);
   Serial.print(" on Multiplexer Channel: ");
   Serial.print(pinNum);
-  // Serial.print("Valid SoilMoist Samples: ");
-  // Serial.print(actualSamples);
+  Serial.print("Valid SoilMoist Samples: ");
+  Serial.print(actualSamples);
   Serial.println();
+  */
 
   return moistureSmoothed;
 }
 
-int SoilMoisture::measureSoilMoisture(int pinNum)
+/*
+Measure pin(s) per Plant, calc Avg
+Write to Point
+*/
+void SoilMoisture::measurePlant(JsonArray moistureSensors)
 {
-  // Moisture Range: around 1000-3000 @ 5V, 3000 is max Dryness
-  int moistureRaw = Multiplexer::readChannel(pinNum);
-  return moistureRaw;
+  if (moistureSensors.isNull())
+    {
+      Serial.println("Plant has no assigned moisture Sensors.");
+      return;
+    }
+
+  int numSensors = 0;
+  float avgPerc = 0.0f;
+
+  for (int i = 0; i < moistureSensors.size(); i++)
+    {
+      int moistureSensor = moistureSensors[i];
+      int pinNum = moistureSensor - 1;
+
+      char key[16]; // InfluxDB Key for Point
+      snprintf(key, 16, "soilMoisture%d", moistureSensor);
+
+      int moistureSmoothed = measureSoilMoistureSmoothed(pinNum);
+      int moisturePercentage = voltageToPercentage(pinNum, moistureSmoothed);
+      avgPerc += moisturePercentage;
+      numSensors++;
+      // p.addField(key, moisturePercentage);
+    }
+
+  avgPerc = avgPerc / numSensors;
+  // p.addField...
 }
 
-int SoilMoisture::voltageToPercentage(int pinNum, int smoothedValue, DynamicJsonDocument &moistureSensors)
+/*
+Main calls setSensorRanges first (once, not per Plant)
+Convert read voltage Value to Percentage (depending on individual Sensor Range)
+*/
+int SoilMoisture::voltageToPercentage(int pinNum, int smoothedValue)
 {
-  // Get invidudual SensorRanges, 1 GET Request only
   int range[2];
-  range[0] = moistureSensors[pinNum]["minVoltage"].as<int>();
-  range[1] = moistureSensors[pinNum]["maxVoltage"].as<int>();
-  // getSensorRange(pinNum, range); // Too many Requests
+  JsonArray sensorRange = sensorRanges[pinNum];
 
-  // Constrain measured Values to SensorRange before Map
-  int moistureConstrained = constrain(smoothedValue, range[0], range[1]);
-  // Serial.print("Min: "); Serial.print(range[0]);
-  // Serial.print(" Max: "); Serial.println(range[1]);
-
-  int moisturePercentage = -1;
-  if(range[0] != 0 && range[1] != 0)
+  if(sensorRange.isNull())
   {
-    // Map with reversed Values (3000 = 0% Moisture)
-    moisturePercentage = map(moistureConstrained,range[0],range[1], 100, 0);
+    // Set approx. dummy Ranges
+    Serial.println("No Ranges for Moisture Sensor found.");
+    range[0] = 500;
+    range[1] = 3000;
   }
+  else
+  {
+    range[0] = sensorRanges[pinNum]["minVoltage"].as<int>();
+    range[1] = sensorRanges[pinNum]["maxVoltage"].as<int>();
+  }
+
+  // Constrain measured Values to sensorRange before mapping
+  int moistureConstrained = constrain(smoothedValue, range[0], range[1]);
+
+  // Map with reversed Values (3000 = 0% Moisture) to %
+  int moisturePercentage = map(moistureConstrained,range[0],range[1], 100, 0);
   
   return moisturePercentage;
 }
 
+/*
+Get individual sensorRange
+(Array: Call by Reference)
+*/
 void SoilMoisture::getSensorRange(int pinNum, int range[])
 {
-  // Send Request to REST API and get min and max Voltage, which varies
-  // from Sensor to Sensor (pinNum is Sensor ID, from 0 - 15)
-  // C++ passes Arrays to Funcs with Call by Reference, Original Array gets changed
+  if(sensorRanges.isNull())
+    SoilMoisture::setSensorRanges();
 
-  DynamicJsonDocument moistureSensors(1024);
-  Services::doJSONGetRequest("/moistureSensors", moistureSensors);
-  range[0] = moistureSensors[pinNum]["minVoltage"].as<int>();
-  range[1] = moistureSensors[pinNum]["maxVoltage"].as<int>();
+  range[0] = sensorRanges[pinNum]["minVoltage"].as<int>();
+  range[1] = sensorRanges[pinNum]["maxVoltage"].as<int>();
+}
+
+void SoilMoisture::setSensorRanges()
+{
+  Services::doJSONGetRequest("/moistureSensors", sensorRanges);
 }

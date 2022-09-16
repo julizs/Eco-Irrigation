@@ -103,20 +103,20 @@ bool Cistern::validWaterLevel()
 
 /*
 Sensor is mounted lower than Cistern Height
-Moving Water-Body is mounted higher than Cistern Bottom
--> maxPossibleDist = cisternHeight - sensorHeight - waterBodyMinHeight
+Moving Water-Body is mounted higher than Cistern Bottomimage.png
+-> maxPossibleDist = cisternHeight - (cisternHeight - sensorHeight) - waterBodyMinHeight
 e.g. 210mm - (210mm -190mm) - 20mm
 = 210mm -20mm -20mm
-=  170mm
+= 170mm
 (Diesen Wert durch Messen verifizieren, 
 ab hier (z.B. 2L) ist Füllstand messbar, Änderungen darunter nicht erfassbar)
 
-fillLevel = waterBodyMinHeight + maxPossibleDist - currWaterDist
-e.g. 20mm + 170mm - 170mm = 0mm
-e.g. 20mm + 170mm - 135mm = 55mm
+currWaterevel = waterBodyMinHeight + maxPossibleDist - currWaterDist
+e.g. 10mm + 170mm - 170mm = 0mm
+e.g. 10mm + 170mm - 135mm = 55mm
 
-Ergänzung (falls höherer Wert als maxPossibleDist gemessen wird):
-fillLevel = min((maxPossibleDist - currWaterDist),0)
+Ergänzung (falls falscher/höherer Wert als maxPossibleDist gemessen wird):
+currWaterLevel = min((maxPossibleDist - currWaterDist),0)
 170mm -171mm = -1mm
 max(170-171),0 = max(-1,0) = 0
 */
@@ -124,10 +124,10 @@ int Cistern::updateWaterLevel()
 {
     if(toF_ready) // or Crash if called from PumpState::ABORTED and toF not setup
     {
-        int waterBodyMinHeight = 10;
-        int sensorError = 15; // Sensor measures wrong...
+        int waterBodyMinHeight = 10; // mm
+        int sensorError = 15; // mm, Sensor error correction
         currWaterDist = evaluateToF();
-        currWaterLevel = waterBodyMinHeight + sensorError + max((maxPossibleDist - currWaterDist),0);
+        currWaterLevel = waterBodyMinHeight + max((maxPossibleDist - currWaterDist),0) + sensorError;
     }
     
     return currWaterLevel;

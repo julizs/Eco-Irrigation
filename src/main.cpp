@@ -109,6 +109,7 @@ bool doMeasurements()
 
   // PLANT-SPECIFIC MEASUREMENTS
   // Advantage: Local DynamicJsonDocs (big) get destroyed after leaving Scope
+  // StaticJsonDocument<64> doc; (since ArduinoJson 6 ?)
   DynamicJsonDocument plants(2048), moistureSensors(1024);
   Services::doJSONGetRequest("/plants/sensors", plants);
   Services::doJSONGetRequest("/moistureSensors", moistureSensors);
@@ -129,8 +130,7 @@ bool doMeasurements()
     p.clearFields();
     p.addTag("Plant", plantName);
 
-    // New way since ArduinoJson 6
-    // StaticJsonDocument<64> doc;
+    /*
     JsonArray array = plants[i]["moistureSensors"];
     if (array.isNull())
     {
@@ -151,6 +151,7 @@ bool doMeasurements()
       int moisturePercentage = SoilMoisture::voltageToPercentage(pinNum, moistureSmoothed, moistureSensors);
       p.addField(key, moisturePercentage);
     }
+    */
 
     // MongoDb Cursor gets sorted by lightSensor, same Sensor measures less often
     int lightSensor = plants[i]["lightSensor"].as<int>();
@@ -731,6 +732,7 @@ void setup()
 
   pinMode(dhtInPin, INPUT);
   pinMode(flowPin, INPUT);
+  // attachInterrupt(GPIOpin, ISR, Event);
   attachInterrupt(flowPin, onInterrupt_1, RISING);
 
   pump1.add_callback(setupToFs);

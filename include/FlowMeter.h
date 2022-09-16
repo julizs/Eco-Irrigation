@@ -16,7 +16,7 @@ class FlowMeter
     uint8_t pinNum;
     double flowLperMin, flowLperHour, flowMlperSec; // Liters per Minute/Hour
    
-    unsigned long pulse_freq;
+    unsigned long pulses;
     unsigned long amountMl;
 
     FlowMeter(uint8_t pinNum);
