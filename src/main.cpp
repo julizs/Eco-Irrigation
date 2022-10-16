@@ -100,7 +100,7 @@ bool doMeasurements()
   byte rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
 
-  // Measure Climate
+  // Measure Climate (or contact SensorBox)
 
   // Measure Watervolume
   if (cistern2.toF_ready)
@@ -130,30 +130,14 @@ bool doMeasurements()
     p.clearFields();
     p.addTag("Plant", plantName);
 
-    /*
-    JsonArray array = plants[i]["moistureSensors"];
-    if (array.isNull())
-    {
-      Serial.println("Plant has no moisture Sensors.");
-      continue;
-    }
+    // Measure soilSensors assigned to Plant
+    JsonArray moistureSensors = plants[i]["moistureSensors"];
+    SoilMoisture::measurePlant(moistureSensors, p);
 
-    // For each moistureSensor assigned to this Plant
-    for (int j = 0; j < array.size(); j++)
-    {
-      int moistureSensor = array[j];
-      int pinNum = moistureSensor - 1;
-      char key[64];
-      snprintf(key, 64, "soilMoisture%d", moistureSensor);
-
-      int moistureSmoothed = SoilMoisture::measureSoilMoistureSmoothed(pinNum);
-      // Pass Reference of moistureSensors Table, so only 1 GET Request instead of per Plant, per Sensor
-      int moisturePercentage = SoilMoisture::voltageToPercentage(pinNum, moistureSmoothed, moistureSensors);
-      p.addField(key, moisturePercentage);
-    }
+    /* Measure lightSensor assigned to Plant
+    Sort MongoDb Cursor by lightSensor
+    (Many plants will have the same sensor, dont measure for each)
     */
-
-    // MongoDb Cursor gets sorted by lightSensor, same Sensor measures less often
     int lightSensor = plants[i]["lightSensor"].as<int>();
 
     if (lightSensor != lastMeasuredLightSensor)

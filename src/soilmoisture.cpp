@@ -41,7 +41,7 @@ int SoilMoisture::measureSoilMoistureSmoothed(int pinNum)
 Measure pin(s) per Plant, calc Avg
 Write to Point
 */
-void SoilMoisture::measurePlant(JsonArray moistureSensors)
+void SoilMoisture::measurePlant(JsonArray &moistureSensors, Point &p)
 {
   if (moistureSensors.isNull())
     {
@@ -57,14 +57,14 @@ void SoilMoisture::measurePlant(JsonArray moistureSensors)
       int moistureSensor = moistureSensors[i];
       int pinNum = moistureSensor - 1;
 
-      char key[16]; // InfluxDB Key for Point
+      char key[16];
       snprintf(key, 16, "soilMoisture%d", moistureSensor);
 
       int moistureSmoothed = measureSoilMoistureSmoothed(pinNum);
       int moisturePercentage = voltageToPercentage(pinNum, moistureSmoothed);
       avgPerc += moisturePercentage;
       numSensors++;
-      // p.addField(key, moisturePercentage);
+      p.addField(key, moisturePercentage);
     }
 
   avgPerc = avgPerc / numSensors;
@@ -115,5 +115,5 @@ void SoilMoisture::setSensorRanges()
 
 void SoilMoisture::writePoint(Point &p)
 {
-
+  
 }

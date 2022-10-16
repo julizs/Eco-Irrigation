@@ -119,8 +119,9 @@ int Cistern::updateWaterLevel()
     if(toF_ready) // or Crash if called from PumpState::ABORTED and toF not setup
     {
         int waterBodyMinHeight = 10; // mm
+        int sensorError = 0; // -15
         currWaterDist = evaluateToF();
-        currWaterLevel = waterBodyMinHeight + max((maxPossibleDist - currWaterDist),0);
+        currWaterLevel = waterBodyMinHeight + max((maxPossibleDist - currWaterDist),0) + sensorError;
     }
     
     return currWaterLevel;
