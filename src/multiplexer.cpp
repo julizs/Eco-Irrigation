@@ -35,7 +35,7 @@ int Multiplexer::readChannel(byte channel)
      {0,1,1,1}, 
      {1,1,1,1}};
       
-     // digitalWrite to each controlPin (S0-S3) HIGH/LOW Value
+     // digitalWrite to each controlPin (S0-S3) to HIGH/LOW (1/0) Value
      // according to 2D Array to select Channel, then read analog
      for(int i = 0; i < 4; i ++)
      { 

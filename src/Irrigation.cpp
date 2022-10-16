@@ -238,8 +238,9 @@ void Irrigation::writeInstructions()
             setPumpingParameters(instr, pumpModel);
         }
     }
-
-    reduceInstructions(instructions);
+ 
+    // Not necessary, as Water gets split by Dispenser (Testing needed)
+    // reduceInstructions(instructions);
     printInstructions(instructions);
 }
 

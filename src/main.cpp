@@ -697,8 +697,7 @@ void runStateMachine(void *pvParameters)
 }
 
 /*
-Attach meter1 Member method (hidden this Param) to Interrupt on Pin ...
-attachInterrupt needs Class method / Function without this param
+attachInterrupt needs Class method / Function without hidden this param (Member method)
 */
 void onInterrupt_1()
 {

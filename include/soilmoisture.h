@@ -14,6 +14,7 @@ public:
     static void setSensorRanges();
     static int measureSoilMoistureSmoothed(int pinNum);
     static int measureSoilMoisture(int pinNum);
+    static void writePoint(Point &p);
     
 private:
     static void getSensorRange(int pinNum, int range[]);

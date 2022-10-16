@@ -20,7 +20,7 @@ Wrong Readings if spadCount after (re)Setup is different (e.g. 3 instead of 4 sp
 https://wolles-elektronikkiste.de/vl53l0x-und-vl53l1x-tof-abstandssensoren
 toF.status is 0 even if not correctly setup
 toF.rangingTest for current ErrCode crashes if toF not setup before
-Error -5 or -6 (and no I2C Accress): Move ToF Sensor a bit around
+Error -5 or -6 (and no I2C Address): ToF Sensor Cable slack joint, move cable
 */
 
 bool Cistern::setupToF()
@@ -102,21 +102,15 @@ bool Cistern::validWaterLevel()
 }
 
 /*
-Sensor is mounted lower than Cistern Height
-Moving Water-Body is mounted higher than Cistern Bottomimage.png
--> maxPossibleDist = cisternHeight - (cisternHeight - sensorHeight) - waterBodyMinHeight
+maxPossibleDist = cisternHeight - (cisternHeight - sensorHeight) - waterBodyMinHeight
 e.g. 210mm - (210mm -190mm) - 20mm
-= 210mm -20mm -20mm
-= 170mm
-(Diesen Wert durch Messen verifizieren, 
-ab hier (z.B. 2L) ist Füllstand messbar, Änderungen darunter nicht erfassbar)
+= 210mm -20mm -20mm = 170mm
 
 currWaterevel = waterBodyMinHeight + maxPossibleDist - currWaterDist
-e.g. 10mm + 170mm - 170mm = 0mm
-e.g. 10mm + 170mm - 135mm = 55mm
+e.g. 170mm - 170mm  + 20mm = 20mm (min. erfassbar)
+e.g. 170mm - 135mm + 20mm= 55mm
 
-Ergänzung (falls falscher/höherer Wert als maxPossibleDist gemessen wird):
-currWaterLevel = min((maxPossibleDist - currWaterDist),0)
+Use max func to prevent negative delta
 170mm -171mm = -1mm
 max(170-171),0 = max(-1,0) = 0
 */
@@ -125,9 +119,8 @@ int Cistern::updateWaterLevel()
     if(toF_ready) // or Crash if called from PumpState::ABORTED and toF not setup
     {
         int waterBodyMinHeight = 10; // mm
-        int sensorError = 15; // mm, Sensor error correction
         currWaterDist = evaluateToF();
-        currWaterLevel = waterBodyMinHeight + max((maxPossibleDist - currWaterDist),0) + sensorError;
+        currWaterLevel = waterBodyMinHeight + max((maxPossibleDist - currWaterDist),0);
     }
     
     return currWaterLevel;
@@ -136,14 +129,15 @@ int Cistern::updateWaterLevel()
 /*
 Called by measureState and after Pump::DONE State
 Calc Milliliters, write Environment_Data Point to Buffer, give Warnings (low waterLevel etc.)
+10mm delta can be different waterAmounts, depending on waterLevel and reservoir shape
+-> Calc pumpedWater from waterAmounts, NOT waterLevels
 */
 bool Cistern::waterManagement()
 {
     int oldWaterLevel = currWaterLevel; // (Updated from Check at Beginning of Pump State Machine)
     int newWaterLevel = updateWaterLevel(); // Get new fill Level and Update
     uint16_t availableWater = calcMl(newWaterLevel);
-    // 20mm pumped can be different waterAmounts, depending on waterLevel
-    // min necessary, if pumpProcess stops after 0s AND wrong Reading of new waterLevel
+    // max necessary, if pumpProcess stops after 0s AND wrong Reading of new waterLevel
     pumpedWater = max((calcMl(oldWaterLevel) - availableWater),0);
 
     updateEnvironmentData(newWaterLevel, availableWater);
@@ -211,7 +205,9 @@ uint16_t Cistern::calcMl(int waterLevel) // Inputparam in mm
     float A_B = l_B * w_B; // Area Bottom (doesn't change), 0,0638m², 1m³ = 1000L
     // double A_T = l_T * w_T; // Area Top (changes depending on fillLevel), 0.08m²
     // int h = 210;
-    // slope length, slope width (1.5cm per 10cm, 15cm (0.15m) per 1m, 0.15cm (1.5mm) per 1cm, 0.15mm per 1mm)
+
+    // Measure slope length, slope width of Reservoir
+    // (1.5cm per 10cm, 15cm (0.15m) per 1m, 0.15cm (1.5mm) per 1cm, 0.15mm per 1mm)
     float sl_l = 0.15, sl_w = 0.15; // mm je mm
     
     // 1. Set Height
@@ -224,13 +220,14 @@ uint16_t Cistern::calcMl(int waterLevel) // Inputparam in mm
     float sl_w_eff = waterLevel * sl_w;
 
     // 3. Calc A_T (new top area):
-    // (Untere Seiten + effective Slope for fillLevel)
+    // (Seitenlänge unten + effective Slope * 2 für gegebenen Füllstand)
     // 294.95mm * 224.95mm = 66349mm²)
     // (if l_B, w_B are ints then 294 * 224 = 65856, WRONG)
     // uint32_t nötig, da > 65000ml möglich
-    l_T = l_B + sl_l_eff;
-    w_T = w_B + sl_w_eff;
-    uint32_t A_T = l_T * w_T; 
+    // *2, da slope in beide Richtungen
+    l_T = l_B + sl_l_eff * 2;
+    w_T = w_B + sl_w_eff * 2;
+    uint32_t A_T = l_T * w_T;
     
     // 3. Volumen berechnen (ähnlich auch für Kegel Frustum)
     uint32_t waterVolume = h/3.0f * (A_B + A_T + sqrt(A_B*A_T));

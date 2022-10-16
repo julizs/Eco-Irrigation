@@ -34,17 +34,6 @@ int SoilMoisture::measureSoilMoistureSmoothed(int pinNum)
 
   int moistureSmoothed = sum/(actualSamples*1.0f);
 
-  /*
-  Serial.print(moistureSmoothed);
-  Serial.print(" Measured MoistureSensor: ");
-  Serial.print(pinNum + 1);
-  Serial.print(" on Multiplexer Channel: ");
-  Serial.print(pinNum);
-  Serial.print("Valid SoilMoist Samples: ");
-  Serial.print(actualSamples);
-  Serial.println();
-  */
-
   return moistureSmoothed;
 }
 
@@ -88,22 +77,14 @@ Convert read voltage Value to Percentage (depending on individual Sensor Range)
 */
 int SoilMoisture::voltageToPercentage(int pinNum, int smoothedValue)
 {
-  int range[2];
+  int range[2] = {1500,3000};
   JsonArray sensorRange = sensorRanges[pinNum];
 
   if(sensorRange.isNull())
-  {
-    // Set approx. dummy Ranges
-    Serial.println("No Ranges for Moisture Sensor found.");
-    range[0] = 500;
-    range[1] = 3000;
-  }
-  else
-  {
-    range[0] = sensorRanges[pinNum]["minVoltage"].as<int>();
-    range[1] = sensorRanges[pinNum]["maxVoltage"].as<int>();
-  }
+    Serial.println("No Reference Values for Moisture Sensor found, using Dummy Values.");
 
+  getSensorRange(pinNum, range);
+  
   // Constrain measured Values to sensorRange before mapping
   int moistureConstrained = constrain(smoothedValue, range[0], range[1]);
 
@@ -114,7 +95,7 @@ int SoilMoisture::voltageToPercentage(int pinNum, int smoothedValue)
 }
 
 /*
-Get individual sensorRange
+Get individual sensor Ranges
 (Array: Call by Reference)
 */
 void SoilMoisture::getSensorRange(int pinNum, int range[])
@@ -126,7 +107,13 @@ void SoilMoisture::getSensorRange(int pinNum, int range[])
   range[1] = sensorRanges[pinNum]["maxVoltage"].as<int>();
 }
 
+// Do only once
 void SoilMoisture::setSensorRanges()
 {
   Services::doJSONGetRequest("/moistureSensors", sensorRanges);
+}
+
+void SoilMoisture::writePoint(Point &p)
+{
+
 }
