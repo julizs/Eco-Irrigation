@@ -75,27 +75,27 @@ void SoilMoisture::measurePlant(JsonArray &moistureSensors, Point &p)
 Main calls setSensorRanges first (once, not per Plant)
 Convert read voltage Value to Percentage (depending on individual Sensor Range)
 */
-int SoilMoisture::voltageToPercentage(int pinNum, int smoothedValue)
+int SoilMoisture::voltageToPercentage(int pinNum, int moistureSmoothed)
 {
-  int range[2] = {1500,3000};
-  JsonArray sensorRange = sensorRanges[pinNum];
-
-  if(sensorRange.isNull())
-    Serial.println("No Reference Values for Moisture Sensor found, using Dummy Values.");
-
-  getSensorRange(pinNum, range);
+  int range[2] = {1500,3000}; // default
+  getSensorRange(pinNum, range); // pass by ref
+  // Serial.println(range[0]);
   
   // Constrain measured Values to sensorRange before mapping
-  int moistureConstrained = constrain(smoothedValue, range[0], range[1]);
+  int moistureConstrained = constrain(moistureSmoothed, range[0], range[1]);
 
   // Map with reversed Values (3000 = 0% Moisture) to %
   int moisturePercentage = map(moistureConstrained,range[0],range[1], 100, 0);
+
+  Serial.print("Soil Moisture: ");
+  Serial.print(moisturePercentage);
+  Serial.println(" %");
   
   return moisturePercentage;
 }
 
 /*
-Get individual sensor Ranges
+Calibration, get individual sensor Ranges
 (Array: Call by Reference)
 */
 void SoilMoisture::getSensorRange(int pinNum, int range[])
@@ -103,14 +103,29 @@ void SoilMoisture::getSensorRange(int pinNum, int range[])
   if(sensorRanges.isNull())
     SoilMoisture::setSensorRanges();
 
-  range[0] = sensorRanges[pinNum]["minVoltage"].as<int>();
-  range[1] = sensorRanges[pinNum]["maxVoltage"].as<int>();
+  // Serial.println(sensorRanges[pinNum]["minVoltage"].as<int>());
+  JsonObject sensorRange = sensorRanges[pinNum].as<JsonObject>();
+  
+  if(sensorRange.isNull())
+  {
+    // keep standard values
+    Serial.println("No Calibration for moisture Sensor found.");
+  }
+  else
+  { 
+    // Serial.println(sensorRange["minVoltage"].as<int>());
+    // range[0] = sensorRanges[pinNum]["minVoltage"].as<int>();
+    // range[1] = sensorRanges[pinNum]["maxVoltage"].as<int>();
+    range[0] = sensorRange["minVoltage"].as<int>();
+    range[1] = sensorRange["maxVoltage"].as<int>();
+  }
 }
 
 // Do only once
 void SoilMoisture::setSensorRanges()
 {
   Services::doJSONGetRequest("/moistureSensors", sensorRanges);
+  Serial.println("Loaded moisture Sensor Calibration Data.");
 }
 
 void SoilMoisture::writePoint(Point &p)

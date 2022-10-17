@@ -109,10 +109,8 @@ bool doMeasurements()
 
   // PLANT-SPECIFIC MEASUREMENTS
   // Advantage: Local DynamicJsonDocs (big) get destroyed after leaving Scope
-  // StaticJsonDocument<64> doc; (since ArduinoJson 6 ?)
-  DynamicJsonDocument plants(2048), moistureSensors(1024);
+  DynamicJsonDocument plants(2048);
   Services::doJSONGetRequest("/plants/sensors", plants);
-  Services::doJSONGetRequest("/moistureSensors", moistureSensors);
 
   Point p("Plant Data");
   int lastMeasuredLightSensor = -1;
@@ -131,8 +129,8 @@ bool doMeasurements()
     p.addTag("Plant", plantName);
 
     // Measure soilSensors assigned to Plant
-    JsonArray moistureSensors = plants[i]["moistureSensors"];
-    SoilMoisture::measurePlant(moistureSensors, p);
+    JsonArray sensors = plants[i]["moistureSensors"];
+    SoilMoisture::measurePlant(sensors, p);
 
     /* Measure lightSensor assigned to Plant
     Sort MongoDb Cursor by lightSensor
@@ -140,13 +138,18 @@ bool doMeasurements()
     */
     int lightSensor = plants[i]["lightSensor"].as<int>();
 
-    if (lightSensor != lastMeasuredLightSensor)
+    if (lightSensor != 0) // .isNull() not possible for int
     {
-      data = lightSensor2.measureLight();
-      lastMeasuredLightSensor = lightSensor;
+      if(lightSensor != lastMeasuredLightSensor)
+      {
+        data = lightSensor2.measureLight();
+        lastMeasuredLightSensor = lightSensor;
+      }
+
+      // Only add if sensor assigned / data read, otherwise random values in field
+      p.addField("infraredLight", data.infraRed);
+      p.addField("visibleLight", data.visibleLight);
     }
-    p.addField("infraredLight", data.infraRed);
-    p.addField("visibleLight", data.visibleLight);
 
     InfluxHelper::writeDataPoint(p);
   }
