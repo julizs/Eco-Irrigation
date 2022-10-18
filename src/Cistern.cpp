@@ -9,7 +9,7 @@ Cistern::Cistern(uint8_t toF_address, FlowMeter &m) : meter(m)
     pumpedWater = 0;
     minValidWaterDist = 50;
     maxValidWaterDist = 170; // min fillLevel, e.g. 3L
-    maxPossibleDist = 200;
+    maxPossibleDist = 180;
     sampleSize = 8;
 }
 
@@ -118,10 +118,10 @@ int Cistern::updateWaterLevel()
 {
     if(toF_ready) // or Crash if called from PumpState::ABORTED and toF not setup
     {
-        int waterBodyMinHeight = 10; // mm
-        int sensorError = 0; // -15
+        int waterBodyMinHeight = 15; // mm
+        int sensorError = -20; // mm, Sensorerror and Diagonal Distance Error
         currWaterDist = evaluateToF();
-        currWaterLevel = waterBodyMinHeight + max((maxPossibleDist - currWaterDist),0) + sensorError;
+        currWaterLevel = waterBodyMinHeight + max((maxPossibleDist - (currWaterDist + sensorError)),0);
     }
     
     return currWaterLevel;

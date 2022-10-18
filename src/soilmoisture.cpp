@@ -34,6 +34,10 @@ int SoilMoisture::measureSoilMoistureSmoothed(int pinNum)
 
   int moistureSmoothed = sum/(actualSamples*1.0f);
 
+  Serial.print("SoilMoisture_AnalogVoltage: ");
+  Serial.print(moistureSmoothed);
+  Serial.println("mV");
+
   return moistureSmoothed;
 }
 
@@ -55,10 +59,12 @@ void SoilMoisture::measurePlant(JsonArray &moistureSensors, Point &p)
   for (int i = 0; i < moistureSensors.size(); i++)
     {
       int moistureSensor = moistureSensors[i];
-      int pinNum = moistureSensor - 1;
+    
+      int pinNum = moistureSensor - 1; // Measure pinNum on Multiplexer
 
       char key[16];
-      snprintf(key, 16, "soilMoisture%d", moistureSensor);
+      snprintf(key, 16, "soilMoisture_S%d", moistureSensor);
+      Serial.println(key);
 
       int moistureSmoothed = measureSoilMoistureSmoothed(pinNum);
       int moisturePercentage = voltageToPercentage(pinNum, moistureSmoothed);
@@ -77,7 +83,7 @@ Convert read voltage Value to Percentage (depending on individual Sensor Range)
 */
 int SoilMoisture::voltageToPercentage(int pinNum, int moistureSmoothed)
 {
-  int range[2] = {1500,3000}; // default
+  int range[2] = {500,3000}; // default
   getSensorRange(pinNum, range); // pass by ref
   // Serial.println(range[0]);
   
@@ -87,9 +93,9 @@ int SoilMoisture::voltageToPercentage(int pinNum, int moistureSmoothed)
   // Map with reversed Values (3000 = 0% Moisture) to %
   int moisturePercentage = map(moistureConstrained,range[0],range[1], 100, 0);
 
-  Serial.print("Soil Moisture: ");
+  Serial.print("SoilMoisture_Percentage: ");
   Serial.print(moisturePercentage);
-  Serial.println(" %");
+  Serial.println("%");
   
   return moisturePercentage;
 }

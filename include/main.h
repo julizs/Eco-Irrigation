@@ -16,14 +16,14 @@ class PowerMeter; // Forward Decl
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 
-#define SLEEPTYPE 0 // No/Light/Modem/... Sleep
+// #define SLEEPTYPE 0 // No/Light/Modem/... Sleep
 #define DO_MEASURE 1
 #define TRANSMIT_DATA 1
 #define REQUEST_DATA 1
 #define RUN_SUBMACHINES 1
 
 extern TwoWire I2Cone, I2Ctwo;
-extern uint8_t SLEEP_DUR, IDLE_DUR, STATE_MIN_DUR;
+extern uint8_t SLEEP_TYPE, SLEEP_DUR, IDLE_DUR, STATE_MIN_DUR;
 extern LinkedList<String> transDestinations;
 extern LinkedList<ISubStateMachine*> actions;
 

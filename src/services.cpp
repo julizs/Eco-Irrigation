@@ -233,12 +233,11 @@ bool Services::readSettings()
   DynamicJsonDocument settings(1024);
   Services::doJSONGetRequest("/settings", settings);
 
-  // Settings is a Collection with only 1 Document inside [{}]
+  // settings is a mongoDB Collection with only 1 Document inside [{}]
   JsonArray collection = settings.as<JsonArray>();
   JsonObject doc = collection.getElement(0).as<JsonObject>();
 
-  // String transDestination = doc["transitionTo"].as<String>();
-  // transDestinations.add(transDestination);
+  // Handle User Actions
   JsonArray destinations = doc["transitionTo"].as<JsonArray>();
   if(!destinations.isNull())
   {
@@ -249,13 +248,6 @@ bool Services::readSettings()
         transDestinations.add(dest);
     }
   }
-  
-  /*
-  Serial.println(obj["sleepDuration"].as<int>());
-  for (JsonPair keyValue : obj) {
-    Serial.println(keyValue.key().c_str()); 
-  } 
-  */
 
   JsonObject actions = doc["actions"].as<JsonObject>();
   JsonArray irrActions = actions["irrigations"].as<JsonArray>();
@@ -278,7 +270,8 @@ bool Services::readSettings()
       transDestinations.add("TRANSMIT");
     } 
   }
-  // Test; only do for Duration in ActionState
+
+  // SolenoidValve Test, Duration of Action?
   for(int i = 0; i < solActions.size(); i++)
   {
     JsonObject action = solActions[i];
@@ -288,7 +281,17 @@ bool Services::readSettings()
     digitalWrite(Relais[channel], state);
   } 
 
+  // Handle Settings
+  SLEEP_TYPE = doc["sleepType"].as<int>();
+  SLEEP_DUR = doc["sleepDuration"].as<int>();
 
+  /*
+  for (JsonPair keyValue : obj) {
+    Serial.println(keyValue.key().c_str()); 
+  } 
+  */
+
+  // Reset for next Check
   Serial.println("(Resetting User Actions): ");
   String emptyDoc = "{}";
   Services::doPostRequest("/settings/reset", emptyDoc);

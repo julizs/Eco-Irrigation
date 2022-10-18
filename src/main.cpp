@@ -17,7 +17,7 @@
 #include <math.h>
 
 const char baseUrl[] = "https://juli.uber.space/node";
-uint8_t IDLE_DUR = 4, SLEEP_DUR = 16, STATE_MIN_DUR = 4;
+uint8_t IDLE_DUR = 4, SLEEP_TYPE = 0, SLEEP_DUR = 16, STATE_MIN_DUR = 4;
 uint32_t stateBeginMillis = 0;
 
 TaskHandle_t Task1, Task2;
@@ -50,19 +50,19 @@ bool countTime(int durationSec)
   return (millis() - stateBeginMillis >= durationSec * 1000UL);
 }
 
-State* getStateByName(String stateName)
+State *getStateByName(String stateName)
 {
-  State* state = nullptr;
+  State *state = nullptr;
 
-  for(int i = 0; i < fsm.stateList->size()-1; i++)
+  for (int i = 0; i < fsm.stateList->size() - 1; i++)
+  {
+    state = fsm.stateList->get(i);
+
+    if (stateName.equals(state->name))
     {
-      state = fsm.stateList->get(i);
-
-      if(stateName.equals(state->name))
-      {
-        return state;
-      }
+      return state;
     }
+  }
 
   return state;
 }
@@ -72,10 +72,10 @@ Do one whole Cycle in Demo Mode first
 Skip IDLE and ERROR
 */
 void addCycle()
-{ 
-  for(int i = 1; i < fsm.stateList->size()-1; i++)
+{
+  for (int i = 1; i < fsm.stateList->size() - 1; i++)
   {
-    State* state = fsm.stateList->get(i);
+    State *state = fsm.stateList->get(i);
     transDestinations.add(state->name);
   }
 }
@@ -83,7 +83,8 @@ void addCycle()
 // Always setup both Sensors at once
 void setupToFs()
 {
-  while (!cistern2.setupToF());
+  while (!cistern2.setupToF())
+    ;
   // while (!cistern1.setupToF());
 }
 
@@ -104,7 +105,7 @@ bool doMeasurements()
 
   // Measure Watervolume
   if (cistern2.toF_ready)
-    //cistern2.updateWaterLevel();
+    // cistern2.updateWaterLevel();
     cistern2.waterManagement();
 
   // PLANT-SPECIFIC MEASUREMENTS
@@ -140,7 +141,7 @@ bool doMeasurements()
 
     if (lightSensor != 0) // .isNull() not possible for int
     {
-      if(lightSensor != lastMeasuredLightSensor)
+      if (lightSensor != lastMeasuredLightSensor)
       {
         data = lightSensor2.measureLight();
         lastMeasuredLightSensor = lightSensor;
@@ -194,7 +195,7 @@ bool transitionToIdle()
 {
   if (currentState->didActivities)
   {
-    if (transDestinations.get(0).equals(currentState->name) && SLEEPTYPE == 0)
+    if (transDestinations.get(0).equals(currentState->name) && SLEEP_TYPE == 0)
     {
       transDestinations.remove(0);
       // printDestinations();
@@ -218,16 +219,16 @@ bool transitionToNext()
   // Starts from 0, and dont include last State (errorState), hence -2
   uint8_t next = current < fsm.stateList->size() - 2 ? ++current : 0;
 
-  if(SLEEPTYPE != 0)
+  if (SLEEP_TYPE != 0)
   {
     if (currentState->didActivities)
     {
       currentState->transCount = 0;
       nextState = fsm.stateList->get(next);
-      return true;   
+      return true;
     }
   }
-  
+
   return false;
 }
 
@@ -235,34 +236,38 @@ bool transitionToNext()
 Directly go to User targetState, only go (back) to
 other States if necessary (Connection lost etc.)
 Call whenever transDestinations.size > 0
+Only do when in manual Idle Mode
 */
 
 bool transitionToTarget()
 {
   int index;
 
-  if (currentState->didActivities)
+  if (SLEEP_TYPE == 0)
   {
-    // printDestinations();
+    if (currentState->didActivities)
+    {
+      // printDestinations();
 
-    if(transDestinations.size() > 0)
-    {
-      State* target = getStateByName(transDestinations.get(0));
-      transDestinations.remove(0);
-  
-      if(target != nullptr)
+      if (transDestinations.size() > 0)
       {
-        currentState->transCount = 0;
-        nextState = target;
-      }  
+        State *target = getStateByName(transDestinations.get(0));
+        transDestinations.remove(0);
+
+        if (target != nullptr)
+        {
+          currentState->transCount = 0;
+          nextState = target;
+        }
+      }
+      else
+      {
+        // Serial.println("All manual Transitions done.");
+        nextState = idleState;
+      }
     }
-    else
-    {
-      // Serial.println("All manual Transitions done.");
-      nextState = idleState;
-    }   
   }
-  
+
   return false;
 }
 
@@ -276,41 +281,18 @@ bool transitionToSelf()
   {
     if (currentState->transCount < currentState->maxSelfTrans)
     {
-      // currentState->transCount++;
+      currentState->transCount++;
       // while(!Utilities::countTime(currentState->beginTime, currentState->minStateTime*currentState->selfTrans));
       nextState = currentState;
     }
     else
     {
       // critErrMessage = currentState->name;
-      if(currentState == idleState)
+      if (currentState == idleState)
         currentState->transCount = 0;
 
       nextState = errorState;
     }
-    return true;
-  }
-  return false;
-}
-
-/*
-Check Settings / User Actions every n (interval) idle Transitions
-Set transCount to 0, or maxSelfTrans is reached after returning to IDLE, -> ERROR State
-*/
-bool checkSettings()
-{
-  uint8_t interval = 5;
-  // Serial.println(currentState->transCount);
-
-  if (currentState->transCount % interval == 0)
-  {
-    transDestinations.add("REQUEST");
-    transitionToTarget();
-    /*
-    currentState->transCount = 0;
-    referralState = currentState;
-    nextState = connectState;
-    */
     return true;
   }
   return false;
@@ -324,8 +306,8 @@ esp_sleep_enable_ext0_wakeup(GPIO_NUM_34, 0);
 
 SLEEPTYPE == 0
 Simulate Sleep/Idle
-Keep on transitioning to Self, no blocking while or countTime needed
-Go to CONNECT,REQUEST State periodically to check if User set manualTransition
+Keep on transitioning to Self, no blocking while needed
+Go to REQUEST State periodically (Polling) to check if User added Actions / changed Settings
 */
 void on_idleState()
 {
@@ -333,44 +315,38 @@ void on_idleState()
   {
     commonStateLogic();
 
-    if (SLEEPTYPE == 1) // Light Sleep
+    if (SLEEP_TYPE == 0) // No Sleep / Demonstration Mode
+    {
+      int pollingInterval = 5;
+      if (currentState->transCount % pollingInterval == 0)
+      {
+        transDestinations.add("REQUEST");
+      } 
+
+      // pollingIntervall is up / REQUEST has been added, stop idling
+      // or User has set a manual transitionTarget, stop idling
+      currentState->didActivities = transDestinations.size() > 0;
+    }
+    else if (SLEEP_TYPE == 1) // Light Sleep
     {
       Serial.println("Entering Light Sleep.");
-      esp_sleep_enable_timer_wakeup(SLEEP_DUR * 1000 * 1000); // µs
+      esp_sleep_enable_timer_wakeup(SLEEP_DUR * 1000 * 1000); // s to µs
       delay(100);                                             // else no Wakeup
       esp_light_sleep_start();
       // Resume Program, Connections and States were kept, go to INIT
       currentState->didActivities = true;
     }
-    else if (SLEEPTYPE == 2)
+    else if (SLEEP_TYPE == 2)
     {
       // ESP.deepSleep(30e6);
     }
-    else if (SLEEPTYPE == 0) // No Sleep / Demonstration Mode
-    {
-      // User has set a manual transitionTarget, stop idling
-      // currentState->didActivities = transDestinations.size() > 0;
-    }
   }
 
+  // Check constantly after minStateTime is up
   if (countTime(currentState->minStateTime))
   {
-    // ESP.deepSleep done or idling time (demo mode) up
-    currentState->didActivities = true;
-
-    /*
-    // Do whole Cycle once after Bootup
-    if (!initState->didActivities)
-    {
-      nextState = initState;
+    if (transitionToTarget())
       return;
-    }
-    */
-
-    if (checkSettings())
-      return;
-    if(transitionToTarget());
-      return; 
     if (transitionToSelf())
       return;
 
@@ -415,7 +391,7 @@ void on_initState()
     initState->didActivities = lightSensor2.isReady();
     climate1.printInfo();
 
-    if(transitionToTarget());
+    if (transitionToTarget())
       return;
     if (transitionToSelf())
       return;
@@ -456,7 +432,7 @@ void on_connectState()
 
   if (countTime(currentState->minStateTime))
   {
-    if(transitionToTarget());
+    if (transitionToTarget())
       return;
     if (transitionToSelf())
       return;
@@ -481,9 +457,9 @@ void on_requestState()
   if (countTime(currentState->minStateTime))
   {
     // Serial.println("User Actions: ");
-    //printDestinations();
+    // printDestinations();
 
-    if(transitionToTarget());
+    if (transitionToTarget())
       return;
     if (transitionToSelf())
       return;
@@ -507,7 +483,7 @@ void on_measureState()
 
   if (countTime(currentState->minStateTime))
   {
-    if(transitionToTarget());
+    if (transitionToTarget())
       return;
     if (transitionToSelf())
       return;
@@ -525,13 +501,16 @@ void on_evaluateState()
 
   if (countTime(currentState->minStateTime))
   {
-    if(transitionToTarget());
+    if (transitionToTarget())
       return;
+    if (transitionToSelf())
+      return;
+    transitionToNext();
 
     /*
     if (currentState->didActivities)
     {
-      
+
       // "Custom" Transition
       if (Irrigation::instructions.size() > 0)
       {
@@ -540,7 +519,7 @@ void on_evaluateState()
       else
       {
         nextState = transmitState;
-      }  
+      }
     }
     */
   }
@@ -556,16 +535,16 @@ void on_actionState()
   {
     commonStateLogic();
 
-    if(!Irrigation::instructions.size() > 0)
+    if (!Irrigation::instructions.size() > 0)
     {
       Serial.println("No scheduled automatic or manual Irrigations.");
       actionState->didActivities = true;
     }
   }
 
-  #if (RUN_SUBMACHINES == 1)
+#if (RUN_SUBMACHINES == 1)
   {
-    if(Irrigation::instructions.size() > 0)
+    if (Irrigation::instructions.size() > 0)
     {
       for (auto &instr : Irrigation::instructions)
       {
@@ -575,7 +554,7 @@ void on_actionState()
         {
           // Set back State to idle so that same Pump can run multiple times
           pump->resetMachine();
-    
+
           // Infos set before StateMachine Run
           pump->pumpTime = instr.pumpTime;
 
@@ -586,7 +565,7 @@ void on_actionState()
             pump->loop();
           }
 
-          // Only set this is if pump ran into ABORT, 
+          // Only set this is if pump ran into ABORT,
           // if there is an error before (Irrigation, Plant/Pump not found etc.) then don't override that errorCode
           instr.errorCode = pump->errorCode;
 
@@ -613,9 +592,9 @@ void on_actionState()
           // Irrigation::reportInstructions(Irrigation::instructions);
           Irrigation::clearInstructions();
           actionState->didActivities = true;
-        }  
+        }
       }
-    } 
+    }
   }
 #endif
 
@@ -630,7 +609,7 @@ void on_actionState()
     }
     */
 
-    if(transitionToTarget());
+    if (transitionToTarget())
       return;
     transitionToNext();
   }
@@ -649,7 +628,7 @@ void on_transmitState()
 
   if (countTime(currentState->minStateTime))
   {
-    if(transitionToTarget());
+    if (transitionToTarget())
       return;
     if (transitionToSelf())
       return;
@@ -770,7 +749,8 @@ void setup()
   // Begin here
   currentState = idleState;
 
-  if(SLEEPTYPE == 0)
+  // Do one Cycle first in demoMode
+  if (SLEEP_TYPE == 0)
   {
     addCycle();
     Utilities::printDestinations();
