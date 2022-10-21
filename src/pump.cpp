@@ -17,12 +17,15 @@ void Pump::setup()
     */
 
     minStateDuration = 4;
+    transCount = 0;
+    maxSelfTrans = 3;
+
     frequency = 30000;
-    resolution = 8; // Bits
+    resolution = 8; // bits
     dutyCycle = 200;
     lastState = (PumpState)-1;
     pumpTime = constrain(pumpTime, 2.0f, 15.0f);
-    measureIntervall = 1000; // Ms
+    measureIntervall = 1000; // ms
 
     setupPWM();
 }
@@ -40,79 +43,69 @@ void Pump::loop()
     switch (currentState)
     {
 
-    case PumpState::IDLE:
+    case PumpState::INIT:
 
         if (lastState != currentState)
         {
             commonStateLogic();
-  
-            if(!cistern.toF_ready)
-            {
-                // Redo Setup...
-                // cistern.setupToF();
-                setupToFs();
-            }     
+
+            // Apply Usersettings from REST (e.g. dutyCycle)
+            // setup();
+
+            if(!cistern.toF_ready())
+                cistern.setupToF();
         }
 
         if (countTime(minStateDuration))
         {
-            if (!cistern.toF_ready)
+            // All setup attemps failed
+            if (!cistern.toF_ready())
             {
-                errorCode = 1;
-                currentState = PumpState::ABORT;
-            }
-            /*
-            Pump SM will not even get started if no valid Solenoid/Pump not active in System
-            else if(relaisChannel == -1)
-            {
-                errorCode = 5;
-                currentState = PumpState::ABORT;
-            }
-            */
-            /*
-            else if(!Irrigation::validSolenoid(relaisChannel, Irrigation::waterLimit24h, 24))
-            {
-                // Check waterLimits per SolenoidValve (on Button Press by User)
-                // Data needs to be provided first (Utilities::provideData())
-                errorCode = 2;
-                currentState = PumpState::ABORT;
-            }*/
-            else
-            {
-                cistern.updateWaterLevel();
-                if (cistern.validWaterLevel())
+                if(transCount < maxSelfTrans)
                 {
-                    errorCode = 0; // None
-                    currentState = PumpState::ON;
+                    transCount++;
+                    cistern.setupToF();
+                    currentState = PumpState::INIT;
                 }
                 else
                 {
-                    errorCode = 3;
+                    errorCode = 1;
                     currentState = PumpState::ABORT;
-                }
+                }  
+            }
+            // Should this check also be done before, in Irrigation class?
+            else if(!cistern.validWaterLevel(allocatedWater))
+            {
+                errorCode = 3;
+                currentState = PumpState::ABORT;
+            }
+            else
+            {
+                errorCode = 0; // None
+                currentState = PumpState::ON;
             }
         }
 
-        lastState = PumpState::IDLE;
+        lastState = PumpState::INIT;
         break;
 
     case PumpState::ON:
 
+        // Call only once, entry / State Function
         if (lastState != currentState)
         {
             commonStateLogic();
-            // Call only once
             // cistern.readToF_cont();
         }
 
+        // do / State Function
         cistern.driveSolenoid(relaisChannel, LOW);
 
         switchOn();
 
-
-        // Repeating Measurements
+        // Repeat Measurements in Intervall
         currentTime = millis();
-        if(currentTime >= (lastTime + measureIntervall))
+        if (currentTime >= (lastTime + measureIntervall))
         {
             lastTime = currentTime;
 
@@ -120,19 +113,19 @@ void Pump::loop()
 
             powerMeter1.measureIna();
         }
-        
+
         /*
-        // Button pressed
+        // User presses HW-Button to cancel, measure Water
         if (pumpButton == true)
         {
-            errorCode = 4;
-            currentState = PumpState::ABORT;
+            currentState = PumpState::DONE;
         }
         */
 
         // Check constantly
         if (countTime(minStateDuration) && countTime(pumpTime))
         {
+            // exit / State Function
             currentState = PumpState::DONE;
         }
 
@@ -145,16 +138,15 @@ void Pump::loop()
         {
             commonStateLogic();
 
-            // Measure Power once before stopping Pump
-            // writeIna();
-
             switchOff();
 
             cistern.meter.measureVolume();
 
             cistern.driveSolenoid(relaisChannel, HIGH);
 
-            // If ToF not correctly Setup (but Status == ERROR_NONE) -> Crash
+            // Only measure if Water was pumped
+            // (toF must be setup correctly, or crash here)
+            // if(lastState == PumpState::ON)
             cistern.waterManagement();
         }
 
@@ -166,10 +158,7 @@ void Pump::loop()
         {
             commonStateLogic();
 
-            // e.g. if Pump Process aborted midtime by Button -> DONE, not ABORT 
-            // cistern.waterManagement(relaisChannel);
-
-            Serial.println(errors[errorCode]);
+            printError();
         }
 
         lastState = PumpState::ABORT;
@@ -207,6 +196,7 @@ void Pump::commonStateLogic()
 {
     stateBeginMillis = millis();
     Serial.println(stateNames[(byte)currentState]);
+    transCount++;
 }
 
 void Pump::add_callback(callback func)
@@ -222,14 +212,23 @@ bool Pump::isDone()
 
 void Pump::resetMachine()
 {
-    currentState = PumpState::IDLE;
+    currentState = PumpState::INIT;
     // lastState must be != currentState for ExecOnce Logic to run
     lastState = (PumpState)-1;
 }
 
-/*
-NO other Instructions inside loop(), gets called every Instruction
+void Pump::printError()
+{
+    Serial.println(errors[errorCode]);
+}
 
+
+/*
+All Funcs of State DONE could also be implemented
+in exit Func. of ON State
+*/
+
+/*
 lastState = (PumpState)-1;
 Enums cannot be set to null, initial Value is always 0 (so PumpState.IDLE)
 Set to -1 so that lastState != currentState gets triggered after Bootup
@@ -237,3 +236,24 @@ Set to -1 so that lastState != currentState gets triggered after Bootup
 Problem: cistern.toF.Status != VL53L0X_ERROR_NONE is true, even if no Setup ->
 Crash when Measuring if not also toF.ready checked
 */
+
+/*
+User cancels Pump Process with HW-Button (?)
+-> DONE State, not ABORT (measure Water)
+*/
+
+/*
+Gets checked already in Irrigation class
+no valid Solenoid / Pump is not active in System
+else if(solenoidValve == -1)
+{
+    errorCode = 5;
+    currentState = PumpState::ABORT;
+}
+else if(!Irrigation::validSolenoid(relaisChannel, Irrigation::waterLimit24h, 24))
+{
+    // Check waterLimits per SolenoidValve (on Button Press by User)
+    // Data needs to be provided first (Utilities::provideData())
+    errorCode = 2;
+    currentState = PumpState::ABORT;
+}*/

@@ -15,50 +15,47 @@ Cistern::Cistern(uint8_t toF_address, FlowMeter &m) : meter(m)
 
 /*
 Bugs:
-Wrong Readings if spadCount after (re)Setup is different (e.g. 3 instead of 4 spads)
-(Check while sensor debug mode true)
+Wrong Readings if spadCount after (re)setup is different (e.g. 3 instead of 4 spads)
 https://wolles-elektronikkiste.de/vl53l0x-und-vl53l1x-tof-abstandssensoren
 toF.status is 0 even if not correctly setup
 toF.rangingTest for current ErrCode crashes if toF not setup before
 Error -5 or -6 (and no I2C Address): ToF Sensor Cable slack joint, move cable
 */
 
-bool Cistern::setupToF()
+void Cistern::setupToF()
 {
-    VL53L0X_Error status;
-    VL53L0X_RangingMeasurementData_t measure;
-    int attempt = 0;
+    // Set debug mode to true for detailed infos
+    toF.begin(toF_address, true, &I2Cone);
+    delay(100);
+    bool configDone = toF.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY);
 
-    // Serial.println(toF.Status);
-    // true/false for debug infos while Setup
-    while (!toF.begin(toF_address, false, &I2Cone) && attempt < 3)
+    if(toF.Status == VL53L0X_ERROR_NONE && configDone)
     {
-        delay(1500 * attempt);
-        Serial.println("Time of Flight Sensor Status: ");
-        Serial.println(toF.Status);
-        attempt++;
-        if (toF_address == 0x51)
-        {
-            shutToF();
-        }
-    }
-    // Serial.println(toF.Status);
-    
-    if(toF.Status == 0)
-    {
-        toF.configSensor(Adafruit_VL53L0X::VL53L0X_SENSE_HIGH_ACCURACY); // 200ms
-        // toF_1.setMeasurementTimingBudgetMicroSeconds(300000);
-        toF_ready = true;
+        Serial.println("ToF setup correctly.");
     }
     else
     {
-        toF_ready = false;
-        // critErrMessage = "Final fail to setup ToFs.";
-        critErrCode = 3;
+        Serial.println(((VL53L0X_Error)toF.Status));
     }
-
-    return true;
 }
+
+/*
+1. Only do config if sensor setup correctly (Status 0), or crash
+2. Sensor is ready if configSensor() returns true (1) AND Status 0
+*/
+bool Cistern::toF_ready()
+{
+    VL53L0X_RangingMeasurementData_t measurement;
+    VL53L0X_Error error = toF.rangingTest(&measurement);
+
+    Serial.print("ToF Test: ");
+    Serial.println(measurement.RangeMilliMeter);
+    Serial.print("Error: ");
+    Serial.println(toF.Status);
+
+    return toF.Status == 0;
+}
+
 /*
 bool Cistern::setupToF()
 {
@@ -96,9 +93,18 @@ void Cistern::shutToF()
     digitalWrite(toF_shut, HIGH);
 }
 
-bool Cistern::validWaterLevel()
+/*
+To assert if a waterLevel is valid/sufficient, one needs to compare available
+waterAmount in Cistern and allocatedWater of an Irrigation Event (automatic or manual)
+(same procedure as validSolenoid)
+*/
+bool Cistern::validWaterLevel(int allocatedWater)
 {
-    return currWaterDist < maxValidWaterDist && currWaterDist > minValidWaterDist;
+    int waterLevel = getWaterLevel();
+    uint16_t availableWater = calcMl(waterLevel);
+    uint16_t minValidWater = calcMl(minValidWaterDist);
+
+    return availableWater - allocatedWater > minValidWater;
 }
 
 /*
@@ -114,15 +120,13 @@ Use max func to prevent negative delta
 170mm -171mm = -1mm
 max(170-171),0 = max(-1,0) = 0
 */
-int Cistern::updateWaterLevel()
+int Cistern::getWaterLevel()
 {
-    if(toF_ready) // or Crash if called from PumpState::ABORTED and toF not setup
-    {
-        int waterBodyMinHeight = 15; // mm
-        int sensorError = -20; // mm, Sensorerror and Diagonal Distance Error
-        currWaterDist = evaluateToF();
-        currWaterLevel = waterBodyMinHeight + max((maxPossibleDist - (currWaterDist + sensorError)),0);
-    }
+    // if(toF_ready()){} // or Crash if called from PumpState::ABORTED and toF not setup   
+    int waterBodyMinHeight = 15; // mm
+    int sensorError = -20; // mm, Sensorerror and Diagonal Distance Error
+    currWaterDist = evaluateToF();
+    currWaterLevel = waterBodyMinHeight + max((maxPossibleDist - (currWaterDist + sensorError)),0); 
     
     return currWaterLevel;
 }
@@ -136,7 +140,7 @@ Calc Milliliters, write Environment_Data Point to Buffer, give Warnings (low wat
 bool Cistern::waterManagement()
 {
     int oldWaterLevel = currWaterLevel; // (Updated from Check at Beginning of Pump State Machine)
-    int newWaterLevel = updateWaterLevel(); // Get new fill Level and Update
+    int newWaterLevel = getWaterLevel(); // Get new fill Level and Update
     uint16_t availableWater = calcMl(newWaterLevel);
     // max necessary, if pumpProcess stops after 0s AND wrong Reading of new waterLevel
     pumpedWater = max((calcMl(oldWaterLevel) - availableWater),0);

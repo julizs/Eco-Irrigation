@@ -33,7 +33,7 @@ void FlowMeter::measureFlow()
   flowLperHour = flowLperMin * 60;
   flowMlperSec = (flowLperMin / 60) * 1000;
   
-  Serial.println("FlowMeter Flow (L/H): ");
+  Serial.print("FlowMeter Flow (L/H): ");
   Serial.println(flowLperHour);
   writePoint(flowLperHour, flowMlperSec);
 }
@@ -68,7 +68,7 @@ void FlowMeter::measureVolume()
     pulses = 0;
 
     p2.addField("distributedWater_flowMeter", amountMl);
-    Serial.println("FlowMeter Amount (Ml): ");
+    Serial.print("FlowMeter Amount (Ml): ");
     Serial.println(amountMl);
 }
 

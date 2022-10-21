@@ -6,7 +6,7 @@
 
 enum class PumpState
 {
-    IDLE = 0,
+    INIT = 0,
     ON,
     DONE,
     ABORT
@@ -27,10 +27,12 @@ class Pump : public ISubStateMachine
     using callback = void (*)(); // Func Pointer
 public:
     PumpState currentState, lastState;
-    char const *stateNames[4] = {"PUMP_IDLE", "PUMP_ON", "PUMP_DONE", "PUMP_ABORT"};
+    char const *stateNames[4] = {"PUMP_INIT", "PUMP_ON", "PUMP_DONE", "PUMP_ABORT"};
     char const *errors[6] = {"None", "ToF Setup failed.", "Too many recent Irrgations.",
                              "Waterlevel not sufficient.", "Irrigation cancelled by User.",
                              "Invalid SolenoidValve"};
+    
+    uint8_t transCount, maxSelfTrans;
     unsigned short errorCode, minStateDuration;
     unsigned long stateBeginMillis;
 
@@ -43,6 +45,7 @@ public:
     DynamicJsonDocument pumpModel;
 
     // Set by Irrigation Algo
+    uint16_t allocatedWater;
     int8_t relaisChannel;
     float pumpTime;
 
@@ -65,6 +68,7 @@ private:
     bool checkPumpPerformance(unsigned short);
     void commonStateLogic();
     bool countTime(int durationSec);
+    void printError();
     callback setupToFs;
 };
 

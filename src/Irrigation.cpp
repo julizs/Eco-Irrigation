@@ -105,14 +105,14 @@ uint16_t Irrigation::waterPerSolenoid(uint8_t solenoidValve, uint8_t timePeriod)
 /*
 Needed for Evaluation (Manual Irr and Irr Algo)
 TODO valid Pump (has min. 1 valid Solenoid?)
-Outcome = solenoid still under waterLimit after Irrigation?
+Outcome = solenoid still within waterLimit after Irrigation?
 */
 bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit, u16_t allocatedWater, uint8_t timePeriod)
 {
     char message[128];
 
-    uint16_t waterAmount = waterPerSolenoid(solenoidValve, timePeriod);
-    uint16_t outcome = waterAmount + allocatedWater;
+    uint16_t distributedWater = waterPerSolenoid(solenoidValve, timePeriod);
+    uint16_t outcome = distributedWater + allocatedWater;
 
     /*
     snprintf(message, 128, "Solenoid Valve: %d, Water Amount: %dml, Time Period: %dh, Valid: %s",

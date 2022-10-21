@@ -80,11 +80,11 @@ void addCycle()
   }
 }
 
-// Always setup both Sensors at once
+// Always setup both Sensors at once, use SHUT-Pin
 void setupToFs()
 {
-  while (!cistern2.setupToF())
-    ;
+  cistern2.setupToF();
+  // while (!cistern2.setupToF());
   // while (!cistern1.setupToF());
 }
 
@@ -104,9 +104,9 @@ bool doMeasurements()
   // Measure Climate (or contact SensorBox)
 
   // Measure Watervolume
-  if (cistern2.toF_ready)
-    // cistern2.updateWaterLevel();
+  if (cistern2.toF_ready() == true)
     cistern2.waterManagement();
+    // cistern2.updateWaterLevel(); 
 
   // PLANT-SPECIFIC MEASUREMENTS
   // Advantage: Local DynamicJsonDocs (big) get destroyed after leaving Scope
@@ -367,7 +367,7 @@ void on_initState()
     Serial.print("Main State Machine runs on Core: ");
     Serial.println(xPortGetCoreID());
 
-    // Setup Sensors
+    // Setup ToF Sensors
     setupToFs();
 
     powerMeter1.setupIna();
@@ -555,9 +555,9 @@ void on_actionState()
           // Set back State to idle so that same Pump can run multiple times
           pump->resetMachine();
 
-          // Infos set before StateMachine Run
+          // Needed Infos for StateMachine Run
           pump->pumpTime = instr.pumpTime;
-
+          pump->allocatedWater = instr.allocatedWater;
           pump->relaisChannel = instr.solenoidValve;
 
           while (!pump->isDone())
@@ -749,7 +749,7 @@ void setup()
   // Begin here
   currentState = idleState;
 
-  // Do one Cycle first in demoMode
+  // Do one Cycle first in demoMode to setup sensors
   if (SLEEP_TYPE == 0)
   {
     addCycle();

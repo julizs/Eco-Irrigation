@@ -22,24 +22,26 @@ class Cistern
         uint8_t toF_address, sampleSize;
         uint16_t pumpedWater;
         int currWaterLevel, currWaterDist, minValidWaterDist, maxValidWaterDist;
-        int maxPossibleDist; //  
-        bool toF_ready;
+        int maxPossibleDist;
         unsigned long stateBeginMillis;
 
         Cistern(uint8_t toF_address, FlowMeter &meter);
-        bool setupToF();
-        int updateWaterLevel();
+        void setupToF();
+        bool toF_ready();
+        // uint16_t getAvailableWater();
         bool waterManagement();
         void driveSolenoid(uint8_t relaisChannel, uint8_t state);       
 
-    private:
-        float evaluateToF();
+    private: 
         void readToF(int distances[]);
-        void readToF_cont(int distances[]);  
+        void readToF_cont(int distances[]);
+        float evaluateToF();
+        int getWaterLevel();
+
         void updateIrrigationData(uint8_t relaisChannel, int pumpedWater);
         void updateEnvironmentData(int newWaterLevel, int availableWater);
         uint16_t calcMl(int waterLevel);
-        bool validWaterLevel();
+        bool validWaterLevel(int allocatedWater);
         void shutToF();
 };
 
