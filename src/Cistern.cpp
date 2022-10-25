@@ -14,12 +14,8 @@ Cistern::Cistern(uint8_t toF_address, FlowMeter &m) : meter(m)
 }
 
 /*
-Bugs:
 Wrong Readings if spadCount after (re)setup is different (e.g. 3 instead of 4 spads)
-https://wolles-elektronikkiste.de/vl53l0x-und-vl53l1x-tof-abstandssensoren
-toF.status is 0 even if not correctly setup
-toF.rangingTest for current ErrCode crashes if toF not setup before
-Error -5 or -6 (and no I2C Address): ToF Sensor Cable slack joint, move cable
+Check VL530X Library Memberfunctions and return Values
 */
 
 void Cistern::setupToF()
@@ -40,8 +36,7 @@ void Cistern::setupToF()
 }
 
 /*
-1. Only do config if sensor setup correctly (Status 0), or crash
-2. Sensor is ready if configSensor() returns true (1) AND Status 0
+Make test Measurement to obtain current toF.Status 
 */
 bool Cistern::toF_ready()
 {

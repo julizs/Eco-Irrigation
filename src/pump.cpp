@@ -20,14 +20,15 @@ void Pump::setup()
     transCount = 0;
     maxSelfTrans = 3;
 
+    // PWM Details
     frequency = 30000;
     resolution = 8; // bits
     dutyCycle = 200;
+    setupPWM();
+
     lastState = (PumpState)-1;
     pumpTime = constrain(pumpTime, 2.0f, 15.0f);
     measureIntervall = 1000; // ms
-
-    setupPWM();
 }
 
 void Pump::setupPWM()
@@ -96,11 +97,13 @@ void Pump::loop()
         {
             commonStateLogic();
             // cistern.readToF_cont();
+
+            // Details Relais-Shield (NO)
+            // https://randomnerdtutorials.com/esp8266-relay-module-ac-web-server/
+            cistern.driveSolenoid(relaisChannel, LOW);
         }
 
         // do / State Function
-        cistern.driveSolenoid(relaisChannel, LOW);
-
         switchOn();
 
         // Repeat Measurements in Intervall
@@ -110,8 +113,10 @@ void Pump::loop()
             lastTime = currentTime;
 
             cistern.meter.measureFlow();
+            cistern.meter.writePoint();
 
             powerMeter1.measureIna();
+            powerMeter1.writePoint();
         }
 
         /*
@@ -140,9 +145,9 @@ void Pump::loop()
 
             switchOff();
 
-            cistern.meter.measureVolume();
-
             cistern.driveSolenoid(relaisChannel, HIGH);
+
+            cistern.meter.measureVolume();      
 
             // Only measure if Water was pumped
             // (toF must be setup correctly, or crash here)
@@ -178,7 +183,14 @@ void Pump::switchOn()
     // analogWrite(enA, 125);
 
     // Esp32
-    // Run Pump1 with 5V (12V Input L298N, 10V Output at max. PWM Duty)
+    /*
+    Details ledc for PWM:
+    https://espressif-docs.readthedocs-hosted.com/projects/arduino-esp32/en/latest/api/ledc.html
+    https://diyi0t.com/arduino-pwm-tutorial/
+    Details L298N, Direction + PWM:
+    https://lastminuteengineers.com/l298n-dc-stepper-driver-arduino-tutorial/
+    Max 255 = 3.3V Output Voltage (Esp32) statt 5V (Jumper), daher Pumpe zu schwach? (L298N: 10V Output @12V Input @ 5V ENA/B Pin)
+    */
     ledcWrite(pwmChannel, 255);
 }
 
@@ -210,10 +222,13 @@ bool Pump::isDone()
     return lastState == PumpState::DONE || lastState == PumpState::ABORT;
 }
 
+/*
+Reset Machine for next run
+lastState must be != currentState for entry Logic to run once
+*/
 void Pump::resetMachine()
 {
     currentState = PumpState::INIT;
-    // lastState must be != currentState for ExecOnce Logic to run
     lastState = (PumpState)-1;
 }
 

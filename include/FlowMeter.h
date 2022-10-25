@@ -2,29 +2,30 @@
 #define FlowMeter_h
 #include <main.h>
 
-struct flowData
+struct FlowData
 {
-    float waterVolume;
-    float waterLiterPerMinute;
+    float waterVolume, waterLiterPerMinute;
+    double flowLperMin, flowLperHour, flowMlperSec; // Liters per Minute/Hour
+    unsigned long pulses, amountMl;
 };
 
 // aka Hall-effect Sensor
 class FlowMeter
 {
     public:
-    
-    uint8_t pinNum;
-    double flowLperMin, flowLperHour, flowMlperSec; // Liters per Minute/Hour
-   
-    unsigned long pulses;
-    unsigned long amountMl;
+    FlowData measurement;
+    uint8_t pinNum;  
 
     FlowMeter(uint8_t pinNum);
     void setup();
     void pulse();
-    void measureFlow();
+    FlowData measureFlow();
     void measureVolume();
-    void writePoint(double flowLperH, double flowMlperSec);
+    void writePoint();
+
+    private:
+    // unsigned long pulses;
+    // unsigned long amountMl;
 };
 
 #endif // FlowMeter_h

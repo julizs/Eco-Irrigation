@@ -63,7 +63,7 @@ public:
     static bool reportToMongo(std::vector<Instruction> &instructions);
     static void clearInstructions();
     
-    static bool updateRecentIrrigations();
+    static bool getRecentIrrigations();
     static FluxQueryResult querySolenoids(uint8_t timePeriod);
     static uint8_t queryMoisture(uint8_t threshold, uint8_t timePeriod);
     static uint16_t waterPerSolenoid(uint8_t solenoidValve, uint8_t timePeriod);

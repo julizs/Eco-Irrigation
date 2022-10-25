@@ -4,6 +4,11 @@ PowerMeter::PowerMeter(TwoWire &w) : wire(w)
 {
   this->wire = wire;
   setupIna();
+
+  // Default Data, incase Sensor doesnt init, prevent random Data in InfluxDB
+  measurement.voltage = 0.0f;
+  measurement.current = 0.0f;
+  measurement.power = 0.0f;
 }
 
 /*
@@ -39,26 +44,23 @@ data.current = constrain(current, 0.0f, 4.0f);
 PowerData PowerMeter::measureIna()
 {
     ina219.powerSave(false);
-
-    PowerData data;
     
-    data.busVoltage = ina219.getBusVoltage_V();
-    data.shuntVoltage = abs(ina219.getShuntVoltage_mV() / 1000.0f);
-    data.voltage = data.busVoltage + data.shuntVoltage;
+    measurement.busVoltage = ina219.getBusVoltage_V();
+    measurement.shuntVoltage = abs(ina219.getShuntVoltage_mV() / 1000.0f);
+    measurement.voltage = measurement.busVoltage + measurement.shuntVoltage;
 
     float current = abs(ina219.getCurrent_mA() / 1000.0f);
     if(isnan(current))
-        data.current = 0.0f;
+       measurement.current = 0.0f;
 
     // data.power = ina219.getPower_mW(); buggy
-    data.power = data.busVoltage * data.current; // P = U * I
+    measurement.power = measurement.busVoltage * measurement.current; // P = U * I
 
     ina219.powerSave(true);
     
-    measurement = data;
-    writePoint();
+    // writePoint();
 
-    return data;
+    return measurement;
 }
 
 void PowerMeter::writePoint()
@@ -76,12 +78,7 @@ void PowerMeter::writePoint()
 
     InfluxHelper::writeDataPoint(p4);
 
-    /*
-    Serial.print("Power Readings INA 219: ");
-    Serial.print(data.voltage);
-    Serial.print(" ");
-    Serial.print(data.current);
-    Serial.print(" ");
-    Serial.println(data.power);
-    */
+    char message[64];
+    snprintf(message, 64, "Powermeter: Voltage: %.2f, Current: %.2f, Power: %.2f", measurement.voltage, measurement.current, measurement.power);
+    Serial.println(message);
 }

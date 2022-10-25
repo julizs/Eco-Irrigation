@@ -64,11 +64,12 @@ uint8_t Irrigation::queryMoisture(uint8_t threshold, uint8_t timePeriod)
 }
 
 /*
-Get all recent Irrigations (in ml) per Solenoid (2 hours, 1 day, 1 week)
-Write InfluxDB Cursors to Vecs
-Do NOT update Vec but always write new, more expensive but less Errors
+Get all recent Irrigations (in ml) per Solenoid per time period (2 hours, 1 day, 1 week)
+to compare to waterLimit
+Goal: Only 1 db request for all validSolenoid() checks, less delay writing Instructions
+Write InfluxDB Cursors to vector container
 */
-bool Irrigation::updateRecentIrrigations()
+bool Irrigation::getRecentIrrigations()
 {
     recentIrrigations.clear();
 
@@ -76,6 +77,11 @@ bool Irrigation::updateRecentIrrigations()
     for (int i = 0; i < 3; i++)
     {
         FluxQueryResult cursor = querySolenoids(timePeriods[i]);
+
+        // If any query fails, retry in next selfTransition
+        if(cursor.getError() != "")
+            return false;
+
         while (!Utilities::cursorToVec(cursor, recentIrrigations, timePeriods[i]))
             ;
     }

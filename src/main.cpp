@@ -54,7 +54,7 @@ State *getStateByName(String stateName)
 {
   State *state = nullptr;
 
-  for (int i = 0; i < fsm.stateList->size() - 1; i++)
+  for (int i = 0; i < fsm.stateList->size(); i++)
   {
     state = fsm.stateList->get(i);
 
@@ -88,7 +88,7 @@ void setupToFs()
   // while (!cistern1.setupToF());
 }
 
-bool doMeasurements()
+bool measureSensors()
 {
   // ESP32 GLOBAL MEASUREMENTS
   if (!p0.hasTags()) // Reuse Datapoint
@@ -115,7 +115,12 @@ bool doMeasurements()
 
   Point p("Plant Data");
   int lastMeasuredLightSensor = -1;
+
+  // Light Data
+  // Set to 0 incase Sensor not initialised, no random Grafana Values
   TSL2591data data;
+  data.infraRed = 0;
+  data.visibleLight = 0;
 
   // For each Plant, measure (only) assigned Sensors
   for (int i = 0; i < plants.size(); i++)
@@ -243,7 +248,7 @@ bool transitionToTarget()
 {
   int index;
 
-  if (SLEEP_TYPE == 0)
+  // if (SLEEP_TYPE == 0)
   {
     if (currentState->didActivities)
     {
@@ -315,16 +320,17 @@ void on_idleState()
   {
     commonStateLogic();
 
-    if (SLEEP_TYPE == 0) // No Sleep / Demonstration Mode
+    if (SLEEP_TYPE == 0) // No Sleep / DemoMode
     {
+      // doPolling
       int pollingInterval = 5;
       if (currentState->transCount % pollingInterval == 0)
       {
         transDestinations.add("REQUEST");
       } 
 
-      // pollingIntervall is up / REQUEST has been added, stop idling
-      // or User has set a manual transitionTarget, stop idling
+      // doPolling, stop idling, OR:
+      // User has set a manual transitionTarget, stop idling
       currentState->didActivities = transDestinations.size() > 0;
     }
     else if (SLEEP_TYPE == 1) // Light Sleep
@@ -332,9 +338,20 @@ void on_idleState()
       Serial.println("Entering Light Sleep.");
       esp_sleep_enable_timer_wakeup(SLEEP_DUR * 1000 * 1000); // s to µs
       delay(100);                                             // else no Wakeup
-      esp_light_sleep_start();
-      // Resume Program, Connections and States were kept, go to INIT
-      currentState->didActivities = true;
+      esp_err_t sleepError = esp_light_sleep_start();
+
+      /*
+      Resume Program, Wifi and InfluxDB Connections were kept
+      ("Connected to InfluxDB")
+      -> Skip INIT and CONNECT?
+      */
+      if(sleepError == ESP_OK)
+      {
+        Serial.println("Sleep succeeded");
+        // transDestinations.add("REQUEST");
+        currentState->didActivities = true;
+      }
+        
     }
     else if (SLEEP_TYPE == 2)
     {
@@ -376,16 +393,13 @@ void on_initState()
 
     lightSensor1.setupTSL2591(I2Cone);
     lightSensor2.setupTSL2591(I2Ctwo);
-    // sensorsReady = lightSensor1.isReady();
-
-    // Serial.println("I2C Bus 1:");
-    Utilities::scanI2CBus(&I2Cone);
-    // Serial.println("I2C Bus 2:");
-    Utilities::scanI2CBus(&I2Ctwo);
   }
 
   if (countTime(currentState->minStateTime))
   {
+    Utilities::scanI2CBus(&I2Cone);
+    Utilities::scanI2CBus(&I2Ctwo);
+
     // Start checking bool after minStateTime, Give Sensors time to init
     initState->didActivities = powerMeter1.inaReady();
     initState->didActivities = lightSensor2.isReady();
@@ -450,8 +464,14 @@ void on_requestState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    requestState->didActivities = Irrigation::updateRecentIrrigations();
-    requestState->didActivities = Services::readSettings();
+    /*
+    Do one entry Func after another, if one fails do immediate selfTransition
+    Choose which one is critical to repeat or not (dont include in if statement)
+    */
+    // Irrigation::getRecentIrrigations(); not critical, one try
+    if(!Irrigation::getRecentIrrigations() || !Services::readSettings())
+      transitionToSelf();
+    currentState->didActivities = true;
   }
 
   if (countTime(currentState->minStateTime))
@@ -460,8 +480,6 @@ void on_requestState()
     // printDestinations();
 
     if (transitionToTarget())
-      return;
-    if (transitionToSelf())
       return;
     transitionToNext();
   }
@@ -476,7 +494,7 @@ void on_measureState()
     // WiFi.disconnect();
 #if (DO_MEASURE == 1)
     {
-      measureState->didActivities = doMeasurements();
+      measureState->didActivities = measureSensors();
     }
 #endif
   }
@@ -552,7 +570,7 @@ void on_actionState()
 
         if (instr.errorCode == 0) // Only run valid Instructions
         {
-          // Set back State to idle so that same Pump can run multiple times
+          // Reset pump Obj. on each run
           pump->resetMachine();
 
           // Needed Infos for StateMachine Run
@@ -565,14 +583,14 @@ void on_actionState()
             pump->loop();
           }
 
-          // Only set this is if pump ran into ABORT,
-          // if there is an error before (Irrigation, Plant/Pump not found etc.) then don't override that errorCode
+          // TODO Multiple errorCodes?
           instr.errorCode = pump->errorCode;
 
           instr.distributedWater = pump->cistern.pumpedWater;
         }
         else
         {
+          // or value is random in InfluxDB / Grafana
           instr.distributedWater = 0;
 
           Serial.println("Action aborted.");
@@ -580,16 +598,16 @@ void on_actionState()
           Irrigation::printError(instr.errorCode);
         }
 
-        // Write Points into Buffer (no Delay), correct Timestamp (Order of Pumping Processes)
-        // and better readable Points in Grafana Graph
+        /*
+        Write Points into Buffer (no Delay Executing Actions), 
+        Write Point per Instr, not all at once
+        (corrent Timestamps, better readable Points in Grafana)
+        */
         Irrigation::reportInstruction(instr);
 
         if (&instr == &Irrigation::instructions.back())
         {
-          // create/write/run manual Instr, write Reports, clear Vec, return to EVALUATE, then
-          // decidePlants (based on new Data), create/write automatic Instructions
-          // Irrigation::reportToMongo(Irrigation::instructions);
-          // Irrigation::reportInstructions(Irrigation::instructions);
+          // Clear Vector
           Irrigation::clearInstructions();
           actionState->didActivities = true;
         }
@@ -642,10 +660,10 @@ void on_errorState()
   {
     commonStateLogic();
     Serial.println(critErrMessage[critErrCode]);
-    while (!countTime(currentState->minStateTime))
-      ;
-    ESP.restart();
   }
+
+  if(countTime(currentState->minStateTime))
+    ESP.restart();
 }
 
 void runStateMachine(void *pvParameters)

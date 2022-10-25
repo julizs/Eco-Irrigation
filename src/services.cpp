@@ -271,7 +271,10 @@ bool Services::readSettings()
     } 
   }
 
-  // SolenoidValve Test, Duration of Action?
+  /*
+  SolenoidValve, MatrixDisplay, ...
+  Also only do in Action-State? Duration?
+  */
   for(int i = 0; i < solActions.size(); i++)
   {
     JsonObject action = solActions[i];
@@ -279,7 +282,12 @@ bool Services::readSettings()
     uint8_t state = action["isOpen"] == true? LOW : HIGH;
     // cistern1.driveSolenoid(channel, state);
     digitalWrite(Relais[channel], state);
-  } 
+  }
+
+  /*
+  JsonArray statusLights = actions["statusLights"].as<JsonArray>();
+  StatusDisplay::handleActions(statusLights);
+  */
 
   // Handle Settings
   SLEEP_TYPE = doc["sleepType"].as<int>();
@@ -291,14 +299,10 @@ bool Services::readSettings()
   } 
   */
 
-  // Reset for next Check
+  // Reset Actions for next Iteration
   Serial.println("(Resetting User Actions): ");
   String emptyDoc = "{}";
   Services::doPostRequest("/settings/reset", emptyDoc);
-    
-  /*
-  JsonArray statusLights = actions["statusLights"].as<JsonArray>();
-  StatusDisplay::handleActions(statusLights);
-  */
+  
   return true;
   }
