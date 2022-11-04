@@ -4,11 +4,6 @@ PowerMeter::PowerMeter(TwoWire &w) : wire(w)
 {
   this->wire = wire;
   setupIna();
-
-  // Default Data, incase Sensor doesnt init, prevent random Data in InfluxDB
-  measurement.voltage = 0.0f;
-  measurement.current = 0.0f;
-  measurement.power = 0.0f;
 }
 
 /*
@@ -43,6 +38,11 @@ data.current = constrain(current, 0.0f, 4.0f);
 */
 PowerData PowerMeter::measureIna()
 {
+    // Incase Sensor doesnt init, prevent random Data in InfluxDB
+    measurement.voltage = 0.0f;
+    measurement.current = 0.0f;
+    measurement.power = 0.0f;
+
     ina219.powerSave(false);
     
     measurement.busVoltage = ina219.getBusVoltage_V();

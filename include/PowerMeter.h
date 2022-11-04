@@ -5,12 +5,8 @@
 
 struct PowerData
 {
-    float busVoltage;
-    float shuntVoltage;
-    float voltage;
-    float current;
-    float power;
-    float energy;
+    float voltage, busVoltage, shuntVoltage;
+    float current, power, energy;
 };
 
 // aka Hall-effect Sensor
@@ -18,16 +14,15 @@ class PowerMeter
 {
     public: 
     Adafruit_INA219 ina219; 
-    uint16_t measureIntervall;
     PowerData measurement;
-    unsigned long currentTime;
-    unsigned long lastTime;
-    float voltage_V, shuntVoltage_mV, busVoltage_V;
-    float current_mA, power_mW;
+
+    uint16_t measureIntervall, currentTime, lastTime;
 
     PowerMeter(TwoWire &wire);
+    
     bool setupIna();
     bool inaReady();
+
     PowerData measureIna();
     void writePoint();
 

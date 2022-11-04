@@ -455,9 +455,8 @@ void on_connectState()
 }
 
 /*
-readSettings: "Passive" Button Handling, do AFTER Influx checkConnection or ssl -1
-countTime(STATE_MIN_DUR) && didRequest ? nextState = measureState : nextState = requestState;
-InfluxDB Connection is held open, probably not many recent Irrigations -> updateRecentIrrigations not so expensive
+Request needed Data from APIs (REST-Server, Pl@ntNet, SensorBox, ...)
+Get settings mongoDB-doc (usersettings, actions)
 */
 void on_requestState()
 {
@@ -476,7 +475,7 @@ void on_requestState()
 
   if (countTime(currentState->minStateTime))
   {
-    // Serial.println("User Actions: ");
+    // Serial.println("Manual Transitions: ");
     // printDestinations();
 
     if (transitionToTarget())
@@ -566,6 +565,8 @@ void on_actionState()
     {
       for (auto &instr : Irrigation::instructions)
       {
+        // runInstruction (auslagern)
+
         Pump *pump = instr.pump;
 
         if (instr.errorCode == 0) // Only run valid Instructions
@@ -575,6 +576,7 @@ void on_actionState()
 
           // Needed Infos for StateMachine Run
           pump->pumpTime = instr.pumpTime;
+          // pump->cistern.maxPossibleDist = 5;
           pump->allocatedWater = instr.allocatedWater;
           pump->relaisChannel = instr.solenoidValve;
 
@@ -598,10 +600,10 @@ void on_actionState()
           Irrigation::printError(instr.errorCode);
         }
 
-        /*
-        Write Points into Buffer (no Delay Executing Actions), 
-        Write Point per Instr, not all at once
-        (corrent Timestamps, better readable Points in Grafana)
+        /*    
+        Write Point after Executing), not all at once 
+        (-> correct Timestamp, better Visibility in Grafana)
+        Write Points into Buffer (->no Delay Executing Actions)
         */
         Irrigation::reportInstruction(instr);
 

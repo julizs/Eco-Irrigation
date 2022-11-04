@@ -1,6 +1,6 @@
 #include "Pump.h"
 
-Pump::Pump(int pwmChannel, int pwmPin, Cistern &c) : pumpModel(1024), cistern(c)
+Pump::Pump(int pwmChannel, int pwmPin, Cistern &c) : cistern(c)
 {
     this->pwmChannel = pwmChannel;
     this->pwmPin = pwmPin;
@@ -16,15 +16,11 @@ void Pump::setup()
     pinMode(in2, OUTPUT);
     */
 
+    setupPWM();
+
     minStateDuration = 4;
     transCount = 0;
     maxSelfTrans = 3;
-
-    // PWM Details
-    frequency = 30000;
-    resolution = 8; // bits
-    dutyCycle = 200;
-    setupPWM();
 
     lastState = (PumpState)-1;
     pumpTime = constrain(pumpTime, 2.0f, 15.0f);
@@ -33,6 +29,9 @@ void Pump::setup()
 
 void Pump::setupPWM()
 {
+    frequency = 30000;
+    resolution = 8; // bits
+    dutyCycle = 200;
     // Setup PWM Channel
     pinMode(pwmPin, OUTPUT);
     ledcSetup(pwmChannel, frequency, resolution);

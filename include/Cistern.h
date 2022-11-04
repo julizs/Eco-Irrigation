@@ -18,17 +18,17 @@ class Cistern
         //VL53L0X toF; // Polulu Library
         Adafruit_VL53L0X toF;
         FlowMeter &meter;
-        uint8_t* solenoidValves;
+        // uint8_t* solenoidValves;
         uint8_t toF_address, sampleSize;
         uint16_t pumpedWater;
-        int currWaterLevel, currWaterDist, minValidWaterDist, maxValidWaterDist;
-        int maxPossibleDist;
-        unsigned long stateBeginMillis;
+        uint16_t currWaterLevel, currWaterDist, minValidWaterDist, maxValidWaterDist, maxPossibleDist;
 
         Cistern(uint8_t toF_address, FlowMeter &meter);
         void setupToF();
         bool toF_ready();
+
         // uint16_t getAvailableWater();
+        bool validWaterLevel(int allocatedWater);
         bool waterManagement();
         void driveSolenoid(uint8_t relaisChannel, uint8_t state);       
 
@@ -40,8 +40,7 @@ class Cistern
 
         void updateIrrigationData(uint8_t relaisChannel, int pumpedWater);
         void updateEnvironmentData(int newWaterLevel, int availableWater);
-        uint16_t calcMl(int waterLevel);
-        bool validWaterLevel(int allocatedWater);
+        uint16_t calcMl(int waterLevel);    
         void shutToF();
 };
 

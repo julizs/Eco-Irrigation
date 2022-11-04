@@ -6,7 +6,7 @@ uint8_t ButtonHandler::debounceDelay = 50;
 uint8_t ButtonHandler::buttonState = HIGH;
 uint8_t ButtonHandler::lastButtonState = HIGH;
 
-
+// https://www.arduino.cc/en/Tutorial/BuiltInExamples/Debounce
 void ButtonHandler::handleHardwareButtons()
 {
   // int reading = digitalRead(button1Pin);

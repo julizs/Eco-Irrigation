@@ -61,12 +61,13 @@ DynamicJsonDocument Utilities::readDoc(int address, int size)
 /*
 In REQUEST State
 Convert Reports/Irrigations to Vector for quick validSolenoid Checks later
+(and evaluateIrrigation(), how much water Plants received lately)
 
 CAREFUL with FluxQueryResult, if printed before this Function then Cursor is empty
 close() must be called after end of reading
 
 Check reportInstructions() if Value is _field or _tag (String!)
-This Vector is built based on Reports and used for checking waterLimits per Solenoid,
+This Vector is built based on Irrigations / Reports and used for checking waterLimits per Solenoid,
 so do not include "failed Irrigations" / Reports with invalid Solenoids (-1)
 */
 bool Utilities::cursorToVec(FluxQueryResult &cursor, std::vector<WaterPerSolenoid> &solenoids, uint8_t timePeriod)
@@ -97,8 +98,10 @@ bool Utilities::cursorToVec(FluxQueryResult &cursor, std::vector<WaterPerSolenoi
     {
       Serial.println("Vector write Error: ");
       Serial.println(cursor.getError());
+      return false;
     }
   }
+  
   // Serial.println("Wrote FluxCursor to Vector.");
   cursor.close();
 

@@ -1,5 +1,9 @@
 #include "Irrigation.h"
 
+
+// TODO: Use Parametrized Queries instead of textual Insertion (only supported in Cloud?)
+// https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#parametrized-queries
+
 std::vector<Instruction> Irrigation::instructions;
 std::vector<WaterPerSolenoid> Irrigation::recentIrrigations; // waterDistribution
 // std::string Irrigation::errors[] = {"Test"};
@@ -26,6 +30,7 @@ from(bucket: "messdaten")
 
 Enter, Strg + d
 */
+
 FluxQueryResult Irrigation::querySolenoids(uint8_t timePeriod)
 {
     char query[512] = "";
@@ -46,9 +51,7 @@ FluxQueryResult Irrigation::querySolenoids(uint8_t timePeriod)
 https://www.sqlpac.com/en/documents/influxdb-moving-from-influxql-language-to-flux-language.html
 https://docs.influxdata.com/influxdb/cloud/query-data/common-queries/iot-common-queries/
 https://docs.influxdata.com/influxdb/cloud/query-data/flux/monitor-states/
-How many Minutes were roots wet today
-How many Sun Hours did Plant receive today
--> Influences Plant Happiness and Irrigation
+Get Time Periods (Moisture, Light Values, ...) as Databasis for Plant Happiness and Irrigation
 */
 uint8_t Irrigation::queryMoisture(uint8_t threshold, uint8_t timePeriod)
 {
@@ -65,9 +68,8 @@ uint8_t Irrigation::queryMoisture(uint8_t threshold, uint8_t timePeriod)
 
 /*
 Get all recent Irrigations (in ml) per Solenoid per time period (2 hours, 1 day, 1 week)
-to compare to waterLimit
-Goal: Only 1 db request for all validSolenoid() checks, less delay writing Instructions
-Write InfluxDB Cursors to vector container
+Compare to waterLimit per timePeriod
+Goal: Only 1 db request for all validSolenoid() checks, less delay in Action- and Evaluation-State
 */
 bool Irrigation::getRecentIrrigations()
 {
@@ -92,7 +94,7 @@ bool Irrigation::getRecentIrrigations()
 }
 
 /*
-Needed for Irrigation Algo
+Needed for Irrigation Algorithm
 */
 uint16_t Irrigation::waterPerSolenoid(uint8_t solenoidValve, uint8_t timePeriod)
 {
@@ -224,29 +226,33 @@ Manual Irrigations are reduced too
 void Irrigation::writeInstructions()
 {
     DynamicJsonDocument plants(2048), pumps(1024);
+    JsonObject pumpModel;
     Services::doJSONGetRequest("/plants/sensors", plants);
     Services::doJSONGetRequest("/pumps/json", pumps);
 
     for (auto &instr : instructions)
     {
-        JsonObject pumpModel = pumpModelByName(pumps, instr.reason);
-        // User clicked on Pump!, e.g. instr.reason: "QR50E"
+        pumpModel = pumpModelByName(pumps, instr.reason);
+        // Pump-Button, instr.reason is a pump
         if (!pumpModel.isNull()) 
         {
-            solenoidByPump(instr, pumpModel); // Find any valid Solenoid connected to this Pump
-            setPumpingParameters(instr, pumpModel);
+            // Find any valid Solenoid connected to this Pump
+            solenoidByPump(instr, pumpModel); 
+            // setPumpingParameters(instr, pumpModel);
         }
-        else // User clicked on Irrigate! e.g. instr.reason: "Basilikum"
+        else // Irrigate-Button, instr.reason is a plant
         {
-            solenoidByPlant(instr, plants); // Check if this Plant is connected to a Sol. and if Sol. is valid
-           
-            JsonObject pumpModel = pumpModelBySolenoid(pumps, instr.solenoidValve);
-            setPumpingParameters(instr, pumpModel);
+            // Check if Plant has assigned Sol. (= Plant is connected to Water cycle 
+            // and not just monitored) and if Sol. is valid
+            solenoidByPlant(instr, plants); 
+            // Find pumpModel for this solenoid
+            pumpModel = pumpModelBySolenoid(pumps, instr.solenoidValve);      
         }
+        setPumpingParameters(instr, pumpModel);
     }
  
-    // Not necessary, as Water gets split by Dispenser (Testing needed)
-    // reduceInstructions(instructions);
+    // Not necessary, as Water gets split by Dispenser? (Testing needed)
+    reduceInstructions(instructions);
     printInstructions(instructions);
 }
 

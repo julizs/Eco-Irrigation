@@ -8,15 +8,14 @@
 class SoilMoisture
 {
 public:
-    static DynamicJsonDocument sensorRanges;
-    
-    static void measurePlant(JsonArray &moistureSensors, Point &p);
-    static void setSensorRanges();
-    static int measureSoilMoistureSmoothed(int pinNum);
+    static void measurePlant(JsonArray &moistureSensors, Point &p);   
     static int measureSoilMoisture(int pinNum);
+    static int measureSoilMoistureSmoothed(int pinNum);
+    static void setSensorRanges();
     static void writePoint(Point &p);
     
 private:
+    static DynamicJsonDocument sensorRanges;
     static void getSensorRange(int pinNum, int range[]);
     static int voltageToPercentage(int pinNum, int rawValue);
 };

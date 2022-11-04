@@ -263,13 +263,18 @@ bool Services::readSettings()
   {
     Irrigation::writeInstructions();
 
-    // Add Action Transition (if not already on Stack)
+    /*
+    Handle this in REST Endpoint instead?
+    Directly go to ACTION state to execute Actions
+    IDLE -> REQUEST -> ACTION -> TRANSMIT -> IDLE
+    */
     if(!Utilities::containsDestination("ACTION"))
     {
       transDestinations.add("ACTION");
       transDestinations.add("TRANSMIT");
     } 
   }
+  
 
   /*
   SolenoidValve, MatrixDisplay, ...
