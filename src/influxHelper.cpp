@@ -20,7 +20,7 @@ Point p4("Power Usage");
 Timestamp (set by client) necessary to write data in Batches
 If writePrecision is configured, client sets timestamps instead of server
 Number of DataPoints varies, if User adds/removes Plants
-Prevent automatic Flush by setting bufferSize and flushInterval high
+Don't exceed bufferSize and flushInterval in one StateMachine run to prevent automatic Flush
 Flush manually in TRANSMIT State
 */
 bool InfluxHelper::setParameters()
@@ -28,16 +28,17 @@ bool InfluxHelper::setParameters()
   if(!client.validateConnection())
   {
     timeSync(TZ_INFO, "pool.ntp.org", "0.de.pool.ntp.org"); // time.nis.gov
-  // Must be done AFTER timeSync
-  client.setConnectionParams(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
-  client.setWriteOptions(WriteOptions().writePrecision(WritePrecision::MS).batchSize(64).bufferSize(128).retryInterval(5).maxRetryAttempts(10).flushInterval(180));
-  client.setHTTPOptions(HTTPOptions().httpReadTimeout(10000).connectionReuse(true));
-  Serial.println("Did Set Influx Options.");
-  return true;
+    // Must be done AFTER timeSync
+    client.setConnectionParams(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
+    client.setWriteOptions(WriteOptions().writePrecision(WritePrecision::MS).batchSize(64).bufferSize(128).retryInterval(5).maxRetryAttempts(10).flushInterval(180));
+    client.setHTTPOptions(HTTPOptions().httpReadTimeout(10000).connectionReuse(true));
+    Serial.println("Did Set Influx Options.");
+
+    return true;
   } 
 }
 
-bool InfluxHelper::checkConnection()
+bool InfluxHelper::connectionEstablished()
 {
   if (client.validateConnection())
   {
@@ -45,31 +46,24 @@ bool InfluxHelper::checkConnection()
     Serial.println(client.getServerUrl());
     return true;
   }
-  else
-  {
-    Serial.print("InfluxDB connection failed: ");
-    Serial.println(client.getLastErrorMessage());
-    return false;
-  }
+  
+  Serial.println(client.getLastErrorMessage());
+  return false;
 }
 
-void InfluxHelper::writeDataPoint(Point &p)
+bool InfluxHelper::writeDataPoint(Point &p)
 {
-  if (client.isBufferEmpty())
-  {
-    Serial.println("Buffer is empty or was flushed.");
-  }
-  else
-  {
-    Serial.println("Wrote Datapoint into Buffer");
-  }
-
-  // Write Datapoint into Buffer (or to Database if Buffer Overflow)
+  // Write Datapoint to Buffer or DB (depending on Settings)
   if (!client.writePoint(p))
   {
     Serial.print("InfluxDB write failed: ");
     Serial.println(client.getLastErrorMessage());
+    return false;
   }
+
+  Serial.println("Wrote Datapoint into Buffer");
+
+  return true;
 }
 
 /*

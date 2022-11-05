@@ -132,7 +132,7 @@ Calc Milliliters, write Environment_Data Point to Buffer, give Warnings (low wat
 10mm delta can be different waterAmounts, depending on waterLevel and reservoir shape
 -> Calc pumpedWater from waterAmounts, NOT waterLevels
 */
-bool Cistern::waterManagement()
+void Cistern::waterManagement()
 {
     int oldWaterLevel = currWaterLevel; // (Updated from Check at Beginning of Pump State Machine)
     int newWaterLevel = getWaterLevel(); // Get new fill Level and Update
@@ -140,9 +140,7 @@ bool Cistern::waterManagement()
     // max necessary, if pumpProcess stops after 0s AND wrong Reading of new waterLevel
     pumpedWater = max((calcMl(oldWaterLevel) - availableWater),0);
 
-    updateEnvironmentData(newWaterLevel, availableWater);
-    
-    return false;
+    writePoint(newWaterLevel, availableWater);
 }
 
 /*
@@ -238,7 +236,7 @@ uint16_t Cistern::calcMl(int waterLevel) // Inputparam in mm
     return waterAmount; // Outputparam in ml (>250ml possible -> uint16_t)
 }
 
-void Cistern::updateEnvironmentData(int newWaterLevel, int availableWater)
+void Cistern::writePoint(int newWaterLevel, int availableWater)
 {
     char key1[32], key2[32];
     snprintf(key1, 32, "waterLevel0x%x", this->toF_address);

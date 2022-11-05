@@ -111,11 +111,13 @@ void Pump::loop()
         {
             lastTime = currentTime;
 
-            cistern.meter.measureFlow();
+            // Measure and writePoints
+
+            // cistern.meter.measureFlow();
             cistern.meter.writePoint();
 
-            powerMeter1.measureIna();
-            powerMeter1.writePoint();
+            // powerMeter1.measureIna();
+            powerMeter1.measureAndSubmit();
         }
 
         /*

@@ -16,8 +16,8 @@ class InfluxHelper
     public:
     // InfluxHelper();
     static bool setParameters();
-    static bool checkConnection();
-    static void writeDataPoint(Point &p);
+    static bool connectionEstablished();
+    static bool writeDataPoint(Point &p);
     static bool writeBuffer();
     static FluxQueryResult doQuery(const char query[]);
 

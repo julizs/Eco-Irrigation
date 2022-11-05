@@ -593,7 +593,7 @@ bool Irrigation::reportToMongo(std::vector<Instruction> &instructions)
 
     // output = "{}"; // Empty Json Obj
     serializeJson(reports, output);
-    Services::doPostRequest("/settings/report", output);
+    Services::doJSONPostRequest("/settings/report", output);
 
     clearInstructions();
 

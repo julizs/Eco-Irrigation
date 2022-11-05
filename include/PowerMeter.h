@@ -14,20 +14,23 @@ class PowerMeter
 {
     public: 
     Adafruit_INA219 ina219; 
-    PowerData measurement;
+    PowerData data;
 
     uint16_t measureIntervall, currentTime, lastTime;
 
     PowerMeter(TwoWire &wire);
-    
-    bool setupIna();
-    bool inaReady();
 
-    PowerData measureIna();
-    void writePoint();
+    bool setup();
+    bool isReady();
+
+    PowerData measure();
+    bool measureAndSubmit(); 
+    bool measurementValid(const PowerData &measurement);
 
     private:
     TwoWire &wire;
+    bool writePoint(const PowerData &measurement);
+    void printMeasurement(const PowerData &measurement);
 };
 
 #endif // PowerMeter_h

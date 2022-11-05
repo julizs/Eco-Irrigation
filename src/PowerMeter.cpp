@@ -3,12 +3,17 @@
 PowerMeter::PowerMeter(TwoWire &w) : wire(w)
 {
   this->wire = wire;
-  setupIna();
+
+  data.voltage = 0.0f;
+  data.current = 0.0f;
+  data.power = 0.0f;
+
+  setup();
 }
 
 /*
 */
-bool PowerMeter::setupIna()
+bool PowerMeter::setup()
 {
     if (!ina219.begin(&wire)) // &I2Ctwo
     {
@@ -21,7 +26,7 @@ bool PowerMeter::setupIna()
     return true;
 }
 
-bool PowerMeter::inaReady()
+bool PowerMeter::isReady()
 {
     ina219.setCalibration_32V_2A();
     bool ready = ina219.success();
@@ -32,41 +37,60 @@ bool PowerMeter::inaReady()
 }
 
 /*
-Use isnan, constrain or max on current to prevent Infinity, otherwise InfluxDB Buffer Write fails
-data.current = max(current, 24.0f);
+Use isnan or constrain to prevent Infinity, otherwise InfluxDB Buffer Write fails
 data.current = constrain(current, 0.0f, 4.0f);
 */
-PowerData PowerMeter::measureIna()
+PowerData PowerMeter::measure()
 {
-    // Incase Sensor doesnt init, prevent random Data in InfluxDB
-    measurement.voltage = 0.0f;
-    measurement.current = 0.0f;
-    measurement.power = 0.0f;
-
     ina219.powerSave(false);
     
-    measurement.busVoltage = ina219.getBusVoltage_V();
-    measurement.shuntVoltage = abs(ina219.getShuntVoltage_mV() / 1000.0f);
-    measurement.voltage = measurement.busVoltage + measurement.shuntVoltage;
-
-    float current = abs(ina219.getCurrent_mA() / 1000.0f);
-    if(isnan(current))
-       measurement.current = 0.0f;
+    data.busVoltage = ina219.getBusVoltage_V();
+    // if(!ina219.success()) {return;} // Exit if any Measurement fails
+    data.shuntVoltage = abs(ina219.getShuntVoltage_mV() / 1000.0f);
+    data.voltage = data.busVoltage + data.shuntVoltage;
+    data.current = abs(ina219.getCurrent_mA() / 1000.0f);
 
     // data.power = ina219.getPower_mW(); buggy
-    measurement.power = measurement.busVoltage * measurement.current; // P = U * I
+
+    // P = U * I
+    data.power = data.busVoltage * data.current; 
 
     ina219.powerSave(true);
-    
-    // writePoint();
 
-    return measurement;
+    return data;
 }
 
-void PowerMeter::writePoint()
+/*
+How to identify invalid Measurement?
+0 is valid
+*/
+bool PowerMeter::measurementValid(const PowerData &measurement)
 {
-    // PowerData data = measureIna();
+    if(isnan(measurement.voltage) || isnan(measurement.current))
+    {
+        Serial.println("Ina219 measurement Invalid.");
+        return false;
+    }
 
+    return true;
+}
+
+bool PowerMeter::measureAndSubmit()
+{
+    PowerData measurement = measure();
+
+    if(!measurementValid(measurement))
+    {
+        return false;
+    }
+
+    if(!writePoint(measurement))
+        return false; 
+    return true;
+}
+
+bool PowerMeter::writePoint(const PowerData &measurement)
+{
     // Point p4("Power Usage");
     p4.clearTags();
     p4.clearFields();
@@ -76,9 +100,16 @@ void PowerMeter::writePoint()
     p4.addField("current", measurement.current);
     p4.addField("power", measurement.power);
 
-    InfluxHelper::writeDataPoint(p4);
+    if(!InfluxHelper::writeDataPoint(p4));
+        return false;
+    return true;
+}
 
+void PowerMeter::printMeasurement(const PowerData &measurement)
+{
     char message[64];
-    snprintf(message, 64, "Powermeter: Voltage: %.2f, Current: %.2f, Power: %.2f", measurement.voltage, measurement.current, measurement.power);
+    snprintf(message, 64, "PowerMeter: Voltage: %.2f, Current: %.2f, Power: %.2f", 
+    measurement.voltage, measurement.current, measurement.power);
+
     Serial.println(message);
 }

@@ -118,7 +118,7 @@ bool measureSensors()
 
   // Light Data
   // Set to 0 incase Sensor not initialised, no random Grafana Values
-  TSL2591data data;
+  LightData data;
   data.infraRed = 0;
   data.visibleLight = 0;
 
@@ -148,7 +148,7 @@ bool measureSensors()
     {
       if (lightSensor != lastMeasuredLightSensor)
       {
-        data = lightSensor2.measureLight();
+        data = lightSensor2.measure();
         lastMeasuredLightSensor = lightSensor;
       }
 
@@ -387,12 +387,12 @@ void on_initState()
     // Setup ToF Sensors
     setupToFs();
 
-    powerMeter1.setupIna();
+    powerMeter1.setup();
 
     // climate1.setup();
 
-    lightSensor1.setupTSL2591(I2Cone);
-    lightSensor2.setupTSL2591(I2Ctwo);
+    lightSensor1.setup(I2Cone);
+    lightSensor2.setup(I2Ctwo);
   }
 
   if (countTime(currentState->minStateTime))
@@ -401,7 +401,7 @@ void on_initState()
     Utilities::scanI2CBus(&I2Ctwo);
 
     // Start checking bool after minStateTime, Give Sensors time to init
-    initState->didActivities = powerMeter1.inaReady();
+    initState->didActivities = powerMeter1.isReady();
     initState->didActivities = lightSensor2.isReady();
     climate1.printInfo();
 
@@ -438,7 +438,7 @@ void on_connectState()
       ;
 
     // If true then InfluxDB Connection (and ofc Wifi) are established
-    connectState->didActivities = InfluxHelper::checkConnection();
+    connectState->didActivities = InfluxHelper::connectionEstablished();
 
     // Connect to SensorBox
     // connectState->didActivities = connectToBox();
@@ -725,7 +725,7 @@ void setup()
 
   displayController.setupLEDMatrix();
 
-  Multiplexer::setup();
+  Multiplexer::setupPins();
 
   idleState = fsm.addState(&on_idleState);
   initState = fsm.addState(&on_initState);

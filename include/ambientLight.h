@@ -4,10 +4,11 @@
 #include <SPI.h>
 #include <main.h>
 
-struct TSL2591data
+struct LightData
 {
-    int visibleLight;
-    int infraRed;
+    uint32_t fullSpectrum;
+    uint16_t visibleLight, infraRed;
+    float illuminance; // Lux
 };
 
 class AmbientLight
@@ -15,15 +16,16 @@ class AmbientLight
 public:
     Adafruit_TSL2591 tsl;
     int sensorId;
+    LightData data;
 
     AmbientLight(int sensorId);
-    void setupTSL2591(TwoWire &bus);
-    void printSensorInfo();
+    void setup(TwoWire &bus);
+    void printParameters();
     bool isReady();
-    TSL2591data measureLight();
+    LightData measure();
 
 private:
-    void readTSL2591();
+    void printMeasurement(LightData &measurement);
 };
 
 #endif // AmbientLight_h

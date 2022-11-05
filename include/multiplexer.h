@@ -8,8 +8,8 @@ class Multiplexer
 {
 public:
     
-    static void setup();
-    static int readChannel(byte channel);
+    static void setupPins();
+    static int readChannel(uint8_t channel);
 };
 
 #endif // Multiplexer.h

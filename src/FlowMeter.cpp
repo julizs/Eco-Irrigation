@@ -49,6 +49,8 @@ Do same for INA219
 */
 void FlowMeter::writePoint()
 {
+  FlowData measurement = measureFlow();
+
   // Point p3("Water Flow");
   p3.clearTags();
   p3.clearFields();

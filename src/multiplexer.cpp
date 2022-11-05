@@ -1,6 +1,6 @@
 #include "Multiplexer.h"
 
-void Multiplexer::setup()
+void Multiplexer::setupPins()
 {
   pinMode(S0, OUTPUT);
   pinMode(S1, OUTPUT);
@@ -14,9 +14,9 @@ void Multiplexer::setup()
   digitalWrite(S3, LOW);
 }
 
-int Multiplexer::readChannel(byte channel)
+int Multiplexer::readChannel(uint8_t channel)
 {
-     int controlPin[] = {S0, S1, S2, S3}; 
+     int controlPin[] = {S0, S1, S2, S3};
      int muxChannel[16][4]={ 
      {0,0,0,0}, // chann 0
      {1,0,0,0}, // chann 1

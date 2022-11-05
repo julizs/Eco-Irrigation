@@ -27,11 +27,11 @@ extern uint8_t SLEEP_TYPE, SLEEP_DUR, IDLE_DUR, STATE_MIN_DUR;
 extern LinkedList<String> transDestinations;
 extern LinkedList<ISubStateMachine*> actions;
 
-extern PowerMeter powerMeter1;
-
 extern const char baseUrl[];
-
 extern char *critErrMessage;
 extern uint8_t critErrCode;
+
+// Commonly used Sensor Objects
+extern PowerMeter powerMeter1;
 
 #endif //main_h

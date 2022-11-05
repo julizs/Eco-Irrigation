@@ -34,6 +34,7 @@ class Services
         static HTTPClient http;
         static WiFiClient client;
         static WiFiMulti wifiMulti;
+        
         static WiFiServer wifiServer;
         static WebServer webServer;
         static ip_addr_t ip6_dns;
@@ -44,8 +45,8 @@ class Services
         static bool wifiMultiConnected();
         static void wifiEventHandler(WiFiEvent_t event);
 
-        static void doGetRequest(char const url[]);
-        static void doPostRequest(char const url[], String &payload);
+        static String doGetRequest(char const url[]);
+        static void doJSONPostRequest(char const url[], String &payload);
         static void doJSONGetRequest(char const url[], DynamicJsonDocument &doc);
         static void startRestServer();
         static bool readSettings();

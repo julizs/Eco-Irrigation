@@ -5,9 +5,14 @@ AmbientLight::AmbientLight(int sensorId)
   // 1 or 2nd Sensor (if 2 Sensors at once worked)
   this->sensorId = sensorId;
   Adafruit_TSL2591 tsl = Adafruit_TSL2591();
+
+  data.fullSpectrum = 0;
+  data.infraRed = 0;
+  data.visibleLight = 0;
+  data.illuminance = 0.0f;
 }
 
-void AmbientLight::setupTSL2591(TwoWire &bus)
+void AmbientLight::setup(TwoWire &bus)
 {
   // Only rerun setup if status is 0 (not initialized), see library
   if (!isReady())
@@ -21,7 +26,7 @@ void AmbientLight::setupTSL2591(TwoWire &bus)
       Serial.print("Did Setup tsl2591 with ID: ");
       Serial.println(sensorId);
 
-      printSensorInfo();
+      printParameters();
     }
     else
     {
@@ -44,49 +49,39 @@ bool AmbientLight::isReady()
 /*
 Print Sensor Details (Name, Version, ID, min/max, Res)
 */
-void AmbientLight::printSensorInfo()
+void AmbientLight::printParameters()
 {
+  char message[64];
   sensor_t sensor;
   tsl.getSensor(&sensor);
-  Serial.print("Version: ");
-  Serial.print(sensor.version);
-  Serial.println();
-
-  Serial.print("Gain: ");
-  Serial.print(tsl.getGain());
-  Serial.println();
-  Serial.print("Timing: ");
   long timing = (tsl.getTiming() + 1) * 100;
-  Serial.println(timing);
+
+  snprintf(message, 64, "LightMeter: sensorVersion: %d, gain: %d, timing: %.2f", 
+  sensor.version, tsl.getGain(), data.illuminance, timing);
+
+  Serial.println(message);
 }
 
-TSL2591data AmbientLight::measureLight()
+LightData AmbientLight::measure()
 {
-  TSL2591data data;
+  LightData data;
 
   // Read all 32 bits, top 16 bits IR, bottom 16 bits full spectrum ("Bitschiebeop., Bitmaske")
-  uint32_t lum = tsl.getFullLuminosity();
-  uint16_t ir, full;
-  ir = lum >> 16;
-  full = lum & 0xFFFF;
+  uint32_t luminosity = tsl.getFullLuminosity();
 
-  data.infraRed = ir;
-  data.visibleLight = (full - ir);
-
-  Serial.print(F("[ "));
-  Serial.print(millis());
-  Serial.print(F(" ms ] "));
-  Serial.print(F("IR: "));
-  Serial.print(ir);
-  Serial.print(F("  "));
-  Serial.print(F("Full: "));
-  Serial.print(full);
-  Serial.print(F("  "));
-  Serial.print(F("Visible: "));
-  Serial.print(full - ir);
-  Serial.print(F("  "));
-  Serial.print(F("Lux: "));
-  Serial.println(tsl.calculateLux(full, ir), 6);
+  data.infraRed = luminosity >> 16;
+  data.fullSpectrum = luminosity & 0xFFFF;
+  data.visibleLight = (data.fullSpectrum - data.infraRed);
+  data.illuminance = tsl.calculateLux(data.fullSpectrum, data.infraRed);
 
   return data;
+}
+
+void AmbientLight::printMeasurement(LightData &measurement)
+{
+  char message[64];
+  snprintf(message, 64, "LightMeter: fullSpectrum: %d, infraRed: %d, illuminance: %.2f", 
+  data.fullSpectrum, data.infraRed, data.illuminance);
+
+  Serial.println(message);
 }

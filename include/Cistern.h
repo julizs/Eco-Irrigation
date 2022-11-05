@@ -29,7 +29,7 @@ class Cistern
 
         // uint16_t getAvailableWater();
         bool validWaterLevel(int allocatedWater);
-        bool waterManagement();
+        void waterManagement();
         void driveSolenoid(uint8_t relaisChannel, uint8_t state);       
 
     private: 
@@ -37,11 +37,10 @@ class Cistern
         void readToF_cont(int distances[]);
         float evaluateToF();
         int getWaterLevel();
-
-        void updateIrrigationData(uint8_t relaisChannel, int pumpedWater);
-        void updateEnvironmentData(int newWaterLevel, int availableWater);
-        uint16_t calcMl(int waterLevel);    
         void shutToF();
+        uint16_t calcMl(int waterLevel);
+
+        void writePoint(int newWaterLevel, int availableWater);
 };
 
 extern Cistern cistern1, cistern2;

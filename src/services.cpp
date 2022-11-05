@@ -103,10 +103,11 @@ bool Services::wifiMultiConnected()
   return wifiMulti.run() == WL_CONNECTED;
 }
 
-void Services::doGetRequest(char const url[])
+
+String Services::doGetRequest(char const url[])
 {
   char message[128];
-  http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS); // Needed, otherwise 301 Code
+  http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS); // Needed, or 301 Code
   http.begin(url);
 
   // Send HTTP GET Req
@@ -115,12 +116,14 @@ void Services::doGetRequest(char const url[])
   snprintf(message, 128, "GET %s Response Code: %d", url, httpResponseCode);
   Serial.println(message);
 
+  String response = "";
+
   if (httpResponseCode > 0)
-  {
-    Serial.println(http.getString());
-  }
+    response = http.getString();
 
   http.end();
+
+  return response;
 }
 
 /*
@@ -128,7 +131,7 @@ Funcs are responsible for packaging data as json
 PostRequest accepts json as input param
 https://randomnerdtutorials.com/esp32-http-get-post-arduino/
 */
-void Services::doPostRequest(char const endpoint[], String &payload)
+void Services::doJSONPostRequest(char const endpoint[], String &payload)
 {
   char url[50] = "", message[128];
   strcat(url, baseUrl);
@@ -219,19 +222,21 @@ void Services::startRestServer()
 
 /* "Passive" Handling of WebButtons
 Serial.println(settings[0]["sleepDuration"].as<int>());
-Read User Actions and Settings from MongoDB doc
-Convert JsonObjects/JsonArrays to local Datastructures (instr Vec), Release Memory
-Take Actions later in Action State (before decidePlants() Evaluation)
-Properly use ArduinoJson:
+Save JsonObjects globally or locally to release after exit / save mermory?
+Convert JsonObjects/JsonArrays to local Datastructures (e.g. instr Vec)? 
+
 https://arduinojson.org/v6/how-to/reuse-a-json-document/
-IMPORTANT: differentiate as/to<JsonArray> and as/to<JsonObject>
-Look closely at settings (mongoose) nested datastructure to check if 
+IMPORTANT: difference as/to<JsonArray> and as/to<JsonObject>
+Check settings schema in mongoose whether
 Attributes are JsonObject {}, e.g. "actions" or JsonArray []
 */
 bool Services::readSettings()
 {
   DynamicJsonDocument settings(1024);
   Services::doJSONGetRequest("/settings", settings);
+  
+  if(settings.isNull())
+    return false;
 
   // settings is a mongoDB Collection with only 1 Document inside [{}]
   JsonArray collection = settings.as<JsonArray>();
@@ -307,7 +312,7 @@ bool Services::readSettings()
   // Reset Actions for next Iteration
   Serial.println("(Resetting User Actions): ");
   String emptyDoc = "{}";
-  Services::doPostRequest("/settings/reset", emptyDoc);
+  Services::doJSONPostRequest("/settings/reset", emptyDoc);
   
   return true;
   }
