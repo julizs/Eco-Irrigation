@@ -15,8 +15,11 @@
 #include <LinkedList.h>
 #include <ISubStateMachine.h>
 #include <math.h>
+// #include <Settings.h>
 
 const char baseUrl[] = "https://juli.uber.space/node";
+int WATER_LIMIT_2h = 1000, WATER_LIMIT_24h = 4000; // ml
+float PUMP_TIME_LIMIT = 10.0f;
 uint8_t IDLE_DUR = 4, SLEEP_TYPE = 0, SLEEP_DUR = 16, STATE_MIN_DUR = 4;
 uint32_t stateBeginMillis = 0;
 
@@ -30,8 +33,9 @@ FlowMeter flowMeter1(flowPin);
 StatusDisplay displayController;
 
 // uint8_t solenoids1[] = {1, 2}, solenoids2[] = {};
-Cistern cistern2(0x52, flowMeter1); // cistern1(0x51, meter1)
-Pump pump1(0, pump_PWM_1, cistern2), pump2(1, pump_PWM_2, cistern2);
+Cistern cistern2(0x52); // cistern1(0x51, flowMeter1)
+Pump pump1(0, pump_PWM_1, flowMeter1, cistern2), pump2(1, pump_PWM_2, flowMeter1, cistern2);
+
 
 StateMachine fsm = StateMachine();
 State *currentState = nullptr, *nextState = nullptr, *referralState = nullptr;
@@ -90,37 +94,36 @@ void setupToFs()
 
 bool measureSensors()
 {
-  // ESP32 GLOBAL MEASUREMENTS
-  if (!p0.hasTags()) // Reuse Datapoint
-  {
-    p0.addTag("device", DEVICE);
-    p0.addTag("SSID", WiFi.SSID());
-  }
+  p0.clearTags();
   p0.clearFields();
 
+  // ENVIRONMENT_DATA
+  p0.addTag("device", DEVICE);
+  p0.addTag("SSID", WiFi.SSID());
+
   byte rssi = WiFi.RSSI();
-  p0.addField("rssi", rssi);
+  // p0.addField("rssi", rssi);
 
-  // Measure Climate (or contact SensorBox)
+  // Measure AmbientClimate (or contact SensorBox)
 
-  // Measure Watervolume
+  // Measure all Cisterns
   if (cistern2.toF_ready() == true)
-    cistern2.waterManagement();
-    // cistern2.updateWaterLevel(); 
+  {
+    uint16_t currLiquidVolume = cistern2.getLiquidAmount();
+    cistern2.updateLiquidAmount();
+  }
 
-  // PLANT-SPECIFIC MEASUREMENTS
+  // PLANT_DATA
   // Advantage: Local DynamicJsonDocs (big) get destroyed after leaving Scope
   DynamicJsonDocument plants(2048);
   Services::doJSONGetRequest("/plants/sensors", plants);
 
   Point p("Plant Data");
-  int lastMeasuredLightSensor = -1;
-
-  // Light Data
-  // Set to 0 incase Sensor not initialised, no random Grafana Values
+  
   LightData data;
   data.infraRed = 0;
   data.visibleLight = 0;
+  int lastMeasuredLightSensor = -1;
 
   // For each Plant, measure (only) assigned Sensors
   for (int i = 0; i < plants.size(); i++)
@@ -567,7 +570,8 @@ void on_actionState()
       {
         // runInstruction (auslagern)
 
-        Pump *pump = instr.pump;
+        // Pump *pump = instr.pump;
+        Pump *pump = &pump1;
 
         if (instr.errorCode == 0) // Only run valid Instructions
         {
@@ -588,12 +592,11 @@ void on_actionState()
           // TODO Multiple errorCodes?
           instr.errorCode = pump->errorCode;
 
-          instr.distributedWater = pump->cistern.pumpedWater;
+          // instr.distributedWater = pump->cistern.pumpedLiquid;
         }
         else
         {
-          // or value is random in InfluxDB / Grafana
-          instr.distributedWater = 0;
+          // instr.distributedWater = 0;
 
           Serial.println("Action aborted.");
           // Serial.println(Irrigation::errors[instr.errorCode]);
@@ -711,8 +714,8 @@ void setup()
   // Init (LOW-Trigger) Relais
   for (int i = 0; i < 2; i++)
   {
-    pinMode(Relais[i], OUTPUT);
-    digitalWrite(Relais[i], HIGH);
+    pinMode(relaisPins[i], OUTPUT);
+    digitalWrite(relaisPins[i], HIGH);
   }
 
   pinMode(dhtInPin, INPUT);

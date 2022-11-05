@@ -279,7 +279,7 @@ int8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &plan
  
             if(solenoid > 0 && solenoid <= 2)
             {
-                if (validSolenoid(solenoid, waterLimit24h, instr.allocatedWater, 24))
+                if (validSolenoid(solenoid, WATER_LIMIT_24h, instr.allocatedWater, 24))
                 {          
                     errorCode = 0;
                 }
@@ -325,7 +325,7 @@ int8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject &pumpModel)
         {
             for (auto sol : solenoidValves)
             {
-                if (validSolenoid(sol, waterLimit24h, instr.allocatedWater, 24))
+                if (validSolenoid(sol, WATER_LIMIT_24h, instr.allocatedWater, 24))
                 {
                     solenoid = sol;
                     errorCode = 0;
@@ -412,6 +412,10 @@ void Irrigation::setPumpingParameters(Instruction &instr, JsonObject &pumpModel)
         return;
     }
 
+
+    instr.pwmChannel = pumpModel["pwmChannel"];
+    
+    /*
     // Adress correct pumpObj / pwmChannel
     int pwmChannel = pumpModel["pwmChannel"];
     if(pwmChannel == 1)
@@ -427,6 +431,7 @@ void Irrigation::setPumpingParameters(Instruction &instr, JsonObject &pumpModel)
         // Pump currently not active in System
         instr.errorCode = 6;
     }
+    */
 
     snprintf(instr.pumpModel, 32, pumpModel["name"]);
 
@@ -435,7 +440,7 @@ void Irrigation::setPumpingParameters(Instruction &instr, JsonObject &pumpModel)
 
     // flowRate in L/h, allocatedWater in ml, pumpTime in sec
     float pumpTime = (instr.allocatedWater / (flowRate * 1000.0f)) * 3600;
-    instr.pumpTime = constrain(pumpTime, 0.0f, pumpTimeLimit);
+    instr.pumpTime = constrain(pumpTime, 0.0f, PUMP_TIME_LIMIT);
 }
 
 /*
@@ -549,9 +554,10 @@ bool Irrigation::reportInstruction(Instruction &instr)
     p2.addTag("pump", instr.pumpModel);
     p2.addTag("solenoidValve", solenoidValve);
     p2.addField("allocatedWater", instr.allocatedWater);
-    p2.addField("distributedWater", instr.distributedWater);
+    // p2.addField("distributedWater", instr.distributedWater);
     // p2.addField("pumpTime", instr.pumpTime);
     p2.addTag("errorCode", errorCode);
+
     InfluxHelper::writeDataPoint(p2); // Write to Buffer
 
     return true;
@@ -571,7 +577,6 @@ void Irrigation::printError(uint8_t errorCode)
 /*
 Report to MongoDB
 https://arduinojson.org/v6/api/json/serializejson/
-*/
 bool Irrigation::reportToMongo(std::vector<Instruction> &instructions)
 {
     StaticJsonDocument<1024> reports;
@@ -599,7 +604,7 @@ bool Irrigation::reportToMongo(std::vector<Instruction> &instructions)
 
     return true;
 }
-
+*/
 
 /* Irrigation Algorithm
   1.1 Skip if waterAmount released by this Solenoid over last 2h > Threshold

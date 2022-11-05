@@ -1,6 +1,6 @@
 #include "Pump.h"
 
-Pump::Pump(int pwmChannel, int pwmPin, Cistern &c) : cistern(c)
+Pump::Pump(int pwmChannel, int pwmPin, FlowMeter &f, Cistern &c) : flow(f), cistern(c)
 {
     this->pwmChannel = pwmChannel;
     this->pwmPin = pwmPin;
@@ -74,7 +74,7 @@ void Pump::loop()
                 }  
             }
             // Should this check also be done before, in Irrigation class?
-            else if(!cistern.validWaterLevel(allocatedWater))
+            else if(!cistern.validLiquidLevel(allocatedWater))
             {
                 errorCode = 3;
                 currentState = PumpState::ABORT;
@@ -83,6 +83,7 @@ void Pump::loop()
             {
                 errorCode = 0; // None
                 currentState = PumpState::ON;
+                cistern.updateLiquidAmount();
             }
         }
 
@@ -115,7 +116,7 @@ void Pump::loop()
             // Measure and writePoints
 
             // cistern.meter.measureFlow();
-            cistern.meter.writePoint();
+            flowMeter1.writePoint();
 
             // powerMeter1.measureIna();
             powerMeter1.measureAndSubmit();
@@ -151,11 +152,12 @@ void Pump::loop()
 
             cistern.driveSolenoid(relaisChannel, HIGH);
 
-            cistern.meter.measureVolume();      
+            flowMeter1.measureAmount();
 
             // Only measure if Water was pumped
             // toF must be setup correctly, or crash here
-            cistern.waterManagement();
+            cistern.updateLiquidPumped();
+            cistern.updateLiquidAmount();
         }
 
         if (countTime(minStateDuration))

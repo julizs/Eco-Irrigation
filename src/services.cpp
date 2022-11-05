@@ -211,7 +211,7 @@ void Services::startRestServer()
   webServer.on("/solenoidValve", []()
                {
       // digitalWrite(Relais[0], LOW);
-      digitalWrite(Relais[1], LOW);
+      digitalWrite(relaisPins[1], LOW);
       webServer.send(200, "text/plain", "Toggled Solenoid Valve"); });
 
   webServer.begin();
@@ -291,7 +291,7 @@ bool Services::readSettings()
     uint8_t channel = action["subject"];
     uint8_t state = action["isOpen"] == true? LOW : HIGH;
     // cistern1.driveSolenoid(channel, state);
-    digitalWrite(Relais[channel], state);
+    digitalWrite(relaisPins[channel], state);
   }
 
   /*

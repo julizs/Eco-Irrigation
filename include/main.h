@@ -11,6 +11,7 @@
 
 #include <PowerMeter.h>
 class PowerMeter; // Forward Decl
+class FlowMeter;
 
 // Disable Brownout Warnings
 #include "soc/soc.h"
@@ -33,5 +34,6 @@ extern uint8_t critErrCode;
 
 // Commonly used Sensor Objects
 extern PowerMeter powerMeter1;
+extern FlowMeter flowMeter1;
 
 #endif //main_h

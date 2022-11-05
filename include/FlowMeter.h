@@ -6,7 +6,7 @@ struct FlowData
 {
     float waterVolume, waterLiterPerMinute;
     double flowLperMin, flowLperHour, flowMlperSec; // Liters per Minute/Hour
-    unsigned long pulses, amountMl;
+    uint16_t pulses, amountMl;
 };
 
 // aka Hall-effect Sensor
@@ -20,7 +20,7 @@ class FlowMeter
     void setup();
     void pulse();
     FlowData measureFlow();
-    void measureVolume();
+    uint16_t measureAmount();
     void writePoint();
 
     private:

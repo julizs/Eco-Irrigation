@@ -1,8 +1,9 @@
 #ifndef Pump_h
 #define Pump_h
 #include <Cistern.h>
-#include <Irrigation.h>
-#include "Adafruit_INA219.h"
+// #include <FlowMeter.h>
+// #include <Irrigation.h>
+// #include "Adafruit_INA219.h"
 
 enum class PumpState
 {
@@ -41,9 +42,10 @@ public:
     uint8_t pwmPin, resolution, pwmChannel;
     uint16_t frequency, dutyCycle;
 
+    FlowMeter &flow;
     Cistern &cistern;
 
-    Pump(int pwmChannel, int pwmPin, Cistern &cistern);
+    Pump(int pwmChannel, int pwmPin, FlowMeter &flow, Cistern &cistern);
 
     // Implement to inherit from abstract class
     // ISubstateMachine (aka C++ "interface")

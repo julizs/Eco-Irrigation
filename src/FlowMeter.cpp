@@ -43,6 +43,27 @@ FlowData FlowMeter::measureFlow()
 }
 
 /*
+Called only once in Pump::DONE
+Calc Ml from total pulses, reset counter
+Write this date only once into Point p2
+*/
+uint16_t FlowMeter::measureAmount()
+{
+    measurement.amountMl = measurement.pulses * 2.25; // 1 Pulse = 2.25 Ml (see Datasheet)
+    measurement.pulses = 0;
+
+    p2.clearTags();
+    p2.clearFields();
+    p2.addField("distributedWater_flowMeter", measurement.amountMl);
+    InfluxHelper::writeDataPoint(p2);
+
+    Serial.print("FlowMeter Amount (Ml): ");
+    Serial.println(measurement.amountMl);
+
+    return measurement.amountMl;
+}
+
+/*
 Make Point every Measure Intervall (e.g. 1s), write to Buffer
 More detailed Illustr. of waterFlow in Time
 Do same for INA219
@@ -65,25 +86,6 @@ void FlowMeter::writePoint()
   Serial.println(message);
 
   InfluxHelper::writeDataPoint(p3);
-}
-
-/*
-Called only once in Pump::DONE
-Calc Ml from total pulses, reset counter
-Write this date only once into Point p2
-*/
-void FlowMeter::measureVolume()
-{
-    measurement.amountMl = measurement.pulses * 2.25; // 1 Pulse = 2.25 Ml (see Datasheet)
-    measurement.pulses = 0;
-
-    p2.clearTags();
-    p2.clearFields();
-    p2.addField("distributedWater_flowMeter", measurement.amountMl);
-    InfluxHelper::writeDataPoint(p2);
-
-    Serial.print("FlowMeter Amount (Ml): ");
-    Serial.println(measurement.amountMl);
 }
 
 /*

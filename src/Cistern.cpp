@@ -1,15 +1,19 @@
 #include "Cistern.h"
 
-Cistern::Cistern(uint8_t toF_address, FlowMeter &m) : meter(m)
+Cistern::Cistern(uint8_t toF_address)
 {
     this->toF_address = toF_address;
 
     // solenoidValves = relaisChannels;
 
-    pumpedWater = 0;
-    minValidWaterDist = 50;
-    maxValidWaterDist = 170; // min fillLevel, e.g. 3L
-    maxPossibleDist = 180;
+    contents = LiquidType::WATER;
+
+    // pumpedLiquid = 0;
+    minValidLiquidDist = 50;
+    maxValidLiquidDist = 170; // min fillLevel, e.g. 3L
+    maxMeasurableDist = 180;
+    currLiquidLevel = 0;
+    currLiquidAmount = 0;
     sampleSize = 8;
 }
 
@@ -89,20 +93,6 @@ void Cistern::shutToF()
 }
 
 /*
-To assert if a waterLevel is valid/sufficient, one needs to compare available
-waterAmount in Cistern and allocatedWater of an Irrigation Event (automatic or manual)
-(same procedure as validSolenoid)
-*/
-bool Cistern::validWaterLevel(int allocatedWater)
-{
-    int waterLevel = getWaterLevel();
-    uint16_t availableWater = calcMl(waterLevel);
-    uint16_t minValidWater = calcMl(minValidWaterDist);
-
-    return availableWater - allocatedWater > minValidWater;
-}
-
-/*
 maxPossibleDist = cisternHeight - (cisternHeight - sensorHeight) - waterBodyMinHeight
 e.g. 210mm - (210mm -190mm) - 20mm
 = 210mm -20mm -20mm = 170mm
@@ -115,32 +105,79 @@ Use max func to prevent negative delta
 170mm -171mm = -1mm
 max(170-171),0 = max(-1,0) = 0
 */
-int Cistern::getWaterLevel()
-{
-    // if(toF_ready()){} // or Crash if called from PumpState::ABORTED and toF not setup   
-    int waterBodyMinHeight = 15; // mm
+uint16_t Cistern::getLiquidLevel()
+{ 
+    int minMeasurableDistance = 15; // mm, minHeight of swimmer Object
     int sensorError = -20; // mm, Sensorerror and Diagonal Distance Error
-    currWaterDist = evaluateToF();
-    currWaterLevel = waterBodyMinHeight + max((maxPossibleDist - (currWaterDist + sensorError)),0); 
+    currLiquidDist = evaluateToF();
+    currLiquidLevel = minMeasurableDistance + max((maxMeasurableDist - (currLiquidDist + sensorError)),0); 
     
-    return currWaterLevel;
+    return currLiquidLevel;
+}
+
+uint16_t Cistern::getLiquidAmount()
+{ 
+    currLiquidAmount = calcMl(getLiquidLevel());
+    return currLiquidAmount;
 }
 
 /*
-Called by measureState and after Pump::DONE State
-Calc Milliliters, write Environment_Data Point to Buffer, give Warnings (low waterLevel etc.)
-10mm delta can be different waterAmounts, depending on waterLevel and reservoir shape
--> Calc pumpedWater from waterAmounts, NOT waterLevels
+Assert if waterLevel is valid/sufficient, by comparing available
+liquidVolume in Cistern and allocatedLiquid of an Irrigation Event (automatic or manual)
+(same procedure as validSolenoid)
 */
-void Cistern::waterManagement()
+bool Cistern::validLiquidLevel(int allocatedLiquid = 0)
 {
-    int oldWaterLevel = currWaterLevel; // (Updated from Check at Beginning of Pump State Machine)
-    int newWaterLevel = getWaterLevel(); // Get new fill Level and Update
-    uint16_t availableWater = calcMl(newWaterLevel);
-    // max necessary, if pumpProcess stops after 0s AND wrong Reading of new waterLevel
-    pumpedWater = max((calcMl(oldWaterLevel) - availableWater),0);
+    bool isValid;
 
-    writePoint(newWaterLevel, availableWater);
+    currLiquidAmount = getLiquidAmount();
+    uint16_t minValidLiquidVolume = calcMl(minValidLiquidDist);
+
+    if(allocatedLiquid > 0)
+    {
+        isValid = currLiquidAmount - allocatedLiquid >= minValidLiquidVolume ? true : false;
+    }
+    else
+    {
+        isValid = currLiquidAmount > minValidLiquidVolume;
+    }
+
+    // return currLiquidAmount - allocatedLiquid >= minValidLiquidAmount;
+    return isValid;
+}
+
+/*
+Only called by Pump::DONE
+Calc Milliliters, write Environment_Data Point to Buffer, give Warnings (low waterLevel etc.)
+10mm pumped delta can result in different waterAmounts, depending on waterLevel and cistern shape
+-> Calc pumpedLiquid from liquidVolumes deltas, NOT liquidLevels deltas
+*/
+void Cistern::updateLiquidPumped()
+{
+    int oldLiquidAmount = currLiquidAmount; // Calculated and submitted by PUMP::INIT
+    currLiquidAmount = getLiquidAmount();
+
+    // prevent undefined values for InfluxDB (measureError or Aborted)
+    uint16_t pumpedLiquid = max((oldLiquidAmount - currLiquidAmount),0);
+
+    p2.addField("distributedLiquid", pumpedLiquid); // Or calc directly in Grafana
+}
+
+// Problem: clear point or not (called by Main::measure and Pump::done)
+void Cistern::updateLiquidAmount()
+{
+    // p0.clearTags();
+    // p0.clearFields();
+    
+    char key1[32], key2[32];
+
+    snprintf(key1, 32, "%s_level", "liquid"); // contents name
+    p0.addField(key1, currLiquidLevel);
+    snprintf(key2, 32, "%s_amount", "liquid");
+    p0.addField(key2, currLiquidAmount);
+
+    // Serial.println(p0.toLineProtocol());
+    InfluxHelper::writeDataPoint(p0);
 }
 
 /*
@@ -236,21 +273,6 @@ uint16_t Cistern::calcMl(int waterLevel) // Inputparam in mm
     return waterAmount; // Outputparam in ml (>250ml possible -> uint16_t)
 }
 
-void Cistern::writePoint(int newWaterLevel, int availableWater)
-{
-    p0.clearTags();
-    p0.clearFields();
-    
-    char key1[32], key2[32];
-    snprintf(key1, 32, "waterLevel0x%x", this->toF_address);
-    p0.addField(key1, newWaterLevel); // Or calc directly in Grafana
-    snprintf(key2, 32, "waterAmount0x%x", this->toF_address);
-    p0.addField(key2, availableWater);
-
-    // Write Point p0 (Ina and ToF Data) to Buffer
-    InfluxHelper::writeDataPoint(p0);
-}
-
 /*
 Detailed Data of Pump Process (Affected Plants, PumpTime, Success, ... )
 done by Irrigation::reportInstructions 
@@ -293,7 +315,7 @@ void Cistern::readToF(int distances[])
             distance = toF.readRange();
             // while(toF.waitRangeComplete()) {}
 
-            if (distance > maxPossibleDist || distance <= 0)
+            if (distance > maxMeasurableDist || distance <= 0)
             {
                 validReading = false;
                 j++;
@@ -379,5 +401,5 @@ relaisChannel -1, since WebInterface starts counting from 1 not 0
 */
 void Cistern::driveSolenoid(uint8_t relaisChannel, uint8_t state)
 {
-    digitalWrite(Relais[relaisChannel-1], state);
+    digitalWrite(relaisPins[relaisChannel-1], state);
 }

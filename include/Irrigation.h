@@ -1,24 +1,21 @@
 #ifndef Irrigation_h
 #define Irrigation_h
 
-#include <main.h>
+// #include <main.h>
 #include <Services.h>
 #include <Utilities.h>
 #include <Pump.h>
+#include <Settings.h>
 
-class Pump; // Forward Decl
+// class Pump; // Forward Decl
 
-/*
-Infos needed for Irrigation Process
-Also used to write Report
-*/
+// Infos for Pump Process and Reports
 struct Instruction
 {
     char reason[32], pumpModel[32];
-    Pump *pump;
+    // Pump *pump;
     float pumpTime;
-    int8_t errorCode, solenoidValve;
-    // allocated and actual distributed Water (measured by waterFlow Sensor)
+    int8_t errorCode, solenoidValve, pwmChannel;
     uint16_t allocatedWater, distributedWater;
 
     bool operator==(const Instruction &instr) const
@@ -31,11 +28,10 @@ class Irrigation
 {
 
 public:
-    static const uint16_t waterLimit2h = 50000, waterLimit24h = 100000;
-    static constexpr float pumpTimeLimit = 10.0f;
+    // static constexpr float pumpTimeLimit = 10.0f;
+    // static FluxQueryResult waterPerSol;
     static std::vector<Instruction> instructions;
     static std::vector<WaterPerSolenoid> recentIrrigations;
-    // static FluxQueryResult waterPerSol;
        
     static String errors[7];
     // static char const *errors[5];
@@ -59,8 +55,8 @@ public:
 
     static void printInstructions(std::vector<Instruction> &instructions);
     // static bool reportInstructions(std::vector<Instruction> &instructions);
-    static bool reportInstruction(Instruction &instruction); // Single Instr
-    static bool reportToMongo(std::vector<Instruction> &instructions);
+    // static bool reportToMongo(std::vector<Instruction> &instructions);
+    static bool reportInstruction(Instruction &instruction);
     static void clearInstructions();
     
     static bool getRecentIrrigations();
