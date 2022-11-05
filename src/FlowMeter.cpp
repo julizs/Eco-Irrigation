@@ -77,7 +77,10 @@ void FlowMeter::measureVolume()
     measurement.amountMl = measurement.pulses * 2.25; // 1 Pulse = 2.25 Ml (see Datasheet)
     measurement.pulses = 0;
 
+    p2.clearTags();
+    p2.clearFields();
     p2.addField("distributedWater_flowMeter", measurement.amountMl);
+    InfluxHelper::writeDataPoint(p2);
 
     Serial.print("FlowMeter Amount (Ml): ");
     Serial.println(measurement.amountMl);

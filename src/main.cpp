@@ -580,7 +580,7 @@ void on_actionState()
           pump->allocatedWater = instr.allocatedWater;
           pump->relaisChannel = instr.solenoidValve;
 
-          while (!pump->isDone())
+          while (!pump->machineDone())
           {
             pump->loop();
           }

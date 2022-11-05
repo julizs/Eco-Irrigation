@@ -107,6 +107,7 @@ void Pump::loop()
 
         // Repeat Measurements in Intervall
         currentTime = millis();
+
         if (currentTime >= (lastTime + measureIntervall))
         {
             lastTime = currentTime;
@@ -131,6 +132,8 @@ void Pump::loop()
         // Check constantly
         if (countTime(minStateDuration) && countTime(pumpTime))
         {
+            Serial.println(pumpTime);
+            Serial.println("Done");
             // exit / State Function
             currentState = PumpState::DONE;
         }
@@ -151,9 +154,13 @@ void Pump::loop()
             cistern.meter.measureVolume();      
 
             // Only measure if Water was pumped
-            // (toF must be setup correctly, or crash here)
-            // if(lastState == PumpState::ON)
+            // toF must be setup correctly, or crash here
             cistern.waterManagement();
+        }
+
+        if (countTime(minStateDuration))
+        {
+            isDone = true;
         }
 
         lastState = PumpState::DONE;
@@ -165,6 +172,11 @@ void Pump::loop()
             commonStateLogic();
 
             printError();
+        }
+
+        if (countTime(minStateDuration))
+        {
+            isDone = true;
         }
 
         lastState = PumpState::ABORT;
@@ -200,7 +212,7 @@ void Pump::switchOff()
     ledcWrite(pwmChannel, 0);
 }
 
-bool Pump::countTime(int durationSec)
+bool Pump::countTime(float durationSec)
 {
     return (millis() - stateBeginMillis >= durationSec * 1000UL);
 }
@@ -217,10 +229,13 @@ void Pump::add_callback(callback func)
     setupToFs = func;
 }
 
-bool Pump::isDone()
+/*
+final State is reached AND minStateTime is up (enough time for waterManagement())
+*/
+bool Pump::machineDone()
 {
-    // lastState instead of currentState, so that Logic of last State also gets exec
-    return lastState == PumpState::DONE || lastState == PumpState::ABORT;
+    // return lastState == PumpState::DONE || lastState == PumpState::ABORT;
+    return isDone == true;
 }
 
 /*
@@ -229,6 +244,7 @@ lastState must be != currentState for entry Logic to run once
 */
 void Pump::resetMachine()
 {
+    isDone = false;
     currentState = PumpState::INIT;
     lastState = (PumpState)-1;
 }

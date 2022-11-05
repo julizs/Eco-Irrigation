@@ -24,12 +24,13 @@ public:
                              "Waterlevel not sufficient.", "Irrigation cancelled by User.",
                              "Invalid SolenoidValve"};
     
+    bool isDone;
     uint8_t transCount, maxSelfTrans;
-    uint8_t errorCode, minStateDuration;
-    uint16_t stateBeginMillis;
+    uint8_t errorCode;
+    uint32_t stateBeginMillis, minStateDuration;
 
     // For reapeating Measurements in Loop
-    uint16_t measureIntervall, currentTime, lastTime;
+    uint32_t measureIntervall, currentTime, lastTime;
 
     // Set by Irrigation Algo
     uint16_t allocatedWater;
@@ -47,7 +48,7 @@ public:
     // Implement to inherit from abstract class
     // ISubstateMachine (aka C++ "interface")
     void loop();
-    bool isDone();
+    bool machineDone();
     void resetMachine();
 
     void add_callback(callback act);
@@ -58,7 +59,7 @@ private:
     void switchOn();
     void switchOff();
     void commonStateLogic();
-    bool countTime(int durationSec);
+    bool countTime(float durationSec);
     void printError();
 
     // Direct Func, no StateMachine run?

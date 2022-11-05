@@ -238,6 +238,9 @@ uint16_t Cistern::calcMl(int waterLevel) // Inputparam in mm
 
 void Cistern::writePoint(int newWaterLevel, int availableWater)
 {
+    p0.clearTags();
+    p0.clearFields();
+    
     char key1[32], key2[32];
     snprintf(key1, 32, "waterLevel0x%x", this->toF_address);
     p0.addField(key1, newWaterLevel); // Or calc directly in Grafana
