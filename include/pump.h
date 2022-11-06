@@ -39,13 +39,13 @@ public:
     float pumpTime;
 
     // Pwm Control
-    uint8_t pwmPin, resolution, pwmChannel;
+    uint8_t resolution, pwmChannel;
     uint16_t frequency, dutyCycle;
 
     FlowMeter &flow;
     Cistern &cistern;
 
-    Pump(int pwmChannel, int pwmPin, FlowMeter &flow, Cistern &cistern);
+    Pump(FlowMeter &flow, Cistern &cistern);
 
     // Implement to inherit from abstract class
     // ISubstateMachine (aka C++ "interface")

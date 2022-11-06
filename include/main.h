@@ -8,14 +8,18 @@
 #include <InfluxHelper.h>
 #include <LinkedList.h>
 #include <ISubStateMachine.h>
-
 #include <PowerMeter.h>
-class PowerMeter; // Forward Decl
-class FlowMeter;
-
 // Disable Brownout Warnings
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
+
+// Forward Declarations
+class PowerMeter; 
+class FlowMeter;
+
+// Commonly used Sensor Objects
+extern PowerMeter powerMeter1;
+extern FlowMeter flowMeter1;
 
 // #define SLEEPTYPE 0 // No/Light/Modem/... Sleep
 #define DO_MEASURE 1
@@ -25,15 +29,12 @@ class FlowMeter;
 
 extern TwoWire I2Cone, I2Ctwo;
 extern uint8_t SLEEP_TYPE, SLEEP_DUR, IDLE_DUR, STATE_MIN_DUR;
-extern LinkedList<String> transDestinations;
-extern LinkedList<ISubStateMachine*> actions;
+extern LinkedList<String> manualTransitions;
+// extern LinkedList<ISubStateMachine*> actions;
 
 extern const char baseUrl[];
-extern char *critErrMessage;
-extern uint8_t critErrCode;
 
-// Commonly used Sensor Objects
-extern PowerMeter powerMeter1;
-extern FlowMeter flowMeter1;
+extern const char *critErrMessages[];
+extern uint8_t critErrCode;
 
 #endif //main_h

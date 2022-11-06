@@ -62,25 +62,23 @@ uint8_t Irrigation::queryMoisture(uint8_t threshold, uint8_t timePeriod)
              timePeriod);
 
     FluxQueryResult cursor = InfluxHelper::doQuery(query);
-    
-
 }
 
 /*
 Get all recent Irrigations (in ml) per Solenoid per time period (2 hours, 1 day, 1 week)
-Compare to waterLimit per timePeriod
-Goal: Only 1 db request for all validSolenoid() checks, less delay in Action- and Evaluation-State
+Write to local datastructure for fast validity checks
 */
-bool Irrigation::getRecentIrrigations()
+bool Irrigation::updateRecentIrrigations()
 {
     recentIrrigations.clear();
 
-    uint8_t timePeriods[] = {2, 24, 168};
-    for (int i = 0; i < 3; i++)
+    int timePeriods[] = {2, 24, 168};
+
+    for (int i = 0; i < sizeof(timePeriods); i++)
     {
         FluxQueryResult cursor = querySolenoids(timePeriods[i]);
 
-        // If any query fails, retry in next selfTransition
+        // Func fails if any query fails
         if(cursor.getError() != "")
             return false;
 
@@ -94,7 +92,7 @@ bool Irrigation::getRecentIrrigations()
 }
 
 /*
-Needed for Irrigation Algorithm
+Iterate local datastructure
 */
 uint16_t Irrigation::waterPerSolenoid(uint8_t solenoidValve, uint8_t timePeriod)
 {
@@ -111,9 +109,9 @@ uint16_t Irrigation::waterPerSolenoid(uint8_t solenoidValve, uint8_t timePeriod)
 }
 
 /*
-Needed for Evaluation (Manual Irr and Irr Algo)
+Check validity of manual and automatic Instructions (quickly), work on local datastructure
 TODO valid Pump (has min. 1 valid Solenoid?)
-Outcome = solenoid still within waterLimit after Irrigation?
+Outcome = solenoid still within waterLimit after executed Irrigation?
 */
 bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit, u16_t allocatedWater, uint8_t timePeriod)
 {
@@ -131,13 +129,11 @@ bool Irrigation::validSolenoid(uint8_t solenoidValve, uint16_t waterLimit, u16_t
 }
 
 /*
-Part of Evaluate Plants / Happiness?
-Call after processing manual User Irrigations
-Check needs of each Plant in System
-e.g. plantSize 1 = 100-200mm, waterNeeds 1 = 500ml per 2 days
+EVALUATE State checks overall Plant Wellbeing , displays Happiness
+Irrigation Class handles water related Part of this Algorithm (and issues/plans Actions)
 
-EVALUATE State checks overall Plant Wellbeing first and displays Happiness
-this Func only processes all Water related Values from that Query, decides Irrigations
+Call after processing manual User Irrigations (REQUEST-> ACTION -> TRANSMIT -> REQUEST -> EVALUATE)
+e.g. plantSize 1 = 100-200mm, waterNeeds 1 = 500ml per 2 days
 */
 bool Irrigation::evaluatePlants()
 {
@@ -149,7 +145,6 @@ bool Irrigation::evaluatePlants()
     DynamicJsonDocument plants(2048), plantNeeds(2048);
     Services::doJSONGetRequest("/plants/sensors", plants);
     Services::doJSONGetRequest("/plants/needs", plantNeeds);
-    // Services::doJSONGetRequest("/plants/happiness", plantHappiness);
 
     Serial.println("Plant Needs: ");
 
@@ -219,9 +214,9 @@ void Irrigation::createInstructions(JsonArray &actions, std::vector<Instruction>
 
 /*
 Enrich Instr with all neccessary Infos for Irrigation
-instr.reason
-Do Requests only once
-Manual Irrigations are reduced too
+Do DB Requests only once
+Input: [["Thymian", 350], ["Aloe",280]]  (both on same solenoidValve)
+Output: [[0, 0, 4.6],...] (pwmChannel, relaisPin, pumpTime)
 */
 void Irrigation::writeInstructions()
 {
@@ -233,19 +228,16 @@ void Irrigation::writeInstructions()
     for (auto &instr : instructions)
     {
         pumpModel = pumpModelByName(pumps, instr.reason);
-        // Pump-Button, instr.reason is a pump
+        // instr.reason is a pump
         if (!pumpModel.isNull()) 
         {
             // Find any valid Solenoid connected to this Pump
-            solenoidByPump(instr, pumpModel); 
-            // setPumpingParameters(instr, pumpModel);
+            solenoidByPump(instr, pumpModel);
         }
-        else // Irrigate-Button, instr.reason is a plant
+        else // instr.reason is a plant
         {
-            // Check if Plant has assigned Sol. (= Plant is connected to Water cycle 
-            // and not just monitored) and if Sol. is valid
-            solenoidByPlant(instr, plants); 
-            // Find pumpModel for this solenoid
+            solenoidByPlant(instr, plants);
+            // Find pumpModel assigned to solenoid
             pumpModel = pumpModelBySolenoid(pumps, instr.solenoidValve);      
         }
         setPumpingParameters(instr, pumpModel);
@@ -257,17 +249,12 @@ void Irrigation::writeInstructions()
 }
 
 /*
-Create Instruction Vec and fill with necessary Infos
-Called by decideIrrigation and readCommands
-Input: [["Thymian", 350], ["Aloe",280]]  (both on same solenoidValve)
-Output: [[pump1, 0, 4.6],...]
 break: found matching solenoid for plant (valid or invalid), break for loop
 */
 int8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &plants)
 {
-    // errorCode 1: found no matching plant for instr.reason
+    // errorCode 1: found no matching Plant for instr.reason (= not in System)
     int8_t solenoid = -1, errorCode = 1;
-    // Serial.println("Recently Distributed Water:");
 
     for (int i = 0; i < plants.size(); i++)
     {
@@ -285,14 +272,14 @@ int8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &plan
                 }
                 else
                 {
-                    // Solenoid already distributed too much water in recent 24h
+                    // Solenoid invalid (distributed too much water recently)
                     errorCode = 3;
                 }
                 break;
             }
             else
             {
-                // Solenoid currently does not exist in System (null = Plant not connected) 
+                // Plant has no solenoidValve (= not connected to waterCycle) 
                 // or User set invalid Solenoid in Interface (e.g. 12)
                 errorCode = 2;
             }   
@@ -306,17 +293,14 @@ int8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &plan
 }
 
 /*
-aka validPump()
-Checks if pumpModel has any associated solenoids at all
-Checks if any of the solenoids are valid
-Pick the first valid one, set pwmPin accordingly
-Set Error Codes otherwise
+pumpModel has assigned solenoidValves? Any of them valid?
+Pick the first valid one, set Error Codes otherwise
 break: found the first valid solenoid for model, break for loop
-Gets called by manual Irrigations (Pumpcheck), so validify with 2h waterLimit
 */
 int8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject &pumpModel)
 {
-    int8_t solenoid = -1, errorCode = 4; // pumpModel has no Solenoids assigned (= currently not active)
+    // errorCode 4: pumpModel has no assigned Solenoids (= currently not active)
+    int8_t solenoid = -1, errorCode = 4;
 
     if (!pumpModel.isNull())
     {
@@ -347,8 +331,7 @@ int8_t Irrigation::solenoidByPump(Instruction &instr, JsonObject &pumpModel)
 }
 
 /*
-Find pumpModel by solenoid or name
-Found pumpModel is active in System (has solenoids)
+Find pumpModel by solenoid
 */
 JsonObject Irrigation::pumpModelBySolenoid(DynamicJsonDocument &pumps, uint8_t solenoidValve)
 {
@@ -373,8 +356,7 @@ JsonObject Irrigation::pumpModelBySolenoid(DynamicJsonDocument &pumps, uint8_t s
 }
 
 /*
-User initiates Pump Process of QR50E in Grafana
-Name as String Param
+Get pumpModel infos by name
 */
 JsonObject Irrigation::pumpModelByName(DynamicJsonDocument &pumps, const char pumpName[])
 {
@@ -396,13 +378,15 @@ JsonObject Irrigation::pumpModelByName(DynamicJsonDocument &pumps, const char pu
 }
 
 /*
-pumpModel has pwmChannel field (mongoDB)
-(Gives Info if pumpModel is currently connected and at which pin)
-Using Pump without solenoid Valves should be possible
-1-n Pumps per Cistern should be possible
-Connect/Disconnect solenoid Valve to Pump should be possible
+pumpModel has pwmChannel attribute (mongoDB)
+(-> pumpModel currently active in System and at which Pin)
+Possible User Actions:
+Use Pump without solenoid Valves
+Use 1-2 Pumps per Cistern 
+Connect/Disconnect solenoid Valve to Pump
 Connect/Disconnect Pump in System = Change pwmChannel field in mongoDB
-pwmChannel/Pin always associated with same pumpObj (no changes necessary)
+Channel is hardwired to pinArray, see Pins.h
+Only Pump SubStateMachine Obj. for all Pumps necessary, make static ?
 */
 void Irrigation::setPumpingParameters(Instruction &instr, JsonObject &pumpModel)
 {
@@ -412,26 +396,8 @@ void Irrigation::setPumpingParameters(Instruction &instr, JsonObject &pumpModel)
         return;
     }
 
-
+    // Channel is hardwired to pinArray, see Pins.h
     instr.pwmChannel = pumpModel["pwmChannel"];
-    
-    /*
-    // Adress correct pumpObj / pwmChannel
-    int pwmChannel = pumpModel["pwmChannel"];
-    if(pwmChannel == 1)
-    {
-        instr.pump = &pump2; // toF 0x52 not connected, dont use pump1
-    }     
-    else if(pwmChannel == 2)
-    {
-        instr.pump = &pump1;
-    }    
-    else
-    {
-        // Pump currently not active in System
-        instr.errorCode = 6;
-    }
-    */
 
     snprintf(instr.pumpModel, 32, pumpModel["name"]);
 
@@ -466,9 +432,9 @@ void Irrigation::printInstructions(std::vector<Instruction> &instructions)
 }
 
 /*
-For duplicate Instructions (Plants on same SolenoidValve): Take Min/Max/Avg waterAmount?
-Vec must be sorted first (by SolenoidValve/relaisChannel) for unique to work
-strcat is unsafe, stack smashing crash if char[] too small
+Remove Instructions with duplicate subjects (same SolenoidValve): Take Min/Max/Avg waterAmount?
+Sort Instructions before execution (prioritize plants? prioritize high waterAmount?)
+(Sort Vec first (e.g. by SolenoidValve/relaisChannel) for unique to work)
 */
 void Irrigation::reduceInstructions(std::vector<Instruction> &instructions)
 {
@@ -479,9 +445,6 @@ void Irrigation::reduceInstructions(std::vector<Instruction> &instructions)
     Serial.println(message);
 }
 
-/*
-Also implement sort by: pumpTime ?
-*/
 void Irrigation::sortInstructions(std::vector<Instruction> &instructions)
 {
     std::sort(instructions.begin(), instructions.end(), compareBySolenoid);
@@ -490,6 +453,39 @@ void Irrigation::sortInstructions(std::vector<Instruction> &instructions)
 bool Irrigation::compareBySolenoid(const Instruction &i1, const Instruction &i2)
 {
     return i1.solenoidValve > i2.solenoidValve;
+}
+
+bool Irrigation::reportInstruction(Instruction &instr)
+{
+    p2.clearTags(); p2.clearFields();
+
+    // Tags have to be Strings
+    char solenoidValve[4], errorCode[4];
+    itoa(instr.solenoidValve, solenoidValve, 10);
+    itoa(instr.errorCode, errorCode, 10);
+
+    p2.addTag("reason", instr.reason);
+    p2.addTag("pump", instr.pumpModel);
+    p2.addTag("solenoidValve", solenoidValve);
+    p2.addField("allocatedWater", instr.allocatedWater);
+    // p2.addField("distributedWater", instr.distributedWater);
+    // p2.addField("pumpTime", instr.pumpTime);
+    p2.addTag("errorCode", errorCode);
+
+    InfluxHelper::writeDataPoint(p2); // Write to Buffer
+
+    return true;
+}
+
+void Irrigation::clearInstructions()
+{
+    instructions.clear();
+}
+
+void Irrigation::printError(uint8_t errorCode)
+{
+    Serial.print("Reason: ");
+    Serial.println(errors[errorCode]);
 }
 
 /* Report to InfluxDB:
@@ -540,39 +536,6 @@ bool Irrigation::reportInstructions(std::vector<Instruction> &instructions)
     return true;
 }
 */
-
-bool Irrigation::reportInstruction(Instruction &instr)
-{
-    p2.clearTags(); p2.clearFields();
-
-    // Tags have to be Strings
-    char solenoidValve[4], errorCode[4];
-    itoa(instr.solenoidValve, solenoidValve, 10);
-    itoa(instr.errorCode, errorCode, 10);
-
-    p2.addTag("reason", instr.reason);
-    p2.addTag("pump", instr.pumpModel);
-    p2.addTag("solenoidValve", solenoidValve);
-    p2.addField("allocatedWater", instr.allocatedWater);
-    // p2.addField("distributedWater", instr.distributedWater);
-    // p2.addField("pumpTime", instr.pumpTime);
-    p2.addTag("errorCode", errorCode);
-
-    InfluxHelper::writeDataPoint(p2); // Write to Buffer
-
-    return true;
-}
-
-void Irrigation::clearInstructions()
-{
-    instructions.clear();
-}
-
-void Irrigation::printError(uint8_t errorCode)
-{
-    Serial.print("Reason: ");
-    Serial.println(errors[errorCode]);
-}
 
 /*
 Report to MongoDB

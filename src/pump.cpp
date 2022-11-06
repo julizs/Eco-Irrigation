@@ -1,10 +1,9 @@
 #include "Pump.h"
 
-Pump::Pump(int pwmChannel, int pwmPin, FlowMeter &f, Cistern &c) : flow(f), cistern(c)
+Pump::Pump(FlowMeter &f, Cistern &c) : flow(f), cistern(c)
 {
-    this->pwmChannel = pwmChannel;
-    this->pwmPin = pwmPin;
     setup();
+    setupPWM();
 }
 
 void Pump::setup()
@@ -16,26 +15,28 @@ void Pump::setup()
     pinMode(in2, OUTPUT);
     */
 
-    setupPWM();
-
     minStateDuration = 4;
     transCount = 0;
     maxSelfTrans = 3;
 
     lastState = (PumpState)-1;
-    pumpTime = constrain(pumpTime, 2.0f, 15.0f);
     measureIntervall = 1000; // ms
 }
 
+// Setup ALL pwmPins for Pumps
 void Pump::setupPWM()
 {
+
     frequency = 30000;
     resolution = 8; // bits
     dutyCycle = 200;
-    // Setup PWM Channel
-    pinMode(pwmPin, OUTPUT);
-    ledcSetup(pwmChannel, frequency, resolution);
-    ledcAttachPin(pwmPin, pwmChannel);
+
+    for(int i = 0; i < 2; i++) // numPumps
+    {
+        pinMode(pwmPins[i], OUTPUT);
+        ledcSetup(i, frequency, resolution);
+        ledcAttachPin(pwmPins[i], i);
+    }   
 }
 
 void Pump::loop()

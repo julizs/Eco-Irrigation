@@ -7,9 +7,9 @@
 #define DEVICE "ESP32"
 
 // Esp32 up to 16 pwm channels
-// const int pwmPins[] = {4,2}
-#define pump_PWM_1 4 // 23
-#define pump_PWM_2 2 // 19
+const int pwmPins[] = {4,2};
+// #define pump_PWM_1 4 // 23
+// #define pump_PWM_2 2 // 19
 #define toF_shut 19 // 4
 
 // I2C Busses

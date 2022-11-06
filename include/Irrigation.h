@@ -31,7 +31,6 @@ public:
     // static constexpr float pumpTimeLimit = 10.0f;
     // static FluxQueryResult waterPerSol;
     static std::vector<Instruction> instructions;
-    static std::vector<WaterPerSolenoid> recentIrrigations;
        
     static String errors[7];
     // static char const *errors[5];
@@ -43,6 +42,19 @@ public:
     static bool evaluatePlants();
     static void createInstructions(JsonArray &actions, std::vector<Instruction> &instructions);
     static void writeInstructions();
+
+    static bool reportInstruction(Instruction &instruction);
+    static void clearInstructions();
+    
+    static bool updateRecentIrrigations();
+    
+    static bool validSolenoid(uint8_t solenoidValve, uint16_t waterLimit, u16_t allocatedWater, uint8_t timePeriod);
+
+    static void printError(uint8_t errorCode);
+
+private:
+    static std::vector<WaterPerSolenoid> recentIrrigations;
+
     static int8_t solenoidByPlant(Instruction &instr, DynamicJsonDocument &plants);
     static int8_t solenoidByPump(Instruction &instr, JsonObject &pumpModel);
     static JsonObject pumpModelBySolenoid(DynamicJsonDocument &pumps, uint8_t solenoidValve);
@@ -53,18 +65,13 @@ public:
     static void sortInstructions(std::vector<Instruction> &instructions);
     static bool compareBySolenoid(const Instruction &i1, const Instruction &i2);
 
-    static void printInstructions(std::vector<Instruction> &instructions);
     // static bool reportInstructions(std::vector<Instruction> &instructions);
     // static bool reportToMongo(std::vector<Instruction> &instructions);
-    static bool reportInstruction(Instruction &instruction);
-    static void clearInstructions();
-    
-    static bool getRecentIrrigations();
+
     static FluxQueryResult querySolenoids(uint8_t timePeriod);
     static uint8_t queryMoisture(uint8_t threshold, uint8_t timePeriod);
     static uint16_t waterPerSolenoid(uint8_t solenoidValve, uint8_t timePeriod);
-    static bool validSolenoid(uint8_t solenoidValve, uint16_t waterLimit, u16_t allocatedWater, uint8_t timePeriod);
 
-    static void printError(uint8_t errorCode);
+    static void printInstructions(std::vector<Instruction> &instructions);
 };
 #endif // Irrigation_h

@@ -33,15 +33,15 @@ uint8_t Utilities::scanI2CBus(TwoWire *wire)
 }
 
 /*
-  https://arduinojson.org/v6/api/staticjsondocument/
-  https://arduinojson.org/v6/how-to/store-a-json-document-in-eeprom/
-  https://arduinojson.org/v6/how-to/determine-the-capacity-of-the-jsondocument/
-  https://arduinojson.org/v6/assistant/
-  EEPROM library on the ESP32 allows using at most 1 sector (4kB, 4096 Bytes) of Flash
-  Copy Paste Json into ArduinoJson Assistant to see recommended Size (Bytes)
-  StaticJsonDocument<1024> doc
-  DynamicJsonDocument(2048);
-  */
+https://arduinojson.org/v6/api/staticjsondocument/
+https://arduinojson.org/v6/how-to/store-a-json-document-in-eeprom/
+https://arduinojson.org/v6/how-to/determine-the-capacity-of-the-jsondocument/
+https://arduinojson.org/v6/assistant/
+EEPROM library on the ESP32 allows using at most 1 sector (4kB, 4096 Bytes) of Flash
+Copy Paste Json into ArduinoJson Assistant to see recommended Size (Bytes)
+StaticJsonDocument<1024> doc
+DynamicJsonDocument(2048);
+*/
 void Utilities::writeDoc(int address, DynamicJsonDocument &doc, int size)
 {
   EepromStream eepromStream(address, size);
@@ -60,31 +60,33 @@ DynamicJsonDocument Utilities::readDoc(int address, int size)
 
 /*
 In REQUEST State
-Convert Reports/Irrigations to Vector for quick validSolenoid Checks later
-(and evaluateIrrigation(), how much water Plants received lately)
+Convert Irrigation InfluxDB Cursor to Vector for efficient checks of many items with only 1 DB Request
+Used for quick solenoidValid() (iterate all solenoids, how much water output lately)
+and evaluateIrrigation() (iterate all plants how much water received lately, irrigation necessary)
+do not include "failed Irrigations" / Reports with invalid Solenoids (-1)
 
 CAREFUL with FluxQueryResult, if printed before this Function then Cursor is empty
 close() must be called after end of reading
-
 Check reportInstructions() if Value is _field or _tag (String!)
-This Vector is built based on Irrigations / Reports and used for checking waterLimits per Solenoid,
-so do not include "failed Irrigations" / Reports with invalid Solenoids (-1)
 */
 bool Utilities::cursorToVec(FluxQueryResult &cursor, std::vector<WaterPerSolenoid> &solenoids, uint8_t timePeriod)
 {
   String solenoidValveTag, errorCodeTag;
-  int solenoidValve, errorCode;
+  uint8_t solenoidValve, errorCode;
   uint16_t waterAmount;
 
   while (cursor.next())
   {
-    solenoidValveTag = cursor.getValueByName("solenoidValve").getString(); // Tag(s)
+    // Tag(s)
+    solenoidValveTag = cursor.getValueByName("solenoidValve").getString(); 
     errorCodeTag = cursor.getValueByName("errorCode").getString();
     solenoidValve = solenoidValveTag.toInt();
     errorCode = errorCodeTag.toInt();
+
+    // Field(s)
     waterAmount = cursor.getValueByName("_value").getLong();
 
-    // Only pick valid/actual Irrigations
+    // Only pick valid / executed Irrigations
     if(errorCode == 0 && solenoidValve != -1)
     {
       WaterPerSolenoid sol;
@@ -96,13 +98,12 @@ bool Utilities::cursorToVec(FluxQueryResult &cursor, std::vector<WaterPerSolenoi
 
     if (cursor.getError() != "")
     {
-      Serial.println("Vector write Error: ");
+      Serial.println("CursorToVec() Error: ");
       Serial.println(cursor.getError());
       return false;
     }
   }
   
-  // Serial.println("Wrote FluxCursor to Vector.");
   cursor.close();
 
   return true;
@@ -151,9 +152,9 @@ void Utilities::printSolenoids(std::vector<WaterPerSolenoid> &solenoids)
 
 bool Utilities::containsDestination(String dest)
 {
-  for (int i = 0; i < transDestinations.size(); i++)
+  for (int i = 0; i < manualTransitions.size(); i++)
   {
-      if(transDestinations.get(i).equals(dest))
+      if(manualTransitions.get(i).equals(dest))
       return true;
   }
   return false;
@@ -161,15 +162,15 @@ bool Utilities::containsDestination(String dest)
 
 void Utilities::printDestinations()
 {
-  if(transDestinations.size() > 0)
+  if(manualTransitions.size() > 0)
   {
     Serial.print("Manual Transitions List: ");
-    for (int i = 0; i < transDestinations.size(); i++)
+    for (int i = 0; i < manualTransitions.size(); i++)
     {
-      Serial.print(transDestinations.get(i));
+      Serial.print(manualTransitions.get(i));
       Serial.print(" ");
     }
-    Serial.println(transDestinations.size());
+    Serial.println(manualTransitions.size());
   }
   else
   {
@@ -177,7 +178,7 @@ void Utilities::printDestinations()
   }
 }
 
-bool Utilities::countTime(long begin, uint8_t duration)
+bool Utilities::countTime(long beginMillis, uint8_t durationSec)
 {
-  return (millis() - begin >= duration * 1000UL);
+  return (millis() - beginMillis >= durationSec * 1000UL);
 }

@@ -250,7 +250,7 @@ bool Services::readSettings()
     {
       String dest = destinations.getElement(i).as<String>();
       if(dest.length() > 0) // Don't add " ", or wrong Count
-        transDestinations.add(dest);
+        manualTransitions.add(dest);
     }
   }
 
@@ -275,8 +275,8 @@ bool Services::readSettings()
     */
     if(!Utilities::containsDestination("ACTION"))
     {
-      transDestinations.add("ACTION");
-      transDestinations.add("TRANSMIT");
+      manualTransitions.add("ACTION");
+      manualTransitions.add("TRANSMIT");
     } 
   }
   

@@ -17,6 +17,8 @@
 #include <math.h>
 // #include <Settings.h>
 
+static Utilities utils;
+
 const char baseUrl[] = "https://juli.uber.space/node";
 int WATER_LIMIT_2h = 1000, WATER_LIMIT_24h = 4000; // ml
 float PUMP_TIME_LIMIT = 10.0f;
@@ -29,30 +31,24 @@ TwoWire I2Cone = TwoWire(0), I2Ctwo = TwoWire(1);
 PowerMeter powerMeter1(I2Ctwo);
 AmbientClimate climate1(2.0f, dhtInPin); // DHT22
 AmbientLight lightSensor1(1), lightSensor2(2);
-FlowMeter flowMeter1(flowPin);
 StatusDisplay displayController;
 
 // uint8_t solenoids1[] = {1, 2}, solenoids2[] = {};
+FlowMeter flowMeter1(flowPin);
 Cistern cistern2(0x52); // cistern1(0x51, flowMeter1)
-Pump pump1(0, pump_PWM_1, flowMeter1, cistern2), pump2(1, pump_PWM_2, flowMeter1, cistern2);
-
+Pump pump1(flowMeter1, cistern2); // pump2(flowMeter1, cistern2);
 
 StateMachine fsm = StateMachine();
 State *currentState = nullptr, *nextState = nullptr, *referralState = nullptr;
 State *idleState, *initState, *connectState, *requestState, *measureState, *evaluateState, *actionState, *transmitState, *errorState;
+
+char *critErrMessage = nullptr;
 uint8_t critErrCode = 0;
-char *critErrMessage = "";
-// const char *critErrMessage[] = {"None", "Final Fail to connect WiFi", "Final Fail to connect to InfluxDB", "Final Fail to setup ToFs"};
-// const char *stateNames[] = {"IDLE", "INIT", "CONNECT", "REQUEST", "MEASURE", "EVALUATE", "ACTION", "TRANSMIT", "ERROR"};
+const char *critErrMessages[] = {"No Error", "Final Fail to connect WiFi", "Final Fail to connect to InfluxDB", "Final Fail to setup ToFs"};
 
-// Efficient remove at start, add at end, no random access; Why not vector?
-LinkedList<String> transDestinations = LinkedList<String>(); // "Eingabewörter"
+// Use Indexes instead; Use Vector?
+LinkedList<String> manualTransitions = LinkedList<String>();
 // std::vector<String> transDestinations = {};
-
-bool countTime(int durationSec)
-{
-  return (millis() - stateBeginMillis >= durationSec * 1000UL);
-}
 
 State *getStateByName(String stateName)
 {
@@ -80,7 +76,7 @@ void addCycle()
   for (int i = 1; i < fsm.stateList->size() - 1; i++)
   {
     State *state = fsm.stateList->get(i);
-    transDestinations.add(state->name);
+    manualTransitions.add(state->name);
   }
 }
 
@@ -99,10 +95,9 @@ bool measureSensors()
 
   // ENVIRONMENT_DATA
   p0.addTag("device", DEVICE);
-  p0.addTag("SSID", WiFi.SSID());
-
-  byte rssi = WiFi.RSSI();
-  // p0.addField("rssi", rssi);
+  // p0.addTag("SSID", WiFi.SSID());
+  int8_t rssi = WiFi.RSSI();
+  p0.addField("rssi", rssi);
 
   // Measure AmbientClimate (or contact SensorBox)
 
@@ -203,9 +198,9 @@ bool transitionToIdle()
 {
   if (currentState->didActivities)
   {
-    if (transDestinations.get(0).equals(currentState->name) && SLEEP_TYPE == 0)
+    if (manualTransitions.get(0).equals(currentState->name) && SLEEP_TYPE == 0)
     {
-      transDestinations.remove(0);
+      manualTransitions.remove(0);
       // printDestinations();
       nextState = idleState;
       return true;
@@ -249,18 +244,16 @@ Only do when in manual Idle Mode
 
 bool transitionToTarget()
 {
-  int index;
-
   // if (SLEEP_TYPE == 0)
   {
     if (currentState->didActivities)
     {
       // printDestinations();
 
-      if (transDestinations.size() > 0)
+      if (manualTransitions.size() > 0)
       {
-        State *target = getStateByName(transDestinations.get(0));
-        transDestinations.remove(0);
+        State *target = getStateByName(manualTransitions.get(0));
+        manualTransitions.remove(0);
 
         if (target != nullptr)
         {
@@ -329,12 +322,12 @@ void on_idleState()
       int pollingInterval = 5;
       if (currentState->transCount % pollingInterval == 0)
       {
-        transDestinations.add("REQUEST");
+        manualTransitions.add("REQUEST");
       } 
 
       // doPolling, stop idling, OR:
       // User has set a manual transitionTarget, stop idling
-      currentState->didActivities = transDestinations.size() > 0;
+      currentState->didActivities = manualTransitions.size() > 0;
     }
     else if (SLEEP_TYPE == 1) // Light Sleep
     {
@@ -363,7 +356,7 @@ void on_idleState()
   }
 
   // Check constantly after minStateTime is up
-  if (countTime(currentState->minStateTime))
+  if (utils.countTime(stateBeginMillis, currentState->minStateTime))
   {
     if (transitionToTarget())
       return;
@@ -398,7 +391,7 @@ void on_initState()
     lightSensor2.setup(I2Ctwo);
   }
 
-  if (countTime(currentState->minStateTime))
+  if (utils.countTime(stateBeginMillis, currentState->minStateTime))
   {
     Utilities::scanI2CBus(&I2Cone);
     Utilities::scanI2CBus(&I2Ctwo);
@@ -447,7 +440,7 @@ void on_connectState()
     // connectState->didActivities = connectToBox();
   }
 
-  if (countTime(currentState->minStateTime))
+  if (utils.countTime(stateBeginMillis, currentState->minStateTime))
   {
     if (transitionToTarget())
       return;
@@ -471,12 +464,12 @@ void on_requestState()
     Choose which one is critical to repeat or not (dont include in if statement)
     */
     // Irrigation::getRecentIrrigations(); not critical, one try
-    if(!Irrigation::getRecentIrrigations() || !Services::readSettings())
+    if(!Irrigation::updateRecentIrrigations() || !Services::readSettings())
       transitionToSelf();
     currentState->didActivities = true;
   }
 
-  if (countTime(currentState->minStateTime))
+  if (utils.countTime(stateBeginMillis, currentState->minStateTime))
   {
     // Serial.println("Manual Transitions: ");
     // printDestinations();
@@ -501,7 +494,7 @@ void on_measureState()
 #endif
   }
 
-  if (countTime(currentState->minStateTime))
+  if (utils.countTime(stateBeginMillis, currentState->minStateTime))
   {
     if (transitionToTarget())
       return;
@@ -519,7 +512,7 @@ void on_evaluateState()
     evaluateState->didActivities = Irrigation::evaluatePlants();
   }
 
-  if (countTime(currentState->minStateTime))
+  if (utils.countTime(stateBeginMillis, currentState->minStateTime))
   {
     if (transitionToTarget())
       return;
@@ -555,7 +548,7 @@ void on_actionState()
   {
     commonStateLogic();
 
-    if (!Irrigation::instructions.size() > 0)
+    if (Irrigation::instructions.size() == 0)
     {
       Serial.println("No scheduled automatic or manual Irrigations.");
       actionState->didActivities = true;
@@ -570,6 +563,7 @@ void on_actionState()
       {
         // runInstruction (auslagern)
 
+        // Always use same Obj. for Substatemachine, or make static
         // Pump *pump = instr.pump;
         Pump *pump = &pump1;
 
@@ -621,7 +615,7 @@ void on_actionState()
   }
 #endif
 
-  if (countTime(currentState->minStateTime))
+  if (utils.countTime(stateBeginMillis, currentState->minStateTime))
   {
     /*
     // Go back to EVALUATE if instructions were manual
@@ -649,7 +643,7 @@ void on_transmitState()
     transmitState->didActivities = InfluxHelper::writeBuffer();
   }
 
-  if (countTime(currentState->minStateTime))
+  if (utils.countTime(stateBeginMillis, currentState->minStateTime))
   {
     if (transitionToTarget())
       return;
@@ -667,7 +661,7 @@ void on_errorState()
     Serial.println(critErrMessage[critErrCode]);
   }
 
-  if(countTime(currentState->minStateTime))
+  if(utils.countTime(stateBeginMillis, currentState->minStateTime))
     ESP.restart();
 }
 
@@ -724,7 +718,6 @@ void setup()
   attachInterrupt(flowPin, onInterrupt_1, RISING);
 
   pump1.add_callback(setupToFs);
-  pump2.add_callback(setupToFs);
 
   displayController.setupLEDMatrix();
 
@@ -740,7 +733,7 @@ void setup()
   transmitState = fsm.addState(&on_transmitState);
   errorState = fsm.addState(&on_errorState);
 
-  // Write another Constructor for State?
+  // Write Constructor for State?
   idleState->name = "IDLE";
   initState->name = "INIT";
   connectState->name = "CONNECT";
