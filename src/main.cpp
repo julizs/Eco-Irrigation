@@ -14,10 +14,12 @@
 #include <Pump.h>
 #include <LinkedList.h>
 #include <ISubStateMachine.h>
+#include <Evaluation.h>
 #include <math.h>
 // #include <Settings.h>
 
 static Utilities utils;
+static Evaluation eval;
 
 const char baseUrl[] = "https://juli.uber.space/node";
 int WATER_LIMIT_2h = 1000, WATER_LIMIT_24h = 4000; // ml
@@ -464,7 +466,7 @@ void on_requestState()
     Choose which one is critical to repeat or not (dont include in if statement)
     */
     // Irrigation::getRecentIrrigations(); not critical, one try
-    if(!Irrigation::updateRecentIrrigations() || !Services::readSettings())
+    if(!Irrigation::updateWaterDistribution() || !Services::readSettings())
       transitionToSelf();
     currentState->didActivities = true;
   }
@@ -509,7 +511,7 @@ void on_evaluateState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
-    evaluateState->didActivities = Irrigation::evaluatePlants();
+    evaluateState->didActivities = eval.evaluatePlants();
   }
 
   if (utils.countTime(stateBeginMillis, currentState->minStateTime))

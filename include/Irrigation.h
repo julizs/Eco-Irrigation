@@ -7,6 +7,8 @@
 #include <Pump.h>
 #include <Settings.h>
 
+using std::vector;
+
 // class Pump; // Forward Decl
 
 // Infos for Pump Process and Reports
@@ -26,11 +28,14 @@ struct Instruction
 
 class Irrigation
 {
+    friend class Evaluation;
 
 public:
     // static constexpr float pumpTimeLimit = 10.0f;
     // static FluxQueryResult waterPerSol;
-    static std::vector<Instruction> instructions;
+
+    static vector<Instruction> instructions;
+    const vector<Instruction> & getInstructions() const;
        
     static String errors[7];
     // static char const *errors[5];
@@ -39,21 +44,25 @@ public:
     char const *errors[5] = {"None", "Did not find Plant", "Solenoid invalid (Waterlimit)",
                              "Pump has no Solenoids assigned.", "Pump has no valid Solenoids (Waterlimit)"};*/                    
 
-    static bool evaluatePlants();
     static void createInstructions(JsonArray &actions, std::vector<Instruction> &instructions);
     static void writeInstructions();
 
     static bool reportInstruction(Instruction &instruction);
     static void clearInstructions();
     
-    static bool updateRecentIrrigations();
+    // Water Distr per Solenoid per Time Period
+    static bool updateWaterDistribution();
+    const vector<WaterPerSolenoid> & getWaterDistr() const;
     
     static bool validSolenoid(uint8_t solenoidValve, uint16_t waterLimit, u16_t allocatedWater, uint8_t timePeriod);
 
     static void printError(uint8_t errorCode);
 
 private:
-    static std::vector<WaterPerSolenoid> recentIrrigations;
+    // static vector<Instruction> instructions;
+    static vector<WaterPerSolenoid> waterDistribution;
+
+    static bool evaluatePlants();
 
     static int8_t solenoidByPlant(Instruction &instr, DynamicJsonDocument &plants);
     static int8_t solenoidByPump(Instruction &instr, JsonObject &pumpModel);

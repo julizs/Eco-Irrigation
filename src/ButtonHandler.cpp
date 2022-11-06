@@ -1,12 +1,11 @@
 #include <ButtonHandler.h>
 
-// Definition of static Variables
 uint16_t ButtonHandler::lastDebounceTime = 0;
 uint8_t ButtonHandler::debounceDelay = 50;
 uint8_t ButtonHandler::buttonState = HIGH;
 uint8_t ButtonHandler::lastButtonState = HIGH;
 
-// https://www.arduino.cc/en/Tutorial/BuiltInExamples/Debounce
+// Source: https://www.arduino.cc/en/Tutorial/BuiltInExamples/Debounce
 void ButtonHandler::handleHardwareButtons()
 {
   // int reading = digitalRead(button1Pin);
@@ -39,10 +38,9 @@ void ButtonHandler::handleHardwareButtons()
         {
           wateringNeeded = false;
         }
-        */
-
-        /*
-        if (fsm.currentState != 4) // otherwise ACTION state before PUMP_IDLE when pressed while Pumping
+        
+        // otherwise ACTION state before PUMP_IDLE when pressed while Pumping
+        if (fsm.currentState != 4) 
         {
           fsm.transitionTo(actionState);
         }

@@ -5,7 +5,7 @@
 // https://github.com/tobiasschuerg/InfluxDB-Client-for-Arduino#parametrized-queries
 
 std::vector<Instruction> Irrigation::instructions;
-std::vector<WaterPerSolenoid> Irrigation::recentIrrigations; // waterDistribution
+std::vector<WaterPerSolenoid> Irrigation::waterDistribution; // waterDistribution
 // std::string Irrigation::errors[] = {"Test"};
 String Irrigation::errors[] = {"None", "Plant not found", "Solenoid invalid (Not existing)", "Solenoid invalid (Waterlimit)",
                              "Pump has no Solenoids assigned.", "Pump has no valid Solenoids (Waterlimit)",
@@ -64,13 +64,24 @@ uint8_t Irrigation::queryMoisture(uint8_t threshold, uint8_t timePeriod)
     FluxQueryResult cursor = InfluxHelper::doQuery(query);
 }
 
+
+const vector<Instruction> & Irrigation::getInstructions() const
+{
+    return instructions;
+}
+
+const vector<WaterPerSolenoid> & Irrigation::getWaterDistr() const
+{
+    return waterDistribution;
+}
+
 /*
 Get all recent Irrigations (in ml) per Solenoid per time period (2 hours, 1 day, 1 week)
 Write to local datastructure for fast validity checks
 */
-bool Irrigation::updateRecentIrrigations()
+bool Irrigation::updateWaterDistribution()
 {
-    recentIrrigations.clear();
+    waterDistribution.clear();
 
     int timePeriods[] = {2, 24, 168};
 
@@ -82,11 +93,11 @@ bool Irrigation::updateRecentIrrigations()
         if(cursor.getError() != "")
             return false;
 
-        while (!Utilities::cursorToVec(cursor, recentIrrigations, timePeriods[i]))
+        while (!Utilities::cursorToVec(cursor, waterDistribution, timePeriods[i]))
             ;
     }
 
-    Utilities::printSolenoids(recentIrrigations);
+    Utilities::printSolenoids(waterDistribution);
 
     return true;
 }
@@ -98,7 +109,7 @@ uint16_t Irrigation::waterPerSolenoid(uint8_t solenoidValve, uint8_t timePeriod)
 {
     uint16_t waterAmount = 0;
 
-    for (auto const &sol : recentIrrigations)
+    for (auto const &sol : waterDistribution)
     {
         if (sol.solenoidValve == solenoidValve && sol.timePeriod == timePeriod)
         {
