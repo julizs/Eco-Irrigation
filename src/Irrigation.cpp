@@ -76,6 +76,7 @@ const vector<WaterPerSolenoid> & Irrigation::getWaterDistr() const
 }
 
 /*
+(Do for all Solenoids)
 Get all recent Irrigations (in ml) per Solenoid per time period (2 hours, 1 day, 1 week)
 Write to local datastructure for fast validity checks
 */
@@ -261,6 +262,7 @@ void Irrigation::writeInstructions()
 
 /*
 break: found matching solenoid for plant (valid or invalid), break for loop
+No solenoid found: returns -1
 */
 int8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &plants)
 {

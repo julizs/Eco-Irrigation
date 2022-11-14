@@ -9,7 +9,7 @@ class Multiplexer
 public:
     
     static void setupPins();
-    static int readChannel(uint8_t channel);
+    static uint16_t readChannel(uint8_t channel);
 };
 
 #endif // Multiplexer.h

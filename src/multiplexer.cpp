@@ -14,7 +14,7 @@ void Multiplexer::setupPins()
   digitalWrite(S3, LOW);
 }
 
-int Multiplexer::readChannel(uint8_t channel)
+uint16_t Multiplexer::readChannel(uint8_t channel)
 {
      int controlPin[] = {S0, S1, S2, S3};
      int muxChannel[16][4]={ 
@@ -44,6 +44,6 @@ int Multiplexer::readChannel(uint8_t channel)
 
      delay(50);
 
-     int val = analogRead(SIG);
+     uint16_t val = analogRead(SIG);
      return val;
 }

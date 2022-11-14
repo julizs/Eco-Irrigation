@@ -1,9 +1,13 @@
 #ifndef Pump_h
 #define Pump_h
 #include <Cistern.h>
-// #include <FlowMeter.h>
-// #include <Irrigation.h>
+#include <FlowMeter.h>
+#include <Utilities.h>
+#include <Irrigation.h>
 // #include "Adafruit_INA219.h"
+
+// Forward Decl
+struct Instruction;
 
 enum class PumpState
 {
@@ -13,7 +17,7 @@ enum class PumpState
     ABORT
 };
 
-class Pump : public ISubStateMachine
+class Pump: public ISubStateMachine
 {
     // Func Pointer to call Methode from Main
     using callback = void (*)();
@@ -34,18 +38,19 @@ public:
     uint32_t measureIntervall, currentTime, lastTime;
 
     // Set by Irrigation Algo
-    uint16_t allocatedWater;
-    uint8_t relaisChannel;
-    float pumpTime;
+    const Instruction *instr;
+    // uint16_t allocatedWater;
+    // uint8_t relaisChannel;
+    // float pumpTime;
 
     // Pwm Control
     uint8_t resolution, pwmChannel;
     uint16_t frequency, dutyCycle;
 
-    FlowMeter &flow;
+    FlowMeter *flow;
     Cistern &cistern;
 
-    Pump(FlowMeter &flow, Cistern &cistern);
+    Pump(Cistern &cistern);
 
     // Implement to inherit from abstract class
     // ISubstateMachine (aka C++ "interface")
@@ -56,12 +61,13 @@ public:
     void add_callback(callback act);
 
 private:
+    Utilities utils;
     void setup();
     void setupPWM();
     void switchOn();
     void switchOff();
     void commonStateLogic();
-    bool countTime(float durationSec);
+    // bool countTime(float durationSec);
     void printError();
 
     // Direct Func, no StateMachine run?

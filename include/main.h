@@ -19,7 +19,7 @@ class FlowMeter;
 
 // Commonly used Sensor Objects
 extern PowerMeter powerMeter1;
-extern FlowMeter flowMeter1;
+// extern FlowMeter flowMeter1;
 
 // #define SLEEPTYPE 0 // No/Light/Modem/... Sleep
 #define DO_MEASURE 1
@@ -29,12 +29,13 @@ extern FlowMeter flowMeter1;
 
 extern TwoWire I2Cone, I2Ctwo;
 extern uint8_t SLEEP_TYPE, SLEEP_DUR, IDLE_DUR, STATE_MIN_DUR;
+extern bool hwButtonsEnabled;
 extern LinkedList<String> manualTransitions;
 // extern LinkedList<ISubStateMachine*> actions;
 
 extern const char baseUrl[];
 
-extern const char *critErrMessages[];
+extern const char *const critErrMessages[];
 extern uint8_t critErrCode;
 
 #endif //main_h

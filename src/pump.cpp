@@ -1,7 +1,11 @@
 #include "Pump.h"
 
-Pump::Pump(FlowMeter &f, Cistern &c) : flow(f), cistern(c)
+// FlowMeter flow(flowPin);
+
+// Add flowPin Number to Constr if multiple FlowMeters
+Pump::Pump(Cistern &c) : cistern(c)
 {
+    flow = new FlowMeter(flowPin1);
     setup();
     setupPWM();
 }
@@ -57,7 +61,7 @@ void Pump::loop()
                 cistern.setupToF();
         }
 
-        if (countTime(minStateDuration))
+        if (utils.countTime(stateBeginMillis, minStateDuration))
         {
             // All setup attemps failed
             if (!cistern.toF_ready())
@@ -75,7 +79,7 @@ void Pump::loop()
                 }  
             }
             // Should this check also be done before, in Irrigation class?
-            else if(!cistern.validLiquidLevel(allocatedWater))
+            else if(!cistern.validLiquidLevel(instr->allocatedWater))
             {
                 errorCode = 3;
                 currentState = PumpState::ABORT;
@@ -101,7 +105,7 @@ void Pump::loop()
 
             // Details Relais-Shield (NO)
             // https://randomnerdtutorials.com/esp8266-relay-module-ac-web-server/
-            cistern.driveSolenoid(relaisChannel, LOW);
+            cistern.driveSolenoid(instr->solenoidValve, LOW);
         }
 
         // do / State Function
@@ -117,7 +121,7 @@ void Pump::loop()
             // Measure and writePoints
 
             // cistern.meter.measureFlow();
-            flowMeter1.writePoint();
+            flow->writePoint();
 
             // powerMeter1.measureIna();
             powerMeter1.measureAndSubmit();
@@ -132,9 +136,10 @@ void Pump::loop()
         */
 
         // Check constantly
-        if (countTime(minStateDuration) && countTime(pumpTime))
+        if (utils.countTime(stateBeginMillis, minStateDuration) 
+        && utils.countTime(stateBeginMillis, instr->pumpTime))
         {
-            Serial.println(pumpTime);
+            Serial.println(instr->pumpTime);
             Serial.println("Done");
             // exit / State Function
             currentState = PumpState::DONE;
@@ -151,9 +156,9 @@ void Pump::loop()
 
             switchOff();
 
-            cistern.driveSolenoid(relaisChannel, HIGH);
+            cistern.driveSolenoid(instr->solenoidValve, HIGH);
 
-            flowMeter1.measureAmount();
+            flow->measureAmount();
 
             // Only measure if Water was pumped
             // toF must be setup correctly, or crash here
@@ -161,7 +166,7 @@ void Pump::loop()
             cistern.updateLiquidAmount();
         }
 
-        if (countTime(minStateDuration))
+        if (utils.countTime(stateBeginMillis, minStateDuration))
         {
             isDone = true;
         }
@@ -177,7 +182,7 @@ void Pump::loop()
             printError();
         }
 
-        if (countTime(minStateDuration))
+        if (utils.countTime(stateBeginMillis, minStateDuration))
         {
             isDone = true;
         }
@@ -213,11 +218,6 @@ void Pump::switchOn()
 void Pump::switchOff()
 {
     ledcWrite(pwmChannel, 0);
-}
-
-bool Pump::countTime(float durationSec)
-{
-    return (millis() - stateBeginMillis >= durationSec * 1000UL);
 }
 
 void Pump::commonStateLogic()

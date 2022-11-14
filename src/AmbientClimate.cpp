@@ -17,26 +17,26 @@ void AmbientClimate::loop()
 {
   switch (currentState)
   {
-  case MeasureState::IDLE:
+  case DhtState::IDLE:
 
     if (lastState != currentState)
     {
       stateBeginMillis = millis();
       Serial.println("DHT22 Idle.");
 
-      printInfo();
+      sensorInfo();
     }
 
     if (millis() - stateBeginMillis > minStateTime)
     {
-      currentState = MeasureState::MEASURE;
+      currentState = DhtState::MEASURE;
     }
 
-    lastState = MeasureState::IDLE;
+    lastState = DhtState::IDLE;
 
     break;
 
-  case MeasureState::MEASURE:
+  case DhtState::MEASURE:
 
     // Entry Func, do once
     if (lastState != currentState)
@@ -52,21 +52,21 @@ void AmbientClimate::loop()
     if (millis() - stateBeginMillis > maxPollingRate)
     {
       // Stay in State and recheck every 2s, or transition to Self to remeasure
-      if (!validHumidity() || !validTemperature())
+      if (!validHumidity(data.humidity) || !validTemperature(data.temperature))
       {
-        lastState = MeasureState::IDLE; // to run Entry Func again
-        currentState = MeasureState::MEASURE;
+        lastState = DhtState::IDLE; // to run Entry Func again
+        currentState = DhtState::MEASURE;
       }
       else
       {
-        lastState = MeasureState::MEASURE;
-        currentState = MeasureState::DONE;
+        lastState = DhtState::MEASURE;
+        currentState = DhtState::DONE;
       }
     }
 
     break;
 
-  case MeasureState::DONE:
+  case DhtState::DONE:
 
     if (lastState != currentState)
     {
@@ -74,12 +74,12 @@ void AmbientClimate::loop()
       writePoint();
     }
 
-    lastState = MeasureState::DONE;
+    lastState = DhtState::DONE;
     break;
   }
 }
 
-void AmbientClimate::printInfo()
+void AmbientClimate::sensorInfo()
 {
   char message[128];
   snprintf(message, 128, "Climate Sensor: Model: %d, maxPolling/minSample: %dms, Status: %d",
@@ -99,19 +99,19 @@ void AmbientClimate::writePoint()
   p0.addField("ambientHumidity", data.humidity);
 }
 
-float AmbientClimate::measureHumidityDHT()
+float AmbientClimate::measureHumidity()
 {
   float humidity = dht.getHumidity();
   return humidity;
 }
 
-float AmbientClimate::measureTemperatureDHT()
+float AmbientClimate::measureTemperature()
 {
   float temperature = dht.getTemperature();
   return temperature;
 }
 
-bool AmbientClimate::validHumidity()
+bool AmbientClimate::validHumidity(float humidity)
 {
   if (isnan(humidity) || humidity >= dht.getUpperBoundHumidity() || humidity <= dht.getLowerBoundHumidity())
   {
@@ -120,7 +120,7 @@ bool AmbientClimate::validHumidity()
   return true;
 }
 
-bool AmbientClimate::validTemperature()
+bool AmbientClimate::validTemperature(float temperature)
 {
   if (isnan(temperature) || temperature >= dht.getUpperBoundTemperature() || temperature <= dht.getLowerBoundTemperature())
   {

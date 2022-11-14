@@ -39,7 +39,7 @@ class Cistern
 
         void updateLiquidPumped();
         void updateLiquidAmount();
-        void driveSolenoid(uint8_t relaisChannel, uint8_t state);       
+        void driveSolenoid(uint8_t relaisChannel, uint8_t state);   
 
     private: 
         void readToF(int distances[]);

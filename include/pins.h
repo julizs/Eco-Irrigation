@@ -34,7 +34,7 @@ const int pwmPins[] = {4,2};
 // (Pins 34 and 35 can only be input, no output)
 // #define button1Pin, button2Pin
 #define dhtInPin 34 // DHT22
-#define flowPin 35 // Waterflow Sensor
+#define flowPin1 35 // Waterflow Sensor
 
 // Relais
 const int relaisPins[] = {15,23};
@@ -45,6 +45,12 @@ const int relaisPins[] = {15,23};
 //#define enA 34
 //#define in1 35
 //#define in2 32
+
+/*
+Change I2C Adr from Standard (0x29) for multiple Sensors
+(0x29 also conflicts with TSL2591)
+*/
+const int toF_Adresses[] = {0x51, 0x52};
 
 #elif defined(ESP8266)
 #define DEVICE "ESP8266"

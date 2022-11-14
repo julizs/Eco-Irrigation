@@ -3,15 +3,14 @@
 #include <DHTesp.h>
 #include <main.h>
 
-// https://stackoverflow.com/questions/4337193/how-to-set-enum-to-null
-enum class MeasureState
+enum class DhtState
 {
     IDLE,
     MEASURE,
     DONE
 };
 
-struct DHTdata
+struct DhtData
 {
     float temperature;
     float humidity;
@@ -20,25 +19,25 @@ struct DHTdata
 class AmbientClimate
 {
     public:
-    DHTesp dht;
-    DHTdata data;
-    uint8_t pinNum;
-    float maxPollingRate, minStateTime;
-    float temperature, humidity;
-    unsigned long stateBeginMillis;
-    MeasureState currentState, lastState;
+    DhtData data;
+    uint8_t pinNum;  
+    DhtState currentState, lastState;
  
+    // DHT 11/22 different pollingRates
     AmbientClimate(float maxPollingRate, uint8_t pinNum);
     void setup();
     void loop();
-    DHTdata measureClimateDHT();
+    DhtData measureClimate();
 
-    // private:
-    float measureHumidityDHT();
-    float measureTemperatureDHT();
-    bool validHumidity();
-    bool validTemperature();
-    void printInfo();
+    private:
+    DHTesp dht;
+    unsigned long stateBeginMillis;
+    float maxPollingRate, minStateTime; 
+    float measureHumidity();
+    float measureTemperature();
+    bool validHumidity(float humidity);
+    bool validTemperature(float temperature);
+    void sensorInfo();
     void writePoint();
 };
 

@@ -1,14 +1,14 @@
-// #include <PowerMeter.h>
 #include <main.h>
 #include <LinkedList.h>
-#include <StateMachine.h>
+#include <StateMachine.h> // Quelle: https://github.com/jrullan/StateMachine
 #include <ArduinoJson.h>
 #include <Irrigation.h>
 #include <Utilities.h>
 #include <AmbientClimate.h>
 #include <SoilMoisture.h>
 #include <AmbientLight.h>
-#include <FlowMeter.h>
+// #include <FlowMeter.h>
+// #include <PowerMeter.h>
 #include <StatusDisplay.h>
 #include <ButtonHandler.h>
 #include <Pump.h>
@@ -27,7 +27,7 @@ float PUMP_TIME_LIMIT = 10.0f;
 uint8_t IDLE_DUR = 4, SLEEP_TYPE = 0, SLEEP_DUR = 16, STATE_MIN_DUR = 4;
 uint32_t stateBeginMillis = 0;
 
-TaskHandle_t Task1, Task2;
+TaskHandle_t FSM_Main_Task; // runs hierarchical StateMachine
 TwoWire I2Cone = TwoWire(0), I2Ctwo = TwoWire(1);
 
 PowerMeter powerMeter1(I2Ctwo);
@@ -36,9 +36,9 @@ AmbientLight lightSensor1(1), lightSensor2(2);
 StatusDisplay displayController;
 
 // uint8_t solenoids1[] = {1, 2}, solenoids2[] = {};
-FlowMeter flowMeter1(flowPin);
-Cistern cistern2(0x52); // cistern1(0x51, flowMeter1)
-Pump pump1(flowMeter1, cistern2); // pump2(flowMeter1, cistern2);
+// FlowMeter flowMeter1(flowPin);
+Cistern cistern2(toF_Adresses[1]); // cistern1(0x51, flowMeter1)
+Pump pump1(cistern2); // pump2(flowMeter1, cistern2);
 
 StateMachine fsm = StateMachine();
 State *currentState = nullptr, *nextState = nullptr, *referralState = nullptr;
@@ -46,7 +46,8 @@ State *idleState, *initState, *connectState, *requestState, *measureState, *eval
 
 char *critErrMessage = nullptr;
 uint8_t critErrCode = 0;
-const char *critErrMessages[] = {"No Error", "Final Fail to connect WiFi", "Final Fail to connect to InfluxDB", "Final Fail to setup ToFs"};
+const char *const critErrMessages[] = {"No Error", "Final Fail to connect WiFi", "Final Fail to connect to InfluxDB", "Final Fail to setup ToFs"};
+
 
 // Use Indexes instead; Use Vector?
 LinkedList<String> manualTransitions = LinkedList<String>();
@@ -401,7 +402,7 @@ void on_initState()
     // Start checking bool after minStateTime, Give Sensors time to init
     initState->didActivities = powerMeter1.isReady();
     initState->didActivities = lightSensor2.isReady();
-    climate1.printInfo();
+    // climate1.printInfo();
 
     if (transitionToTarget())
       return;
@@ -466,7 +467,8 @@ void on_requestState()
     Choose which one is critical to repeat or not (dont include in if statement)
     */
     // Irrigation::getRecentIrrigations(); not critical, one try
-    if(!Irrigation::updateWaterDistribution() || !Services::readSettings())
+    // !Irrigation::updateWaterDistribution() || 
+    if(!Services::readSettings())
       transitionToSelf();
     currentState->didActivities = true;
   }
@@ -565,7 +567,7 @@ void on_actionState()
       {
         // runInstruction (auslagern)
 
-        // Always use same Obj. for Substatemachine, or make static
+        // Always use same Obj. for Submachine, or make static
         // Pump *pump = instr.pump;
         Pump *pump = &pump1;
 
@@ -575,10 +577,11 @@ void on_actionState()
           pump->resetMachine();
 
           // Needed Infos for StateMachine Run
-          pump->pumpTime = instr.pumpTime;
+          pump->instr = &instr;
+          // pump->pumpTime = instr.pumpTime;
           // pump->cistern.maxPossibleDist = 5;
-          pump->allocatedWater = instr.allocatedWater;
-          pump->relaisChannel = instr.solenoidValve;
+          // pump->allocatedWater = instr.allocatedWater;
+          // pump->relaisChannel = instr.solenoidValve;
 
           while (!pump->machineDone())
           {
@@ -667,6 +670,11 @@ void on_errorState()
     ESP.restart();
 }
 
+/*
+Infinite Loop, run FSM
+nextState cause Library transitionTo doesn't work
+https://github.com/jrullan/StateMachine/issues/13
+*/
 void runStateMachine(void *pvParameters)
 {
   for (;;)
@@ -676,6 +684,7 @@ void runStateMachine(void *pvParameters)
       fsm.transitionTo(nextState);
       nextState = nullptr;
     }
+
     fsm.run();
     // delay(1);
   }
@@ -686,7 +695,8 @@ attachInterrupt needs Class method / Function without hidden this param (Member 
 */
 void onInterrupt_1()
 {
-  flowMeter1.pulse();
+  pump1.flow->pulse();
+  // flowMeter1.pulse();
 }
 
 void setup()
@@ -715,9 +725,9 @@ void setup()
   }
 
   pinMode(dhtInPin, INPUT);
-  pinMode(flowPin, INPUT);
+  pinMode(flowPin1, INPUT);
   // attachInterrupt(GPIOpin, ISR, Event);
-  attachInterrupt(flowPin, onInterrupt_1, RISING);
+  attachInterrupt(flowPin1, onInterrupt_1, RISING);
 
   pump1.add_callback(setupToFs);
 
@@ -745,6 +755,7 @@ void setup()
   actionState->name = "ACTION";
   transmitState->name = "TRANSMIT";
   errorState->name = "ERROR";
+  // Set different Parameters than Standard
   initState->minStateTime = 6;
   idleState->maxSelfTrans = 6; // 1 + interval (checkSettings)
 
@@ -775,14 +786,15 @@ void setup()
   }
 
   // https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
+  // Run on Core 1, since Core 0 handles TCP, I2C, Kernel, ...
   xTaskCreatePinnedToCore(
       runStateMachine, // Function to implement the Task
-      "Task2",
+      "FSM_Main_Task",
       10000,
       NULL,
       0,
-      &Task2, // Task handle
-      0       // Core running the Task
+      &FSM_Main_Task, // Task handle
+      1       // Core running the Task
   );
 
   /*
@@ -792,6 +804,7 @@ void setup()
   */
 }
 
+// Executed on CPU Core 1
 void loop()
 {
   // fsm.run();

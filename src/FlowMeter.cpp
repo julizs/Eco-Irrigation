@@ -11,7 +11,7 @@ FlowMeter::FlowMeter(uint8_t pinNum)
 {
   this->pinNum = pinNum;
 
-  measurement.pulses = 0;
+  pulses = 0;
   measurement.amountMl = 0;
   measurement.flowLperMin = 0;
   measurement.flowLperHour = 0;
@@ -35,7 +35,7 @@ Same as INA219
 */
 FlowData FlowMeter::measureFlow()
 { 
-  measurement.flowLperMin = (measurement.pulses / 7.5); // Q(flowRate L/Min) = pulses / 7.5 (see Datasheet)
+  measurement.flowLperMin = (pulses / 7.5); // Q(flowRate L/Min) = pulses / 7.5 (see Datasheet)
   measurement.flowLperHour = measurement.flowLperMin * 60;
   measurement.flowMlperSec = (measurement.flowLperMin / 60) * 1000;
 
@@ -49,8 +49,8 @@ Write this date only once into Point p2
 */
 uint16_t FlowMeter::measureAmount()
 {
-    measurement.amountMl = measurement.pulses * 2.25; // 1 Pulse = 2.25 Ml (see Datasheet)
-    measurement.pulses = 0;
+    measurement.amountMl = pulses * 2.25; // 1 Pulse = 2.25 Ml (see Datasheet)
+    pulses = 0;
 
     p2.clearTags();
     p2.clearFields();
@@ -93,5 +93,5 @@ ISR (Interrupt Service Routine)
 */
 void FlowMeter::pulse ()
 {
-  measurement.pulses++;
+  pulses++;
 }
