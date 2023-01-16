@@ -138,6 +138,7 @@ void Services::doJSONPostRequest(char const endpoint[], String &payload)
   strcat(url, endpoint);
 
   http.begin(url);
+  http.setAuthorization("manip", "aristata89");
   http.addHeader("Content-Type", "application/json");
 
   // Send HTTP POST Req
@@ -148,6 +149,7 @@ void Services::doJSONPostRequest(char const endpoint[], String &payload)
 
   if (httpResponseCode > 0)
   {
+    Serial.print(httpResponseCode + " ");
     Serial.println(http.getString()); // Print payload
   }
 
@@ -243,7 +245,7 @@ bool Services::readSettings()
   JsonObject doc = collection.getElement(0).as<JsonObject>();
 
   // Handle User Actions
-  JsonArray destinations = doc["transitionTo"].as<JsonArray>();
+  JsonArray destinations = doc["transitions"].as<JsonArray>();
   if(!destinations.isNull())
   {
     for(int i = 0; i < destinations.size(); i++)
@@ -310,9 +312,9 @@ bool Services::readSettings()
   */
 
   // Reset Actions for next Iteration
-  Serial.println("(Resetting User Actions): ");
+  Serial.print("Fetched User Actions, Resetting Doc: ");
   String emptyDoc = "{}";
-  Services::doJSONPostRequest("/settings/reset", emptyDoc);
+  Services::doJSONPostRequest("/actions/reset", emptyDoc);
   
   return true;
   }

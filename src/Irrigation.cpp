@@ -234,8 +234,8 @@ void Irrigation::writeInstructions()
 {
     DynamicJsonDocument plants(2048), pumps(1024);
     JsonObject pumpModel;
-    Services::doJSONGetRequest("/plants/sensors", plants);
-    Services::doJSONGetRequest("/pumps/json", pumps);
+    Services::doJSONGetRequest("/plants", plants);
+    Services::doJSONGetRequest("/pumps", pumps);
 
     for (auto &instr : instructions)
     {
@@ -277,7 +277,7 @@ int8_t Irrigation::solenoidByPlant(Instruction &instr, DynamicJsonDocument &plan
         {
             solenoid = plants[i]["solenoidValve"].as<int>();
  
-            if(solenoid > 0 && solenoid <= 2)
+            if(solenoid >= 0 && solenoid < 2)
             {
                 if (validSolenoid(solenoid, WATER_LIMIT_24h, instr.allocatedWater, 24))
                 {          
@@ -473,14 +473,16 @@ bool Irrigation::reportInstruction(Instruction &instr)
     p2.clearTags(); p2.clearFields();
 
     // Tags have to be Strings
-    char solenoidValve[4], errorCode[4];
+    char solenoidValve[4], errorCode[4], allocatedWater[8];
     itoa(instr.solenoidValve, solenoidValve, 10);
     itoa(instr.errorCode, errorCode, 10);
+    itoa(instr.allocatedWater, allocatedWater, 10);
 
     p2.addTag("reason", instr.reason);
     p2.addTag("pump", instr.pumpModel);
     p2.addTag("solenoidValve", solenoidValve);
-    p2.addField("allocatedWater", instr.allocatedWater);
+    p2.addTag("allocatedWater", allocatedWater);
+    // p2.addField("allocatedWater", instr.allocatedWater);
     // p2.addField("distributedWater", instr.distributedWater);
     // p2.addField("pumpTime", instr.pumpTime);
     p2.addTag("errorCode", errorCode);

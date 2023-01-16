@@ -27,7 +27,7 @@ class Cistern
         uint8_t toF_address, sampleSize;
         // uint16_t pumpedLiquid;
         uint16_t currLiquidLevel, currLiquidDist, currLiquidAmount,
-        minValidLiquidDist, maxValidLiquidDist, maxMeasurableDist;
+        minValidLiquidLevel, maxValidLiquidLevel, maxMeasurableDist;
 
         Cistern(uint8_t toF_address);
         void setupToF();

@@ -61,7 +61,8 @@ bool InfluxHelper::writeDataPoint(Point &p)
     return false;
   }
 
-  Serial.println("Wrote Datapoint into Buffer");
+  // Success
+  // Serial.println("Wrote Datapoint into Buffer");
 
   return true;
 }

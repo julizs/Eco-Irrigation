@@ -22,9 +22,9 @@ static Utilities utils;
 static Evaluation eval;
 
 const char baseUrl[] = "https://juli.uber.space/node";
-int WATER_LIMIT_2h = 1000, WATER_LIMIT_24h = 4000; // ml
-float PUMP_TIME_LIMIT = 10.0f;
+uint16_t WATER_LIMIT_2h = 99999, WATER_LIMIT_24h = 99999; // 1000, 4000 ml
 uint8_t IDLE_DUR = 4, SLEEP_TYPE = 0, SLEEP_DUR = 16, STATE_MIN_DUR = 4;
+float PUMP_TIME_LIMIT = 10.0f;
 uint32_t stateBeginMillis = 0;
 
 TaskHandle_t FSM_Main_Task; // runs hierarchical StateMachine
@@ -91,13 +91,30 @@ void setupToFs()
   // while (!cistern1.setupToF());
 }
 
+/*
+Unique Device ID (MAC-Addr.), add Tag to all Measurements
+-> Grafana Panels change content depending on device Variable
+*/
+void getDeviceID()
+{
+  uint32_t macAddr = ESP.getEfuseMac() & 0xFFFFFFFF;
+  String device_id = String(macAddr);
+  // Serial.println(device_id);
+  // p0.addTag("device", device_id);
+
+  byte mac[6];
+  WiFi.macAddress(mac);
+  String deviceID = String(mac[0],HEX) +String(mac[1],HEX) +String(mac[2],HEX) +String(mac[3],HEX) + String(mac[4],HEX) + String(mac[5],HEX);
+  Serial.println(deviceID);
+}
+
 bool measureSensors()
 {
   p0.clearTags();
   p0.clearFields();
 
   // ENVIRONMENT_DATA
-  p0.addTag("device", DEVICE);
+  p0.addTag("device", "O217_1"); // DEVICE
   // p0.addTag("SSID", WiFi.SSID());
   int8_t rssi = WiFi.RSSI();
   p0.addField("rssi", rssi);
@@ -114,7 +131,7 @@ bool measureSensors()
   // PLANT_DATA
   // Advantage: Local DynamicJsonDocs (big) get destroyed after leaving Scope
   DynamicJsonDocument plants(2048);
-  Services::doJSONGetRequest("/plants/sensors", plants);
+  Services::doJSONGetRequest("/plants", plants);
 
   Point p("Plant Data");
   
@@ -379,6 +396,9 @@ void on_initState()
   if (fsm.executeOnce)
   {
     commonStateLogic();
+
+    Serial.print("Device MAC-Address: ");
+    getDeviceID();
 
     Serial.print("Main State Machine runs on Core: ");
     Serial.println(xPortGetCoreID());

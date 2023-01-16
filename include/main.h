@@ -27,6 +27,7 @@ extern PowerMeter powerMeter1;
 #define REQUEST_DATA 1
 #define RUN_SUBMACHINES 1
 
+extern String deviceID;
 extern TwoWire I2Cone, I2Ctwo;
 extern uint8_t SLEEP_TYPE, SLEEP_DUR, IDLE_DUR, STATE_MIN_DUR;
 extern bool hwButtonsEnabled;

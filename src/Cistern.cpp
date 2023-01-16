@@ -8,10 +8,9 @@ Cistern::Cistern(uint8_t toF_address)
 
     contents = LiquidType::WATER;
 
-    // pumpedLiquid = 0;
-    minValidLiquidDist = 50;
-    maxValidLiquidDist = 170; // min fillLevel, e.g. 3L
-    maxMeasurableDist = 180;
+    minValidLiquidLevel = 40;
+    // maxValidLiquidLevel = 150;
+    maxMeasurableDist = 190; // sensor Height above Cistern Bottom
     currLiquidLevel = 0;
     currLiquidAmount = 0;
     sampleSize = 8;
@@ -108,9 +107,10 @@ max(170-171),0 = max(-1,0) = 0
 uint16_t Cistern::getLiquidLevel()
 { 
     int minMeasurableDistance = 15; // mm, minHeight of swimmer Object
-    int sensorError = -20; // mm, Sensorerror and Diagonal Distance Error
+    int sensorError = -15; // mm
     currLiquidDist = evaluateToF();
-    currLiquidLevel = minMeasurableDistance + max((maxMeasurableDist - (currLiquidDist + sensorError)),0); 
+    currLiquidLevel = max((maxMeasurableDist - (currLiquidDist + sensorError)),0);
+    // currLiquidLevel = minMeasurableDistance + max((maxMeasurableDist - (currLiquidDist + sensorError)),0); 
     
     return currLiquidLevel;
 }
@@ -118,6 +118,10 @@ uint16_t Cistern::getLiquidLevel()
 uint16_t Cistern::getLiquidAmount()
 { 
     currLiquidAmount = calcMl(getLiquidLevel());
+
+    Serial.print("Available Water (Ml): ");
+    Serial.println(currLiquidAmount);
+
     return currLiquidAmount;
 }
 
@@ -131,7 +135,7 @@ bool Cistern::validLiquidLevel(int allocatedLiquid = 0)
     bool isValid;
 
     currLiquidAmount = getLiquidAmount();
-    uint16_t minValidLiquidVolume = calcMl(minValidLiquidDist);
+    uint16_t minValidLiquidVolume = calcMl(minValidLiquidLevel);
 
     if(allocatedLiquid > 0)
     {
@@ -160,7 +164,8 @@ void Cistern::updateLiquidPumped()
     // prevent undefined values for InfluxDB (measureError or Aborted)
     uint16_t pumpedLiquid = max((oldLiquidAmount - currLiquidAmount),0);
 
-    p2.addField("distributedLiquid", pumpedLiquid); // Or calc directly in Grafana
+    p2.addField("distributedWater", pumpedLiquid); // distributedWater_ToF
+    InfluxHelper::writeDataPoint(p2);
 }
 
 // Problem: clear point or not (called by Main::measure and Pump::done)
@@ -171,9 +176,10 @@ void Cistern::updateLiquidAmount()
     
     char key1[32], key2[32];
 
-    snprintf(key1, 32, "%s_level", "liquid"); // contents name
+    // key is content of cistern (water, ph-agent, ...)
+    snprintf(key1, 32, "%s_level", "water");
     p0.addField(key1, currLiquidLevel);
-    snprintf(key2, 32, "%s_amount", "liquid");
+    snprintf(key2, 32, "%s_amount", "water");
     p0.addField(key2, currLiquidAmount);
 
     // Serial.println(p0.toLineProtocol());
@@ -301,6 +307,8 @@ Do Test Reading and only then compare err Code
 */
 void Cistern::readToF(int distances[])
 {
+    Serial.print("Distances (mm): ");
+
     // Do n-valid Readings, 3 Attemps (j) per Reading
     for (int i = 0; i < sampleSize; i++)
     {

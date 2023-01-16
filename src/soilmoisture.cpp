@@ -60,7 +60,7 @@ void SoilMoisture::measurePlant(JsonArray &moistureSensors, Point &p)
     {
       int moistureSensor = moistureSensors[i];
     
-      int pinNum = moistureSensor - 1; // Measure pinNum on Multiplexer
+      int pinNum = moistureSensor; // Measure pinNum on Multiplexer
 
       char key[16];
       snprintf(key, 16, "soilMoisture_S%d", moistureSensor);
@@ -130,7 +130,7 @@ void SoilMoisture::getSensorRange(int pinNum, int range[])
 // Do only once
 void SoilMoisture::setSensorRanges()
 {
-  Services::doJSONGetRequest("/moistureSensors", sensorRanges);
+  Services::doJSONGetRequest("/sensors/soilMoisture", sensorRanges);
   Serial.println("Loaded moisture Sensor Calibration Data.");
 }
 
