@@ -37,7 +37,7 @@ class Cistern
         uint16_t getLiquidAmount(); // ml
         bool validLiquidLevel(int allocatedWater);
 
-        void updateLiquidPumped();
+        uint16_t getLiquidPumped();
         void updateLiquidAmount();
         void driveSolenoid(uint8_t relaisChannel, uint8_t state);   
 

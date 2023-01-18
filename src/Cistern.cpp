@@ -156,7 +156,7 @@ Calc Milliliters, write Environment_Data Point to Buffer, give Warnings (low wat
 10mm pumped delta can result in different waterAmounts, depending on waterLevel and cistern shape
 -> Calc pumpedLiquid from liquidVolumes deltas, NOT liquidLevels deltas
 */
-void Cistern::updateLiquidPumped()
+uint16_t Cistern::getLiquidPumped()
 {
     int oldLiquidAmount = currLiquidAmount; // Calculated and submitted by PUMP::INIT
     currLiquidAmount = getLiquidAmount();
@@ -164,15 +164,14 @@ void Cistern::updateLiquidPumped()
     // prevent undefined values for InfluxDB (measureError or Aborted)
     uint16_t pumpedLiquid = max((oldLiquidAmount - currLiquidAmount),0);
 
-    p2.addField("distributedWater", pumpedLiquid); // distributedWater_ToF
-    InfluxHelper::writeDataPoint(p2);
+    return pumpedLiquid;
 }
 
 // Problem: clear point or not (called by Main::measure and Pump::done)
 void Cistern::updateLiquidAmount()
 {
-    // p0.clearTags();
-    // p0.clearFields();
+    p0.clearTags();
+    p0.clearFields();
     
     char key1[32], key2[32];
 
@@ -193,7 +192,7 @@ Measurements:
 (7 Liters = 118mm)
 (6 Liters = 127mm) (90mm from Boxbottom)
 5 Liters = 136mm from Sensor
-4 Liters = 146mm 
+4 Liters = 146mm
 3 Liters = 156mm
 2 Liters = 167mm (minValid)
 0,1 Liter: = 179mm (Unsafe for Pump)
@@ -202,23 +201,23 @@ Rule:
 Rounded: 10mm/1cm = 1L -> 1mm = 100ml
 Precise: -1mm every 2 Liters higher (Cistern gets wider) -> 100ml more every 2L/2cm higher (?)
 
-Volumen of Frustum, Problem 14 (*):
+2 Formeln:
+Näherungsverfahren (ohne Integral) Keplersche Fassregel 
+(nicht nötig für Frustum, da Spezialfall eines Prismatoids mit einfacher Berechnung):
+ODER
+Volumen of Frustum, Problem 14:
 https://en.wikipedia.org/wiki/Moscow_Mathematical_Papyrus
 
-Näherungsverfahren (ohne Integral) Keplersche Fassregel (nicht nötig für Frustum, da Spezialfall eines Prismatoids mit einfacher Berechnung*):
-Prismoid calculate Volume / Volume of a Trapezoid tank
 Kein Prisma sondern Prismatoid, da Grund- und Deckfläche nicht kongruent
-Oder (Pyramid) Frustum? (Ähnl.: Kegel Frustum)
+Oder Pyramidenstumpf/ Frustum? (ähnl. Kegel Frustum)
+Dugout / Lagoon / Trapezoid / Prismoid Tank Volume
 https://www.onlineconversion.com/object_volume_trapezoid.htm
 https://www.agric.gov.ab.ca/app19/calc/volume/dugout.jsp
 https://www.lernhelfer.de/schuelerlexikon/mathematik/artikel/prismatoid#
-https://www.trelleborg.com/apps/avc/index_de.html
-http://www.solving-math-problems.com/volume-of-frustum-of-a-pyramid.html
-https://www.calculatorsoup.com/calculators/geometry-solids/conicalfrustum.php
-https://mathepedia.de/Keplersche_Fassregel.html
-https://mathworld.wolfram.com/Prismatoid.html
+http://www.solving-math-problems.com/volume-of-frustum-of-a-pyramid.html (*)
 https://mathworld.wolfram.com/PyramidalFrustum.html (*)
 https://www.tagblatt.de/Nachrichten/Das-Fass-und-seine-Formel-400021.html
+https://mathepedia.de/Keplersche_Fassregel.html
 
 Examples:
 Full Reservoir (h=0.21):
@@ -230,14 +229,15 @@ Fill Level 90mm (h = 0.09):
 0.09m * 0.15m = 0.0135m (Slope, = 1.35cm for 9cm)
 l_T = 0.29 + 0.0135 = 0.3035m 
 w_T = 0.22 + 0.0135 = 0.2335m
-A_T = 0.07086725m²
-(A_B = 0.0638m², bleibt gleich)
+A_B = 0.0638m² (Bottom)
+A_T = 0.07086725m² (Top)
+
 waterVolume = 0.09/3 * (0.0638 + 0.07086725 + sqrt(0.0638 * 0.07086725))
 = 0.03 * (0.13466725 + sqrt(0.00452133055))
 = 0.03 * (0.13466725 + 0,0672408398965986)
 = 0.03 * 0.2019080898966
 = 0.00605724269m³ = 6.057 Liter (Nachgemessen: 9cm, 6 Liter, Korrekt)
-(Dumm / Ohne Slope Berücksichtigung: 0.0638 * 0.09 = 0.005742 m³ = 5.74 Liter)
+(Ohne Slope Berücksichtigung: 0.0638 * 0.09 = 0.005742 m³ = 5.74 Liter)
 */
 uint16_t Cistern::calcMl(int waterLevel) // Inputparam in mm
 {
@@ -409,5 +409,5 @@ relaisChannel -1, since WebInterface starts counting from 1 not 0
 */
 void Cistern::driveSolenoid(uint8_t relaisChannel, uint8_t state)
 {
-    digitalWrite(relaisPins[relaisChannel-1], state);
+    digitalWrite(relaisPins[relaisChannel], state);
 }

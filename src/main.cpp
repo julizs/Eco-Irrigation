@@ -24,7 +24,7 @@ static Evaluation eval;
 const char baseUrl[] = "https://juli.uber.space/node";
 uint16_t WATER_LIMIT_2h = 99999, WATER_LIMIT_24h = 99999; // 1000, 4000 ml
 uint8_t IDLE_DUR = 4, SLEEP_TYPE = 0, SLEEP_DUR = 16, STATE_MIN_DUR = 4;
-float PUMP_TIME_LIMIT = 10.0f;
+float PUMP_TIME_LIMIT = 60.0f;
 uint32_t stateBeginMillis = 0;
 
 TaskHandle_t FSM_Main_Task; // runs hierarchical StateMachine

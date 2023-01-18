@@ -473,19 +473,23 @@ bool Irrigation::reportInstruction(Instruction &instr)
     p2.clearTags(); p2.clearFields();
 
     // Tags have to be Strings
-    char solenoidValve[4], errorCode[4], allocatedWater[8];
+    char solenoidValve[4], errorCode[4], allocatedWater[8], pumpTime[8];
+
     itoa(instr.solenoidValve, solenoidValve, 10);
     itoa(instr.errorCode, errorCode, 10);
     itoa(instr.allocatedWater, allocatedWater, 10);
+    snprintf(pumpTime, 8, "%0.2f", instr.pumpTime);
 
     p2.addTag("reason", instr.reason);
     p2.addTag("pump", instr.pumpModel);
     p2.addTag("solenoidValve", solenoidValve);
     p2.addTag("allocatedWater", allocatedWater);
+    p2.addTag("pumpTime", pumpTime);
     // p2.addField("allocatedWater", instr.allocatedWater);
-    // p2.addField("distributedWater", instr.distributedWater);
-    // p2.addField("pumpTime", instr.pumpTime);
     p2.addTag("errorCode", errorCode);
+
+    // 
+    p2.addField("distributedWater", instr.distributedWater);
 
     InfluxHelper::writeDataPoint(p2); // Write to Buffer
 

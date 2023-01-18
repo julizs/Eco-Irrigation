@@ -162,7 +162,9 @@ void Pump::loop()
 
             // Only measure if Water was pumped
             // toF must be setup correctly, or crash here
-            cistern.updateLiquidPumped();
+            
+            instr->distributedWater = cistern.getLiquidPumped();
+
             cistern.updateLiquidAmount();
         }
 
@@ -192,6 +194,14 @@ void Pump::loop()
     }
 }
 
+/*
+Details ledc for PWM:
+https://espressif-docs.readthedocs-hosted.com/projects/arduino-esp32/en/latest/api/ledc.html
+https://diyi0t.com/arduino-pwm-tutorial/
+Details L298N, Direction + PWM:
+https://lastminuteengineers.com/l298n-dc-stepper-driver-arduino-tutorial/
+Max 255 = 3.3V Output Voltage (Esp32) statt 5V (Jumper), daher Pumpe zu schwach? (L298N: 10V Output @12V Input @ 5V ENA/B Pin)
+*/
 void Pump::switchOn()
 {
     /*
@@ -200,24 +210,16 @@ void Pump::switchOn()
     digitalWrite(in2, HIGH);
     */
 
-    // Esp8266
-    // analogWrite(enA, 125);
-
     // Esp32
-    /*
-    Details ledc for PWM:
-    https://espressif-docs.readthedocs-hosted.com/projects/arduino-esp32/en/latest/api/ledc.html
-    https://diyi0t.com/arduino-pwm-tutorial/
-    Details L298N, Direction + PWM:
-    https://lastminuteengineers.com/l298n-dc-stepper-driver-arduino-tutorial/
-    Max 255 = 3.3V Output Voltage (Esp32) statt 5V (Jumper), daher Pumpe zu schwach? (L298N: 10V Output @12V Input @ 5V ENA/B Pin)
-    */
-    ledcWrite(pwmChannel, 255);
+    ledcWrite(instr->pwmChannel, 255);
+
+    // Esp8266
+    // analogWrite(enA, 125);  
 }
 
 void Pump::switchOff()
 {
-    ledcWrite(pwmChannel, 0);
+    ledcWrite(instr->pwmChannel, 0);
 }
 
 void Pump::commonStateLogic()

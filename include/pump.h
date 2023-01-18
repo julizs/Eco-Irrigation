@@ -38,10 +38,8 @@ public:
     uint32_t measureIntervall, currentTime, lastTime;
 
     // Set by Irrigation Algo
-    const Instruction *instr;
-    // uint16_t allocatedWater;
-    // uint8_t relaisChannel;
-    // float pumpTime;
+    // Not const since distributedWater gets entered
+    Instruction *instr;
 
     // Pwm Control
     uint8_t resolution, pwmChannel;
