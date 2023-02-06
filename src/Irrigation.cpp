@@ -454,7 +454,8 @@ void Irrigation::reduceInstructions(std::vector<Instruction> &instructions)
     char message[32] = "";
     sortInstructions(instructions);
     auto it = std::unique(instructions.begin(), instructions.end());
-    it == instructions.end() ? strcat(message, "No Duplicate Instructions") : strcat(message, "Removed Duplicate Instructions");
+    it == instructions.end() ? strcat(message, "No Duplicate Instructions") 
+    : strcat(message, "Removed Duplicate Instructions");
     Serial.println(message);
 }
 

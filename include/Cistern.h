@@ -2,8 +2,7 @@
 #define Cistern_h
 
 #include "Adafruit_VL53L0X.h"
-#include "FlowMeter.h"
-// #include <main.h>
+#include <main.h>
 
 enum class LiquidType
 {
@@ -11,21 +10,15 @@ enum class LiquidType
     FERTILIZER
 };
 
-/*
-Each Cistern has 1-2 Pumps, 1 toF ?
-Each Pump assotiated to exactly 1 Cistern
-*/
 class Cistern
 {
     // friend class Pump;
 
     public:
         LiquidType contents;
-        //VL53L0X toF; // Polulu Library
         Adafruit_VL53L0X toF;
-        // uint8_t* solenoidValves;
+        //VL53L0X toF; // Polulu Library 
         uint8_t toF_address, sampleSize;
-        // uint16_t pumpedLiquid;
         uint16_t currLiquidLevel, currLiquidDist, currLiquidAmount,
         minValidLiquidLevel, maxValidLiquidLevel, maxMeasurableDist;
 
@@ -53,3 +46,8 @@ class Cistern
 extern Cistern cistern1, cistern2;
 
 #endif // Cistern_h
+
+/*
+Each Cistern has 1-2 Pumps, 1 toF ?
+Each Pump assotiated to exactly 1 Cistern
+*/

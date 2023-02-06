@@ -8,7 +8,7 @@ Cistern::Cistern(uint8_t toF_address)
 
     contents = LiquidType::WATER;
 
-    minValidLiquidLevel = 40;
+    minValidLiquidLevel = 0; // 40mm
     // maxValidLiquidLevel = 150;
     maxMeasurableDist = 190; // sensor Height above Cistern Bottom
     currLiquidLevel = 0;

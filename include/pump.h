@@ -2,12 +2,9 @@
 #define Pump_h
 #include <Cistern.h>
 #include <FlowMeter.h>
-#include <Utilities.h>
 #include <Irrigation.h>
-// #include "Adafruit_INA219.h"
 
-// Forward Decl
-struct Instruction;
+struct Instruction; // Forward Decl
 
 enum class PumpState
 {
@@ -19,26 +16,19 @@ enum class PumpState
 
 class Pump: public ISubStateMachine
 {
-    // Func Pointer to call Methode from Main
+    // Func Pointer to call Method from Main
     using callback = void (*)();
 
 public:
     PumpState currentState, lastState;
     char const *stateNames[4] = {"PUMP_INIT", "PUMP_ON", "PUMP_DONE", "PUMP_ABORT"};
-    char const *errors[6] = {"None", "ToF Setup failed.", "Too many recent Irrgations.",
-                             "Waterlevel not sufficient.", "Irrigation cancelled by User.",
-                             "Invalid SolenoidValve"};
+    char const *errors[6] = {"None", "ToF Setup failed.", "Not enough Water for Irrigation in Reservoir", "Irrigation cancelled by User."};
     
     bool isDone;
-    uint8_t transCount, maxSelfTrans;
-    uint8_t errorCode;
-    uint32_t stateBeginMillis, minStateDuration;
+    uint8_t transCount, maxSelfTrans, errorCode;
+    uint32_t stateBeginMillis, minStateDuration, measureIntervall, currentTime, lastTime;
 
-    // For reapeating Measurements in Loop
-    uint32_t measureIntervall, currentTime, lastTime;
-
-    // Set by Irrigation Algo
-    // Not const since distributedWater gets entered
+    // Irrigation instruction
     Instruction *instr;
 
     // Pwm Control
@@ -50,8 +40,7 @@ public:
 
     Pump(Cistern &cistern);
 
-    // Implement to inherit from abstract class
-    // ISubstateMachine (aka C++ "interface")
+    // Impl. to inherit from abstract class ISubstateMachine (aka C++ "interface")
     void loop();
     bool machineDone();
     void resetMachine();
@@ -67,9 +56,6 @@ private:
     void commonStateLogic();
     // bool countTime(float durationSec);
     void printError();
-
-    // Direct Func, no StateMachine run?
-    // bool testPumpPerformance();
 
     callback setupToFs;
 };

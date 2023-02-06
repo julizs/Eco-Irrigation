@@ -1,12 +1,5 @@
 #include <FlowMeter.h>
 
-/*
-https://lastminuteengineers.com/handling-esp32-gpio-interrupts-tutorial/
-https://electropeak.com/learn/interfacing-yf-s201c-transparent-water-liquid-flow-sensor-with-arduino/
-https://techtutorialsx.com/2017/09/30/esp32-arduino-external-interrupts/
-https://circuitdigest.com/microcontroller-projects/esp32-interrupt
-*/
-
 FlowMeter::FlowMeter(uint8_t pinNum)
 {
   this->pinNum = pinNum;
@@ -21,7 +14,7 @@ FlowMeter::FlowMeter(uint8_t pinNum)
 }
 
 /*
-Do in main instead of here, Class method has hidden this param
+Do in main instead of here, Class method hides "this" param
 */
 void FlowMeter::setup()
 {
@@ -29,13 +22,13 @@ void FlowMeter::setup()
 }
 
 /*
-Called frequently called in Pump:LOOP
-(Flow could change, make Point every Invtervall, e.g. 1.0s)
-Same as INA219
+Called frequently in Pump:LOOP (same as INA219)
+(Point every Invtervall to see changes)
+Q(flowRate L/Min) = pulses / 7.5 (see Datasheet)
 */
 FlowData FlowMeter::measureFlow()
 { 
-  measurement.flowLperMin = (pulses / 7.5); // Q(flowRate L/Min) = pulses / 7.5 (see Datasheet)
+  measurement.flowLperMin = (pulses / 7.5);
   measurement.flowLperHour = measurement.flowLperMin * 60;
   measurement.flowMlperSec = (measurement.flowLperMin / 60) * 1000;
 
@@ -52,6 +45,9 @@ uint16_t FlowMeter::measureAmount()
     measurement.amountMl = pulses * 2.25; // 1 Pulse = 2.25 Ml (see Datasheet)
     pulses = 0;
 
+    Serial.print("FlowMeter Amount (Ml): ");
+    Serial.println(measurement.amountMl);
+
     /*
     p2.clearTags();
     p2.clearFields();
@@ -59,20 +55,12 @@ uint16_t FlowMeter::measureAmount()
     InfluxHelper::writeDataPoint(p2);
     */
 
-    Serial.print("FlowMeter Amount (Ml): ");
-    Serial.println(measurement.amountMl);
-
     return measurement.amountMl;
 }
 
-/*
-Make Point every Measure Intervall (e.g. 1s), write to Buffer
-More detailed Illustr. of waterFlow in Time
-Do same for INA219
-*/
 void FlowMeter::writePoint()
 {
-  FlowData measurement = measureFlow();
+  // FlowData measurement = measureFlow();
 
   // Point p3("Water Flow");
   p3.clearTags();

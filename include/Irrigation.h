@@ -11,11 +11,9 @@ using std::vector;
 
 // class Pump; // Forward Decl
 
-// Infos for Pump Process and Reports
 struct Instruction
 {
     char reason[32], pumpModel[32];
-    // Pump *pump;
     float pumpTime;
     int8_t errorCode, solenoidValve, pwmChannel;
     uint16_t allocatedWater, distributedWater;

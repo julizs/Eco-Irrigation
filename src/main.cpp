@@ -711,7 +711,7 @@ void runStateMachine(void *pvParameters)
 }
 
 /*
-attachInterrupt needs Class method / Function without hidden this param (Member method)
+attachInterrupt needs Class method without hidden "this" param (Member method)
 */
 void onInterrupt_1()
 {
@@ -746,7 +746,7 @@ void setup()
 
   pinMode(dhtInPin, INPUT);
   pinMode(flowPin1, INPUT);
-  // attachInterrupt(GPIOpin, ISR, Event);
+  // Signature: attachInterrupt(GPIOpin, ISR, Event);
   attachInterrupt(flowPin1, onInterrupt_1, RISING);
 
   pump1.add_callback(setupToFs);
