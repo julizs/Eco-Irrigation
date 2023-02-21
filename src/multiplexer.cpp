@@ -1,5 +1,24 @@
 #include "Multiplexer.h"
 
+int Multiplexer::controlPins[] = {S0, S1, S2, S3};
+int Multiplexer::muxChannel[16][4] = {
+      {0, 0, 0, 0}, // chann 0
+      {1, 0, 0, 0}, // chann 1
+      {0, 1, 0, 0}, // ...
+      {1, 1, 0, 0},
+      {0, 0, 1, 0},
+      {1, 0, 1, 0},
+      {0, 1, 1, 0},
+      {1, 1, 1, 0},
+      {0, 0, 0, 1},
+      {1, 0, 0, 1},
+      {0, 1, 0, 1},
+      {1, 1, 0, 1},
+      {0, 0, 1, 1},
+      {1, 0, 1, 1},
+      {0, 1, 1, 1},
+      {1, 1, 1, 1}};
+
 void Multiplexer::setupPins()
 {
   pinMode(S0, OUTPUT);
@@ -14,36 +33,19 @@ void Multiplexer::setupPins()
   digitalWrite(S3, LOW);
 }
 
+/*
+Drive each controlPin (S0-S3) to HIGH/LOW according
+to 2D Array to select Channel, then read analog
+*/
 uint16_t Multiplexer::readChannel(uint8_t channel)
 {
-     int controlPin[] = {S0, S1, S2, S3};
-     int muxChannel[16][4]={ 
-     {0,0,0,0}, // chann 0
-     {1,0,0,0}, // chann 1
-     {0,1,0,0}, // ...
-     {1,1,0,0}, 
-     {0,0,1,0}, 
-     {1,0,1,0}, 
-     {0,1,1,0}, 
-     {1,1,1,0}, 
-     {0,0,0,1}, 
-     {1,0,0,1}, 
-     {0,1,0,1}, 
-     {1,1,0,1}, 
-     {0,0,1,1}, 
-     {1,0,1,1}, 
-     {0,1,1,1}, 
-     {1,1,1,1}};
-      
-     // digitalWrite to each controlPin (S0-S3) to HIGH/LOW (1/0) Value
-     // according to 2D Array to select Channel, then read analog
-     for(int i = 0; i < 4; i ++)
-     { 
-       digitalWrite(controlPin[i], muxChannel[channel][i]);
-     }
+  for (int i = 0; i < 4; i++)
+  {
+    digitalWrite(controlPins[i], muxChannel[channel][i]);
+  }
 
-     delay(50);
+  delay(50);
 
-     uint16_t val = analogRead(SIG);
-     return val;
+  uint16_t val = analogRead(SIG);
+  return val;
 }

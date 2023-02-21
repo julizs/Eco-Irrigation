@@ -17,10 +17,12 @@ class Cistern
     public:
         LiquidType contents;
         Adafruit_VL53L0X toF;
-        //VL53L0X toF; // Polulu Library 
+        //VL53L0X toF; // Polulu Library
+
         uint8_t toF_address, sampleSize;
-        uint16_t currLiquidLevel, currLiquidDist, currLiquidAmount,
-        minValidLiquidLevel, maxValidLiquidLevel, maxMeasurableDist;
+        uint16_t liquidDist, liquidLevel, liquidAmount,
+        minValidLevel, maxDist;
+        int sensorError;
 
         Cistern(uint8_t toF_address);
         void setupToF();
@@ -38,7 +40,7 @@ class Cistern
         void readToF(int distances[]);
         void readToF_cont(int distances[]);
         float evaluateToF();
-        uint16_t calcMl(int waterLevel); // as per Shape of Cistern
+        uint32_t calcMl(int waterLevel); // as per Shape of Cistern
 
         void shutToF();
 };
