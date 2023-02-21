@@ -1,50 +1,6 @@
 #include <Services.h>
 
-// Definition of static Variables
-WiFiMulti Services::wifiMulti;
 HTTPClient Services::http;
-WebServer Services::webServer(443);
-// ip_addr_t Services::ip6_dns;
-
-/*
-https://github.com/espressif/arduino-esp32/blob/master/libraries/WiFi/examples/WiFiIPv6/WiFiIPv6.ino
-Strg + Click WiFiEvent_t to see defined Event types
-*/
-void Services::wifiEventHandler(WiFiEvent_t event)
-{
-  switch (event)
-  {
-  case SYSTEM_EVENT_AP_START:
-    WiFi.softAPsetHostname(AP_SSID);
-    // Enable AP Ipv6
-    WiFi.softAPenableIpV6();
-    break;
-
-  case SYSTEM_EVENT_STA_START:
-    WiFi.setHostname(AP_SSID);
-    break;
-  case SYSTEM_EVENT_STA_CONNECTED:
-    // Enable STA Ipv6
-    WiFi.enableIpV6();
-    break;
-  case SYSTEM_EVENT_GOT_IP6:
-    Serial.print("AP IPv6: ");
-    Serial.println(WiFi.softAPIPv6());
-    Serial.print("STA IPv6: ");
-    Serial.println(WiFi.localIPv6());
-    break;
-  case SYSTEM_EVENT_STA_GOT_IP:
-    Serial.println("STA Connected");
-    Serial.print("STA IPv4: ");
-    Serial.println(WiFi.localIP());
-    break;
-  case SYSTEM_EVENT_STA_DISCONNECTED:
-    Serial.println("STA Disconnected");
-    break;
-  default:
-    break;
-  }
-}
 
 void Services::setupWifi()
 {
@@ -62,7 +18,6 @@ void Services::setupWifi()
   if (WiFi.status() == WL_CONNECTED)
   {
     Serial.println("Connected to WiFi.");
-    // https://forum.arduino.cc/t/unable-to-change-esp32-s2-power/857338
     // wifi_power_t power = WIFI_POWER_8_5dBm;
     // WiFi.setTxPower(WIFI_POWER_13dBm);
     Serial.print("Wifi Power: ");
@@ -76,33 +31,6 @@ bool Services::wifiConnected()
 {
   return WiFi.status() == WL_CONNECTED;
 }
-
-/*
-WifiMulti: Multiple Wifi Hotspots in Fh
-APSTA: Esp32Cam connect to main Esp32
-*/
-void Services::setupWifiMulti()
-{
-  long begin = millis();
-  WiFi.mode(WIFI_MODE_APSTA);
-  wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
-
-  Serial.print("Connecting to Wifi...");
-  wifiMulti.run();
-  while (!Utilities::countTime(begin, 4));
-
-  if (!wifiMulti.run())
-  {
-    // critErrMessage = "Final fail to connect to WiFi.";
-    critErrCode = 1;
-  }
-}
-
-bool Services::wifiMultiConnected()
-{
-  return wifiMulti.run() == WL_CONNECTED;
-}
-
 
 String Services::doGetRequest(char const url[])
 {
@@ -185,48 +113,13 @@ void Services::rootEndpoint()
 {
   Serial.print("Web Server Clients handled on Core: ");
   Serial.println(xPortGetCoreID());
-  webServer.send(200, "text/plain", "200 All is Ok.");
+  // webServer.send(200, "text/plain", "200 All is Ok.");
 }
 
-/* "Active" Handling of WebButtons
-http://192.168.178.86:443/
-http://192.168.178.86:443/solenoidValve
-http://95.222.24.18:443/solenoidValve (geht nicht)
-https://en.avm.de/service/knowledge-base/dok/FRITZ-Box-7369-int/1089_Identifying-the-address-range-of-the-IPv4-address-for-the-internet-connection/
-https://avm.de/service/wissensdatenbank/dok/FRITZ-Box-7590/1083_Kein-Zugriff-uber-Portfreigabe-auf-FRITZ-Box-Heimnetz/
-The FRITZ!Box does not have a public IPv4 address if the message
-"FRITZ!Box uses a DS Lite tunnel" is displayed. In this case,
-the FRITZ!Box cannot be accessed from the internet over IPv4
 
-FritzBox Interface: Three Dots top right, Advanced View
-Internet, Online Monitor, Ipv4/Ipv6 Addresses (FritzBox uses a DS Lite Tunnel?)
-Browser: https://[2a02:8070:e300:0:3c4d:e882:749c:f059]/ (FritzBox Interface shows)
-CMD: ping 2a02:8070:e300:0:3c4d:e882:749c:f059
-Reach via Ipv6:
-Router AND devices (e.g. Esp32) have to be connected via Ipv6
-
-https://www.survivingwithandroid.com/esp32-rest-api-esp32-api-server/
-*/
-void Services::startRestServer()
-{
-  webServer.on("/", rootEndpoint);
-  webServer.on("/solenoidValve", []()
-               {
-      // digitalWrite(Relais[0], LOW);
-      digitalWrite(relaisPins[1], LOW);
-      webServer.send(200, "text/plain", "Toggled Solenoid Valve"); });
-
-  webServer.begin();
-
-  Serial.print("Web Server started on Core: ");
-  Serial.println(xPortGetCoreID());
-}
-
-/* "Passive" Handling of WebButtons
+/* 
+"Passive" Handling of WebButtons
 Serial.println(settings[0]["sleepDuration"].as<int>());
-Save JsonObjects globally or locally to release after exit / save mermory?
-Convert JsonObjects/JsonArrays to local Datastructures (e.g. instr Vec)? 
-
 https://arduinojson.org/v6/how-to/reuse-a-json-document/
 IMPORTANT: difference as/to<JsonArray> and as/to<JsonObject>
 Check settings schema in mongoose whether
@@ -266,15 +159,12 @@ bool Services::readSettings()
   if(irrActions.size() > 0)
     Irrigation::createInstructions(irrActions, Irrigation::instructions);
 
+  // Go to ACTION state if polling and action found
+  // IDLE -> REQUEST -> ACTION -> TRANSMIT -> IDLE
   if(pumpActions.size() > 0 || irrActions.size() > 0)
   {
     Irrigation::writeInstructions();
 
-    /*
-    Handle this in REST Endpoint instead?
-    Directly go to ACTION state to execute Actions
-    IDLE -> REQUEST -> ACTION -> TRANSMIT -> IDLE
-    */
     if(!Utilities::containsDestination("ACTION"))
     {
       manualTransitions.add("ACTION");
@@ -284,8 +174,8 @@ bool Services::readSettings()
   
 
   /*
-  SolenoidValve, MatrixDisplay, ...
-  Also only do in Action-State? Duration?
+  Actuations (SolenoidValve, MatrixDisplay, ...)
+  Stay in Action-State?
   */
   for(int i = 0; i < solActions.size(); i++)
   {
@@ -301,17 +191,11 @@ bool Services::readSettings()
   StatusDisplay::handleActions(statusLights);
   */
 
-  // Handle Settings
+  // Apply User Settings
   SLEEP_TYPE = doc["sleepType"].as<int>();
   SLEEP_DUR = doc["sleepDuration"].as<int>();
 
-  /*
-  for (JsonPair keyValue : obj) {
-    Serial.println(keyValue.key().c_str()); 
-  } 
-  */
-
-  // Reset Actions for next Iteration
+  // Reset User Actions for next Cycle
   Serial.print("Fetched User Actions, Resetting Doc: ");
   String emptyDoc = "{}";
   Services::doJSONPostRequest("/actions/reset", emptyDoc);

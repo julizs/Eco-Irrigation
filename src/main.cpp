@@ -587,7 +587,6 @@ void on_actionState()
       {
         // runInstruction (auslagern)
 
-        // Always use same Obj. for Submachine, or make static
         // Pump *pump = instr.pump;
         Pump *pump = &pump1;
 
@@ -598,10 +597,6 @@ void on_actionState()
 
           // Needed Infos for StateMachine Run
           pump->instr = &instr;
-          // pump->pumpTime = instr.pumpTime;
-          // pump->cistern.maxPossibleDist = 5;
-          // pump->allocatedWater = instr.allocatedWater;
-          // pump->relaisChannel = instr.solenoidValve;
 
           while (!pump->machineDone())
           {
@@ -624,8 +619,8 @@ void on_actionState()
 
         /*    
         Write Point after Executing), not all at once 
-        (-> correct Timestamp, better Visibility in Grafana)
-        Write Points into Buffer (->no Delay Executing Actions)
+        (for correct Timestamp, better Visibility in Grafana)
+        Write Points into Buffer (-> no Delay Executing Actions)
         */
         Irrigation::reportInstruction(instr);
 
@@ -663,7 +658,7 @@ void on_transmitState()
   {
     commonStateLogic();
 
-    // Write reports before clearing Buffer!
+    // Write reports before clearing Buffer
     // transmitState->didActivities = Irrigation::reportInstructions(Irrigation::instructions);
     transmitState->didActivities = InfluxHelper::writeBuffer();
   }
@@ -692,7 +687,7 @@ void on_errorState()
 
 /*
 Infinite Loop, run FSM
-nextState cause Library transitionTo doesn't work
+nextState for manual transitions because Library transitionTo doesn't work
 https://github.com/jrullan/StateMachine/issues/13
 */
 void runStateMachine(void *pvParameters)
@@ -710,9 +705,6 @@ void runStateMachine(void *pvParameters)
   }
 }
 
-/*
-attachInterrupt needs Class method without hidden "this" param (Member method)
-*/
 void onInterrupt_1()
 {
   pump1.flow->pulse();
@@ -746,7 +738,9 @@ void setup()
 
   pinMode(dhtInPin, INPUT);
   pinMode(flowPin1, INPUT);
+
   // Signature: attachInterrupt(GPIOpin, ISR, Event);
+  // Attach Interrupt for Flow Meter (ISR must be class method, not member method  (hidden "this" param)
   attachInterrupt(flowPin1, onInterrupt_1, RISING);
 
   pump1.add_callback(setupToFs);
@@ -765,7 +759,6 @@ void setup()
   transmitState = fsm.addState(&on_transmitState);
   errorState = fsm.addState(&on_errorState);
 
-  // Write Constructor for State?
   idleState->name = "IDLE";
   initState->name = "INIT";
   connectState->name = "CONNECT";
@@ -779,33 +772,16 @@ void setup()
   initState->minStateTime = 6;
   idleState->maxSelfTrans = 6; // 1 + interval (checkSettings)
 
-  /*
-  // States added like this always get evaluated first
-  // Additional Transitions directly defined in on_idle etc. get evaluated last -> problematic
-  idleState->addTransition(&checkSettings, connectState);
-  for(int i = 0; i < fsm.stateList->size(); i++)
-  {
-    if(i < 3)
-    {
-      State *cState = fsm.stateList->get(i);
-      State *nState = fsm.stateList->get(i+1);
-      fsm.stateList->get(i)->addTransition(&transitionToSelf, cState);
-      fsm.stateList->get(i)->addTransition(&transitionToNext, nState);
-    }
-  }
-  */
-
   // Begin here
   currentState = idleState;
 
-  // Do one Cycle first in demoMode to setup sensors
+  // Do one whole Cycle to setup sensors
   if (SLEEP_TYPE == 0)
   {
     addCycle();
     Utilities::printDestinations();
   }
 
-  // https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
   // Run on Core 1, since Core 0 handles TCP, I2C, Kernel, ...
   xTaskCreatePinnedToCore(
       runStateMachine, // Function to implement the Task
@@ -816,12 +792,6 @@ void setup()
       &FSM_Main_Task, // Task handle
       1       // Core running the Task
   );
-
-  /*
-  Disable Brownout Warnings (Occurs when on Usb...)
-  then instead: ClearCommError failed, Crash
-  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
-  */
 }
 
 // Executed on CPU Core 1
@@ -829,7 +799,7 @@ void loop()
 {
   // fsm.run();
 
-  Services::webServer.handleClient();
+  // Services::webServer.handleClient();
 
   // displayController.displayPlantStatus();
 
