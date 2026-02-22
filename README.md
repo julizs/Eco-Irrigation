@@ -5,7 +5,7 @@ This project aims to find a scalable approach to effectively enhance indoor air 
 A thorough literature review was conducted to identify plant species that are particularly effective at filtering VOC gases and formaldehyde, while requiring minimal resources and being well-suited for indoor environments.
 
 This project was developed as a **Bachelor's thesis** in Computer Science at the University of Applied Sciences Trier.
-Inspired by projects like Kyle Gabriel's Automated Hydroponic System [Automated Hydroponic System]((https://kylegabriel.com/projects/2020/06/automated-hydroponic-system-build.html)) and MIT Media Lab's Personal Food Computer [Personal Food Computer](https://www.media.mit.edu/projects/personal-food-computer/overview/)
+Inspired by projects like Kyle Gabriel's [Automated Hydroponic System]((https://kylegabriel.com/projects/2020/06/automated-hydroponic-system-build.html)) and MIT Media Lab's Personal Food Computer [Personal Food Computer](https://www.media.mit.edu/projects/personal-food-computer/overview/)
 
 
 
