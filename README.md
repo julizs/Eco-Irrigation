@@ -5,7 +5,8 @@ This project aims to find a scalable approach to effectively enhance indoor air 
 A thorough literature review was conducted to identify plant species that are particularly effective at filtering VOC gases and formaldehyde, while requiring minimal resources and being well-suited for indoor environments.
 
 This project was developed as a **Bachelor's thesis** in Computer Science at the University of Applied Sciences Trier.
-Inspired by projects like Kyle Gabriel's [Automated Hydroponic System](https://kylegabriel.com/projects/2020/06/automated-hydroponic-system-build.html) and MIT Media Lab's [Personal Food Computer](https://www.media.mit.edu/projects/personal-food-computer/overview/)
+Inspired by projects like Kyle Gabriel's [Automated Hydroponic System](https://kylegabriel.com/projects/2020/06/automated-hydroponic-system-build.html) and MIT Media Lab's [Personal Food Computer](https://www.media.mit.edu/projects/personal-food-computer/overview/).
+
 
 
 
@@ -14,9 +15,11 @@ Inspired by projects like Kyle Gabriel's [Automated Hydroponic System](https://k
 The system connects up to **8 plants**, monitors their environment in real-time, and waters them automatically based on configurable schedules and sensor readings.
 Multiple system units can be connected to the same master server.
 Monitored parameters include soil moisture, light spectrum and intensity, water flow, and water reservoir levels.
+
 The current state of each plant is displayed on a physical dot matrix display attached to each individual plant.
 Events like irrigations or measurements are documented, persisted, and displayed in the dashboard.
 Each plant has a dedicated dashboard where the user can view its requirements, read a species description (via the [Encyclopedia of Life API](https://eol.org/docs/what-is-eol/data-services)), and trigger manual actions like irrigations or display its current happiness.
+
 
 
 
@@ -40,6 +43,9 @@ This enables coordinated execution of multi-part measurements and chained action
 
 The main system operates through distinct states where tasks like connecting, sensor initialization, measurement, and data evaluation are processed sequentially.
 The ESP32's dual-core architecture is ideal for this design, dedicating one core to running the main state machine while the other remains available for tasks like communicating with external systems.
+
+
+
 
 ### Backend & Data Flow
 
@@ -66,6 +72,10 @@ Sensor mappings and safety limits (e.g., water usage, time between irrigations) 
 
 ![Manual system control options](./images/system_controls.png)
 
+
+
+
+
 ## Dashboard for individual Plants
 
 Aggregated sensor readings of each individual plant (or plant group) are displayed on decicated per-Plant dashboards.
@@ -82,6 +92,8 @@ If all requirements are met, an irrigation is scheduled, which is executed as a 
 ![User Interface for individual Plants connected to the system](./images/plants_controls.png)
 
 ![Plants Sensor Data aggregated](./images/plants_sensors_2.png)
+
+
 
 
 ### Hardware
@@ -106,6 +118,10 @@ The goal was to optimize resource usage so the prototype can operate autonomousl
 
 ![The assembled Prototype v1](./images/prototype_1.jpg)
 
+
+
+
+
 ## Research
 
 Beyond constructing the prototype, a key focus of this project was researching the current state of phytoremediation.
@@ -113,6 +129,9 @@ Existing green wall systems and irrigation methods were examined, along with the
 Common indoor pollutants such as VOCs and formaldehyde were identified, along with suitable sensors to measure them.
 A literature review was conducted to select a variety of plant species that are the most efficient at filtering a particular category of air pullutant.
 Requirements were to identify two to three species per pollutant that thrive under minimal resources and in indoor environments.
+
+
+
 
 ## License
 
