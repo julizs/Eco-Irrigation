@@ -23,8 +23,6 @@ Each plant has a dedicated dashboard where the user can view its requirements, r
 
 
 
-## Architecture
-
 ## Tech Stack
 
 | Layer | Technologies |
@@ -135,7 +133,7 @@ Requirements were to identify two to three species per pollutant that thrive und
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
+MIT License — see [LICENSE](LICENSE) for details. If you have questions or need advice for a similar project, feel free to reach out.
 
 ---
 
