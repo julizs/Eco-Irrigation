@@ -133,8 +133,11 @@ The goal was to optimize resource usage so the prototype can operate autonomousl
 
 For water distribution at the plant level, a drip irrigation system with a ring-shaped distributor was used, based on based on [Plant Watering Rings](https://www.thingiverse.com/thing:4461214).
 Pretty amazing that this design can evenly and efficiently water medium to tall plants while using only 15 grams of filament to print — roughly 10 cents per unit. 
-Tests were also conducted combining this with root irrigation, which further saves water, prevents moss growth on the soil surface, and is also more efficient for applying liquid fertilizer. 
+Tests were also conducted combining this with root irrigation, which further saves water, prevents moss growth on the soil surface, and is also more efficient for applying liquid fertilizer.
+
 Solenoid valves were initially used for water distribution, but they added significantly to cost, weight, and minimum required water pressure, so they were dropped in version 2.0.
+Lightweight, multi-way, low-voltage solenoid valves designed for this use case do exist, but they are sometimes difficult to source reliably from Chinese suppliers. 
+The tubing used is food-grade silicone, chosen for its flexibility, tight bending radius, and absence of chemical odor.
 
 ![Diagram of Distribution](./images/water_distribution.png)
 
