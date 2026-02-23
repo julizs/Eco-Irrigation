@@ -1,4 +1,6 @@
-# 🌱 Automated plants care system for phytoremediation & indoor climate management
+# Automated plants care system for phytoremediation & indoor climate management
+
+![Eco-Irrigation](./images/logo.svg)
 
 An IoT system that monitors indoor air quality, tracks plant conditions, and automates irrigation.
 This project aims to find a scalable approach to effectively enhance indoor air quality in offices and residential spaces.
@@ -116,16 +118,19 @@ The prototype is built around an **ESP32** microcontroller with the following co
 Several types of pumps, reservoirs, and 3D-printed water distributors were tested to evaluate different irrigation methods, including drip, subsurface, and root irrigation. 
 The goal was to optimize resource usage so the prototype can operate autonomously for up to two weeks without intervention.
 
-![The assembled Prototype v1](./images/prototype_1.jpg)
+<!-- ![The assembled Prototype v1](./images/prototype_1.jpg) -->
 
 
-## Outlook and PCB-Design
+## PCB-Design for Version 2.0
 
 Completion of the first prototype led to the development of an improved, scalable version 2.0. 
 The first step was to analyze the conceptual and technical shortcomings of the original design and redefine requirements for a system that could realistically be deployed at scale in offices and homes. 
-The system was downsized to support four plants per device, and the water reservoir and pump design were rethought to significantly reduce maintenance effort. 
-Based on these revised requirements, a new set of components was selected with a focus on flexibility, cost and interchangeability. 
-A PCB was then designed in KiCad to integrate these components into a compact, production-ready layout.
+The new approach was to reduce the per-device plant support to four, while shifting focus toward connecting multiple smaller system units to a central master server.
+Reducing the power-envelope and scale allowed allowed for a significantly smaller device footprint, simpler assembly, and easier repair.
+
+A lower-power pump was selected, and the water reservoir was downsized to be interchangeable and recyclable — improving portability, hygiene, and reducing maintenance effort. 
+Based on these revised requirements, a new set of electrical components was chosen with a focus on flexibility, cost-efficiency, and interchangeability. 
+Finally, a PCB was designed in KiCad to integrate these components into a compact, production-ready layout.
 
 ![PCB-design for version 2.0](./images/pcb_layout.png)
 
