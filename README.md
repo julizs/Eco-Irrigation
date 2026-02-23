@@ -81,11 +81,11 @@ It shows plant-specific sensor readings like moisture and light exposure.
 Relevant metrics like overall happiness or number of irrigations can be displayed on the DOT-Matrix Display that is physically attached on each plant.
 Additional Information about the species is pulled from a specialised API and displayed next to the live-status of the plant.
 
+![Plants Sensors Soil Moisture, Light Intensity](./images/plants_sensors_1.png)
+
 Actuating the "Irrigate" or "Fertilize" buttons causes the system to check which pumps and solenoids are currently assigned to this plant. 
 It then checks which other plants are connected and hence affected by the action. Also the current water or fertilizer level is measured and calculated.
 If all requirements are met, an irrigation is scheduled, which is executed as a controlled sub-statemachine process.
-
-![Plants Sensors Soil Moisture, Light Intensity](./images/plants_sensors_1.png)
 
 ![User Interface for individual Plants connected to the system](./images/plants_controls.png)
 
