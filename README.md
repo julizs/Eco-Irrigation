@@ -1,6 +1,6 @@
 # Automated plants care system for phytoremediation & indoor climate management
 
-![Eco-Irrigation](./images/logo.svg)
+![Eco-Irrigation](./images/logo_bright.svg)
 
 An IoT system that monitors indoor air quality, tracks plant conditions, and automates irrigation.
 This project aims to find a scalable approach to effectively enhance indoor air quality in offices and residential spaces.
@@ -85,13 +85,21 @@ Additional Information about the species is pulled from a specialised API and di
 
 ![Plants Sensors Soil Moisture, Light Intensity](./images/plants_sensors_1.png)
 
-<br><br>
+<br><br><br>
 
 Actuating the "Irrigate" or "Fertilize" buttons causes the system to check which pumps and solenoids are currently assigned to this plant. 
 It then checks which other plants are connected and hence affected by the action. Also the current water or fertilizer level is measured and calculated.
 If all requirements are met, an irrigation is scheduled, which is executed as a controlled sub-statemachine process.
 
 ![User Interface for individual Plants connected to the system](./images/plants_controls.png)
+
+<br><br><br>
+
+The light sensor measures visible light intensity at hourly intervals, covering the wavelength range relevant for photosynthetically active radiation (PAR). 
+The measured illuminance is converted to Photosynthetic Photon Flux Density (PPFD), which represents the number of photons reaching a surface per second. 
+From this, the Daily Light Integral (DLI) is calculated to determine the total light a plant receives per day. 
+A server-side InfluxDB task evaluates the weekly average DLI against species-specific thresholds to assess whether light conditions are sufficient. 
+The results are displayed in the plant dashboard as an hourly PPFD graph and a DLI status history panel, with dynamic thresholds pulled from the plant's requirements stored in MongoDB.
 
 ![Plants Sensor Data aggregated](./images/plants_sensors_2.png)
 
@@ -121,7 +129,7 @@ The goal was to optimize resource usage so the prototype can operate autonomousl
 <!-- ![The assembled Prototype v1](./images/prototype_1.jpg) -->
 
 
-## PCB-Design for Version 2.0
+## Revision 2.0 and PCB-Design
 
 Completion of the first prototype led to the development of an improved, scalable version 2.0. 
 The first step was to analyze the conceptual and technical shortcomings of the original design and redefine requirements for a system that could realistically be deployed at scale in offices and homes. 
