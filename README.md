@@ -101,7 +101,7 @@ From this, the Daily Light Integral (DLI) is calculated to determine the total l
 A server-side InfluxDB task evaluates the weekly average DLI against species-specific thresholds to assess whether light conditions are sufficient. 
 The results are displayed in the plant dashboard as an hourly PPFD graph and a DLI status history panel, with dynamic thresholds pulled from the plant's requirements stored in MongoDB.
 
-![Plants Sensor Data aggregated](./images/plants_sensors_2.png)
+![Aggregated sensor data from plants](./images/plants_sensors_2.png)
 
 
 
@@ -127,6 +127,18 @@ Several types of pumps, reservoirs, and 3D-printed water distributors were teste
 The goal was to optimize resource usage so the prototype can operate autonomously for up to two weeks without intervention.
 
 <!-- ![The assembled Prototype v1](./images/prototype_1.jpg) -->
+
+
+### Water Distribution
+
+For water distribution at the plant level, a drip irrigation system with a ring-shaped distributor was used, based on based on [Plant Watering Rings](https://www.thingiverse.com/thing:4461214).
+Pretty amazing that this design can evenly and efficiently water medium to tall plants while using only 15 grams of filament to print — roughly 10 cents per unit. 
+Tests were also conducted combining this with root irrigation, which further saves water, prevents moss growth on the soil surface, and is also more efficient for applying liquid fertilizer. 
+Solenoid valves were initially used for water distribution, but they added significantly to cost, weight, and minimum required water pressure, so they were dropped in version 2.0.
+
+![Diagram of Distribution](./images/water_distribution.png)
+
+
 
 
 ## Revision 2.0 and PCB-Design
