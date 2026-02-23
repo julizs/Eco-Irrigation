@@ -83,6 +83,8 @@ Additional Information about the species is pulled from a specialised API and di
 
 ![Plants Sensors Soil Moisture, Light Intensity](./images/plants_sensors_1.png)
 
+<br><br>
+
 Actuating the "Irrigate" or "Fertilize" buttons causes the system to check which pumps and solenoids are currently assigned to this plant. 
 It then checks which other plants are connected and hence affected by the action. Also the current water or fertilizer level is measured and calculated.
 If all requirements are met, an irrigation is scheduled, which is executed as a controlled sub-statemachine process.
@@ -117,7 +119,15 @@ The goal was to optimize resource usage so the prototype can operate autonomousl
 ![The assembled Prototype v1](./images/prototype_1.jpg)
 
 
+## Outlook and PCB-Design
 
+Completion of the first prototype led to the development of an improved, scalable version 2.0. 
+The first step was to analyze the conceptual and technical shortcomings of the original design and redefine requirements for a system that could realistically be deployed at scale in offices and homes. 
+The system was downsized to support four plants per device, and the water reservoir and pump design were rethought to significantly reduce maintenance effort. 
+Based on these revised requirements, a new set of components was selected with a focus on flexibility, cost and interchangeability. 
+A PCB was then designed in KiCad to integrate these components into a compact, production-ready layout.
+
+![PCB-design for version 2.0](./images/pcb_layout.png)
 
 
 ## Research
