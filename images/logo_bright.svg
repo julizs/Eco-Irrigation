@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" width="400" height="100">
+  <!-- Water drop - darker green -->
+  <path d="M30 65 C30 50 45 30 45 30 C45 30 60 50 60 65 C60 75 53 82 45 82 C37 82 30 75 30 65Z" 
+        fill="#1B5E20"/>
+
+  <!-- Text: Eco -->
+  <text x="80" y="62" font-family="Georgia, 'Times New Roman', serif" font-size="36" font-weight="400" fill="#2E8B57" letter-spacing="2">eco</text>
+  
+  <!-- Text: Irrigation -->
+  <text x="148" y="62" font-family="Georgia, 'Times New Roman', serif" font-size="36" font-weight="400" fill="#fff" letter-spacing="2">irrigation</text>
+</svg>
