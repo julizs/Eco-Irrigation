@@ -116,7 +116,7 @@ The results are displayed in the plant dashboard as an hourly PPFD graph and a D
 
 ### Hardware
 
-The prototype is built around an **ESP32** microcontroller with the following components:
+The prototype is built around an **ESP32** microcontroller with the following components (Revision 1.0):
 
 | Component | Purpose |
 |-----------|---------|
@@ -172,7 +172,8 @@ Beyond constructing the prototype, a key focus of this project was researching t
 Existing green wall systems and irrigation methods were examined, along with the effects of indoor climate on workplace productivity.
 Common indoor pollutants such as VOCs and formaldehyde were identified, along with suitable sensors to measure them.
 A literature review was conducted to select a variety of plant species that are the most efficient at filtering a particular category of air pullutant.
-Requirements were to identify two to three species per pollutant that thrive under minimal resources and in indoor environments.
+Besides the species, other factors that heavily influence the phytoremediation rate include plant size, light intensity, substrate type, potting duration, and environmental pollutant concentration.
+Requirements were to identify two to three species per pollutant type that thrive under minimal resources and in indoor environments.
 
 
 
