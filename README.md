@@ -1,6 +1,6 @@
 # Automated plants care system for phytoremediation & indoor climate management
 
-![Eco-Irrigation](./images/logo_bright.svg)
+![Eco-Irrigation](./images/logo.svg)
 
 An IoT system that monitors indoor air quality, tracks plant conditions, and automates irrigation.
 This project aims to find a scalable approach to effectively enhance indoor air quality in offices and residential spaces.
@@ -88,8 +88,16 @@ Additional Information about the species is pulled from a specialised API and di
 <br><br><br>
 
 Actuating the "Irrigate" or "Fertilize" buttons causes the system to check which pumps and solenoids are currently assigned to this plant. 
-It then checks which other plants are connected and hence affected by the action. Also the current water or fertilizer level is measured and calculated.
-If all requirements are met, an irrigation is scheduled, which is executed as a controlled sub-statemachine process.
+It then checks which other plants are also connected to the same water outlet and will be affected by the action. 
+Next, the current water and fertilizer level of the reservoir assigned to the pump is measured and calculated.
+If all requirements are met, an irrigation event is scheduled, which is executed as a controlled sub-statemachine process.
+
+All irrigation events — whether completed or failed — are logged as queryable data points. 
+This enables detailed analysis, such as identifying irrigations triggered when a plant's soil moisture dropped below a specific threshold, or cases where an irrigation was cancelled due to scheduling conflicts with neighboring plants sharing the same water line. 
+For this reason, it is recommended to group plants with similar watering requirements on the same water outlet.
+
+<!--Any executed (or failed) irrigations are documented as data points and can be queried (e.g. "Which irrigations were issued because soil moisture of plant 1 fell under a 10% threshold for a given time period? Which irrigations were cancelled because neighbour plant 2 does not allow irrigations for another 8 hours?")
+This means it makes sense to only connect plants with similar requirements to the same water outlet. -->
 
 ![User Interface for individual Plants connected to the system](./images/plants_controls.png)
 
