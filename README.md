@@ -139,7 +139,7 @@ The goal was to optimize resource usage so the prototype can operate autonomousl
 
 ### Water Distribution
 
-For water distribution at the plant level, a drip irrigation system with a ring-shaped distributor was used, based on based on [Plant Watering Rings](https://www.thingiverse.com/thing:4461214).
+For water distribution at the plant level, a drip irrigation system with a ring-shaped distributor was used, based on [Plant Watering Rings](https://www.thingiverse.com/thing:4461214).
 Pretty amazing that this design can evenly and efficiently water medium to tall plants while using only 15 grams of filament to print — roughly 10 cents per unit. 
 Tests were also conducted combining this with root irrigation, which further saves water, prevents moss growth on the soil surface, and is also more efficient for applying liquid fertilizer.
 
@@ -171,8 +171,10 @@ Finally, a PCB was designed in KiCad to integrate these components into a compac
 Beyond constructing the prototype, a key focus of this project was researching the current state of phytoremediation.
 Existing green wall systems and irrigation methods were examined, along with the effects of indoor climate on workplace productivity.
 Common indoor pollutants such as VOCs and formaldehyde were identified, along with suitable sensors to measure them.
-A literature review was conducted to select a variety of plant species that are the most efficient at filtering a particular category of air pullutant.
-Besides the species, other factors that heavily influence the phytoremediation rate include plant size, light intensity, substrate type, potting duration, and environmental pollutant concentration.
+
+The literature review covered three areas. First, existing modular remediation and green wall systems were examined to inform the system's design. 
+Second, plant species were identified that are most efficient at filtering specific categories of indoor air pollutants. 
+Third, factors influencing the phytoremediation rate and indoor climate were investigated — including plant size, light intensity, substrate type, potting duration, and environmental pollutant concentration. 
 Requirements were to identify two to three species per pollutant type that thrive under minimal resources and in indoor environments.
 
 
